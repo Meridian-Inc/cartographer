@@ -1,18 +1,46 @@
 <template>
-	<div class="flex items-center gap-2 p-3 border-b border-slate-200 bg-white">
-		<button @click="runMapper" class="px-3 py-2 rounded bg-blue-600 text-white text-sm hover:bg-blue-500 disabled:opacity-50" :disabled="loading">
-			<span v-if="!loading">Run Mapper</span>
-			<span v-else>Running…</span>
-		</button>
-		<button @click="saveLayout" class="px-3 py-2 rounded bg-emerald-600 text-white text-sm hover:bg-emerald-500">
-			Save Map
-		</button>
-		<label class="px-3 py-2 rounded bg-slate-700 text-white text-sm hover:bg-slate-600 cursor-pointer">
-			Load Map
-			<input type="file" accept="application/json" class="hidden" @change="onLoadFile" />
-		</label>
-		<div class="ml-auto text-xs text-slate-500">
-			<span v-if="message">{{ message }}</span>
+	<div class="flex items-center justify-between gap-4 p-3 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+		<!-- Left side: Branding -->
+		<div class="flex items-center gap-2">
+			<h1 class="text-lg font-semibold text-slate-800 dark:text-slate-100">Cartographer</h1>
+		</div>
+
+		<!-- Right side: Buttons and message -->
+		<div class="flex items-center gap-2">
+			<div class="text-xs text-slate-500 dark:text-slate-400 min-w-28">
+				<span v-if="message">{{ message }}</span>
+			</div>
+			<button @click="runMapper" class="px-3 py-2 rounded bg-blue-600 text-white text-sm hover:bg-blue-500 disabled:opacity-50" :disabled="loading">
+				<span v-if="!loading">Run Mapper</span>
+				<span v-else>Running…</span>
+			</button>
+			<button @click="saveLayout" class="px-3 py-2 rounded bg-emerald-600 text-white text-sm hover:bg-emerald-500 disabled:opacity-50 flex items-center gap-2" :disabled="!props.root.children?.length || !props.hasUnsavedChanges || saving">
+				<svg v-if="saving" class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+					<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+					<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+				</svg>
+				<span v-if="!saving">Save Map</span>
+				<span v-else>Saving…</span>
+			</button>
+			<button @click="exportJSON" class="px-3 py-2 rounded bg-purple-600 text-white text-sm hover:bg-purple-500" :disabled="!props.root.children?.length">
+				Export JSON
+			</button>
+			<label class="px-3 py-2 rounded bg-slate-700 text-white text-sm hover:bg-slate-600 cursor-pointer">
+				Import JSON
+				<input type="file" accept="application/json" class="hidden" @change="onLoadFile" />
+			</label>
+			<button @click="cleanUpLayout" class="px-3 py-2 rounded bg-amber-600 text-white text-sm hover:bg-amber-500">
+				Clean Up
+			</button>
+			<div class="border-l border-slate-300 dark:border-slate-600 h-8 mx-1"></div>
+			<button @click="toggleDarkMode" class="p-2 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300" title="Toggle dark mode">
+				<svg v-if="!isDark" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+				</svg>
+				<svg v-else xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+				</svg>
+			</button>
 		</div>
 	</div>
 </template>
@@ -26,6 +54,7 @@ import { useMapLayout } from "../composables/useMapLayout";
 
 const props = defineProps<{
 	root: TreeNode;
+	hasUnsavedChanges?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -34,10 +63,15 @@ const emit = defineEmits<{
 	(e: "log", line: string): void;
 	(e: "running", isRunning: boolean): void;
 	(e: "clearLogs"): void;
+	(e: "cleanUpLayout"): void;
+	(e: "autoLoadFromServer"): void;
+	(e: "saved"): void;
 }>();
 
 const loading = ref(false);
+const saving = ref(false);
 const message = ref("");
+const isDark = ref(false);
 const { parseNetworkMap } = useNetworkData();
 const { exportLayout, importLayout } = useMapLayout();
 let es: EventSource | null = null;
@@ -45,6 +79,22 @@ let es: EventSource | null = null;
 const baseUrl = ref<string>("");
 
 onMounted(async () => {
+	// Initialize dark mode from localStorage
+	const savedDarkMode = localStorage.getItem('darkMode');
+	if (savedDarkMode === 'true') {
+		isDark.value = true;
+		document.documentElement.classList.add('dark');
+	} else if (savedDarkMode === 'false') {
+		isDark.value = false;
+		document.documentElement.classList.remove('dark');
+	} else {
+		// Check system preference if no saved preference
+		isDark.value = window.matchMedia('(prefers-color-scheme: dark)').matches;
+		if (isDark.value) {
+			document.documentElement.classList.add('dark');
+		}
+	}
+
 	try {
 		const res = await fetch("/api/config");
 		if (res.ok) {
@@ -65,6 +115,19 @@ onMounted(async () => {
 	} catch {
 		/* ignore */
 	}
+
+	// Try to load saved layout from server
+	try {
+		const response = await axios.get('/api/load-layout');
+		if (response.data.exists && response.data.layout) {
+			emit("applyLayout", response.data.layout);
+			emit("saved"); // Mark as saved since we just loaded the saved state
+			message.value = "Loaded saved map from server";
+			setTimeout(() => { message.value = ""; }, 3000);
+		}
+	} catch (error) {
+		console.error("Failed to load saved layout:", error);
+	}
 });
 
 async function runMapper() {
@@ -73,7 +136,28 @@ async function runMapper() {
 	startSSE();
 }
 
-function saveLayout() {
+async function saveLayout() {
+	if (saving.value) return; // Prevent multiple simultaneous saves
+	
+	saving.value = true;
+	try {
+		const layout = exportLayout(props.root);
+		const response = await axios.post('/api/save-layout', layout);
+		if (response.data.success) {
+			message.value = "Map saved to server";
+			emit("saved");
+			setTimeout(() => { message.value = ""; }, 3000);
+		}
+	} catch (error: any) {
+		message.value = "Failed to save map";
+		console.error("Save error:", error);
+		setTimeout(() => { message.value = ""; }, 5000);
+	} finally {
+		saving.value = false;
+	}
+}
+
+function exportJSON() {
 	const layout = exportLayout(props.root);
 	const blob = new Blob([JSON.stringify(layout, null, 2)], { type: "application/json" });
 	const url = URL.createObjectURL(blob);
@@ -84,6 +168,8 @@ function saveLayout() {
 	a.click();
 	URL.revokeObjectURL(url);
 	document.body.removeChild(a);
+	message.value = "JSON exported";
+	setTimeout(() => { message.value = ""; }, 2000);
 }
 
 function onLoadFile(e: Event) {
@@ -102,6 +188,22 @@ function onLoadFile(e: Event) {
 		}
 	};
 	reader.readAsText(file);
+}
+
+function cleanUpLayout() {
+	emit("cleanUpLayout");
+	message.value = "Layout cleaned up";
+}
+
+function toggleDarkMode() {
+	isDark.value = !isDark.value;
+	if (isDark.value) {
+		document.documentElement.classList.add('dark');
+		localStorage.setItem('darkMode', 'true');
+	} else {
+		document.documentElement.classList.remove('dark');
+		localStorage.setItem('darkMode', 'false');
+	}
 }
 
 function startSSE() {

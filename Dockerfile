@@ -56,6 +56,12 @@ COPY --from=frontend-builder /app/frontend/dist /app/frontend/dist
 # Serve the built frontend via FastAPI StaticFiles
 ENV FRONTEND_DIST=/app/frontend/dist
 
+# Create data directory for persistent storage
+RUN mkdir -p /app/data
+
+# Volume for persistent data
+VOLUME ["/app/data"]
+
 EXPOSE 8000
 CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 

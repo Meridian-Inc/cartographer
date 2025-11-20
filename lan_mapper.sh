@@ -28,16 +28,53 @@ if [[ -z "$LAN_IFACE" ]]; then
     exit 1
 fi
 
-SUBNET=$(ip -4 addr show "$LAN_IFACE" | grep -oP '(?<=inet\s)\d+\.\d+\.\d+\.\d+/\d+')
+HOST_IP_CIDR=$(ip -4 addr show "$LAN_IFACE" | grep -oP '(?<=inet\s)\d+\.\d+\.\d+\.\d+/\d+')
 
-if [[ -z "$SUBNET" ]]; then
+if [[ -z "$HOST_IP_CIDR" ]]; then
     echo "❌ ERROR: Interface $LAN_IFACE has no IPv4 assigned."
     exit 1
+fi
+
+# Calculate the network address from host IP/CIDR
+# Use ipcalc if available
+if command -v ipcalc &>/dev/null; then
+    SUBNET=$(ipcalc -n "$HOST_IP_CIDR" | grep -oP '(?<=Network:\s+)\d+\.\d+\.\d+\.\d+/\d+')
+elif command -v python3 &>/dev/null; then
+    # Fallback: use Python for network calculation
+    SUBNET=$(python3 -c "
+import ipaddress
+net = ipaddress.ip_network('$HOST_IP_CIDR', strict=False)
+print(str(net))
+" 2>/dev/null)
+else
+    # Last resort: use pure bash calculation
+    IFS='./' read -r o1 o2 o3 o4 cidr <<< "$HOST_IP_CIDR"
+    
+    # Calculate mask
+    mask=$((0xFFFFFFFF << (32 - cidr)))
+    
+    # Calculate network address
+    ip=$((o1 * 256**3 + o2 * 256**2 + o3 * 256 + o4))
+    network=$((ip & mask))
+    
+    # Convert back to dotted notation
+    n1=$((network >> 24 & 255))
+    n2=$((network >> 16 & 255))
+    n3=$((network >> 8 & 255))
+    n4=$((network & 255))
+    
+    SUBNET="$n1.$n2.$n3.$n4/$cidr"
+fi
+
+# If calculation failed, use the host IP (nmap usually handles it)
+if [[ -z "$SUBNET" ]]; then
+    SUBNET="$HOST_IP_CIDR"
 fi
 
 GATEWAY=$(ip route | grep "^default" | awk '{print $3}')
 
 echo "🔎 Using LAN interface: $LAN_IFACE"
+echo "🔎 Host IP: $HOST_IP_CIDR"
 echo "🔎 Subnet: $SUBNET"
 echo "🌐 Gateway: $GATEWAY"
 echo
@@ -78,8 +115,23 @@ echo
 ### ====================================================================================
 
 echo "📡 Running Nmap ping sweep..."
-nmap -sn "$SUBNET" -oG "$TEMP_DIR/nmap.txt" >/dev/null
-echo "✔ Nmap scan complete."
+
+# Try nmap with error handling
+if ! nmap -sn "$SUBNET" -oG "$TEMP_DIR/nmap.txt" 2>"$TEMP_DIR/nmap_error.txt"; then
+    echo "⚠ Nmap failed, trying alternative method..."
+    
+    # Fallback: Use arp-scan results to populate nmap output format
+    > "$TEMP_DIR/nmap.txt"
+    echo "# Nmap scan (fallback from arp-scan)" >> "$TEMP_DIR/nmap.txt"
+    
+    grep -E "^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+" "$TEMP_DIR/arp.txt" | awk '{
+        print "Host: " $1 " () Status: Up"
+    }' >> "$TEMP_DIR/nmap.txt"
+    
+    echo "✔ Using ARP scan results as fallback."
+else
+    echo "✔ Nmap scan complete."
+fi
 echo
 
 
@@ -91,7 +143,8 @@ echo "🔤 Collecting hostnames (DNS + mDNS)..."
 
 > "$TEMP_DIR/hosts.txt"
 
-grep "Status: Up" "$TEMP_DIR/nmap.txt" | awk '{print $2}' | while read IP; do
+# Extract IPs from nmap output (handles both regular and fallback format)
+grep "Status: Up" "$TEMP_DIR/nmap.txt" | awk '{print $2}' | grep -oE "[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+" | while read IP; do
     HOST=$(dig -x $IP +short 2>/dev/null | sed 's/\.$//')
 
     if [[ -z "$HOST" ]]; then

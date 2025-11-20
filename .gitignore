@@ -28,4 +28,4 @@ Thumbs.db
 # Project specific
 lanmap_tmp/
 network_map.txt
-
+saved_network_layout.json

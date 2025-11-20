@@ -51,12 +51,17 @@ export function useMapLayout() {
 		return parsed;
 	}
 
+	function clearPositions() {
+		positions.clear();
+	}
+
 	return {
 		positions,
 		applySavedPositions,
 		updatePosition,
 		exportLayout,
 		importLayout,
+		clearPositions,
 	};
 }
 

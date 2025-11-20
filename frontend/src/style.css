@@ -2,6 +2,21 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Smooth dark mode transitions */
+* {
+	@apply transition-colors duration-300 ease-in-out;
+}
+
+/* Disable transitions for elements that shouldn't animate */
+button, input, select, textarea, svg, canvas {
+	@apply transition-none;
+}
+
+/* Re-enable for specific button hover states */
+button {
+	@apply transition-colors duration-150;
+}
+
 :root {
 	--role-gateway: #ef4444; /* red-500 */
 	--role-switch: #3b82f6; /* blue-500 */
@@ -25,6 +40,25 @@
 .node-label {
 	font-size: 12px;
 	user-select: none;
+	font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* Smooth transitions for interactive elements */
+svg .node {
+	transition: all 0.2s ease;
+}
+
+svg .node:hover circle {
+	filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2));
+}
+
+svg .link {
+	transition: opacity 0.2s ease;
+}
+
+svg .link:hover {
+	opacity: 1 !important;
+	stroke-width: 3;
 }
 
 

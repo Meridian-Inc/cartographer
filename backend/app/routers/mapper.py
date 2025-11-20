@@ -178,3 +178,47 @@ def download_map():
 	raise HTTPException(status_code=404, detail="network_map.txt not found")
 
 
+def _saved_layout_path() -> pathlib.Path:
+	"""Path where the saved network layout JSON is stored"""
+	# Use /app/data for Docker volume persistence
+	data_dir = pathlib.Path("/app/data")
+	if data_dir.exists():
+		return data_dir / "saved_network_layout.json"
+	# Fallback to project root for local development
+	return _project_root() / "saved_network_layout.json"
+
+
+@router.post("/save-layout")
+def save_layout(layout: dict):
+	"""Save the network layout to the server"""
+	try:
+		layout_path = _saved_layout_path()
+		with open(layout_path, 'w') as f:
+			json.dump(layout, f, indent=2)
+		return JSONResponse({
+			"success": True,
+			"message": "Layout saved successfully",
+			"path": str(layout_path)
+		})
+	except Exception as exc:
+		raise HTTPException(status_code=500, detail=f"Failed to save layout: {exc}")
+
+
+@router.get("/load-layout")
+def load_layout():
+	"""Load the saved network layout from the server"""
+	layout_path = _saved_layout_path()
+	if not layout_path.exists():
+		return JSONResponse({"exists": False, "layout": None})
+	
+	try:
+		with open(layout_path, 'r') as f:
+			layout = json.load(f)
+		return JSONResponse({
+			"exists": True,
+			"layout": layout
+		})
+	except Exception as exc:
+		raise HTTPException(status_code=500, detail=f"Failed to load layout: {exc}")
+
+

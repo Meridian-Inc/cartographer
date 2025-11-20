@@ -1,40 +1,43 @@
 <template>
-	<div class="h-screen flex flex-col">
+	<div class="h-screen flex flex-col bg-slate-50 dark:bg-slate-900">
 		<MapControls
 			:root="parsed?.root || emptyRoot"
+			:hasUnsavedChanges="hasUnsavedChanges"
 			@updateMap="onUpdateMap"
 			@applyLayout="onApplyLayout"
 			@log="onLog"
 			@running="onRunning"
 			@clearLogs="onClearLogs"
+			@cleanUpLayout="onCleanUpLayout"
+			@saved="onMapSaved"
 		/>
 		<div class="flex flex-1 min-h-0">
-			<aside class="w-80 border-r border-slate-200 bg-white">
+			<aside class="w-80 border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
 				<DeviceList
 					v-if="parsed"
 					:root="parsed.root"
 					:selectedId="selectedId"
 					@select="id => selectedId = id"
 				/>
-				<div v-else class="p-4 text-sm text-slate-600">
+				<div v-else class="p-4 text-sm text-slate-600 dark:text-slate-400">
 					Run the mapper to generate a network map, or load a saved layout.
 				</div>
 			</aside>
-			<main class="flex-1 p-3 relative">
+			<main class="flex-1 p-3 relative bg-slate-50 dark:bg-slate-900">
 				<!-- Interaction mode toggle (top-right) -->
 				<div class="absolute top-2 right-3 z-10">
-					<div class="rounded border border-slate-300 bg-white shadow-sm overflow-hidden flex items-center">
+					<div class="rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-sm overflow-hidden flex items-center">
 						<button
 							class="px-3 py-1 text-xs"
-							:class="mode === 'pan' ? 'bg-blue-600 text-white' : 'text-slate-700 hover:bg-slate-100'"
+							:class="mode === 'pan' ? 'bg-blue-600 text-white' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'"
 							@click="mode = 'pan'"
 							title="Pan mode (default)"
 						>
 							Pan
 						</button>
 						<button
-							class="px-3 py-1 text-xs border-l border-slate-300"
-							:class="mode === 'edit' ? 'bg-blue-600 text-white' : 'text-slate-700 hover:bg-slate-100'"
+							class="px-3 py-1 text-xs border-l border-slate-300 dark:border-slate-600"
+							:class="mode === 'edit' ? 'bg-blue-600 text-white' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'"
 							@click="mode = 'edit'"
 							title="Edit nodes (drag + type) + Pan"
 						>
@@ -44,9 +47,9 @@
 				</div>
 				<!-- Node configuration panel (bottom-right) -->
 				<div class="absolute bottom-2 right-3 z-10">
-					<div v-if="mode === 'edit' && selectedNode" class="flex items-center gap-2 bg-white border border-slate-300 rounded px-2 py-1 shadow-sm">
-						<span class="text-xs text-slate-600">Type:</span>
-						<select class="text-xs border border-slate-300 rounded px-1 py-0.5"
+					<div v-if="mode === 'edit' && selectedNode" class="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded px-2 py-1 shadow-sm">
+						<span class="text-xs text-slate-600 dark:text-slate-400">Type:</span>
+						<select class="text-xs border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded px-1 py-0.5"
 							v-model="editRole"
 							@change="onChangeRole"
 						>
@@ -59,20 +62,20 @@
 							<option value="client">Client</option>
 							<option value="unknown">Unknown</option>
 						</select>
-						<span class="text-xs text-slate-600 ml-3">IP:</span>
-						<input class="text-xs border border-slate-300 rounded px-1 py-0.5 w-36"
+						<span class="text-xs text-slate-600 dark:text-slate-400 ml-3">IP:</span>
+						<input class="text-xs border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded px-1 py-0.5 w-36"
 							v-model="editIp"
 							@change="onChangeIp"
 							placeholder="192.168.1.10"
 						/>
-						<span class="text-xs text-slate-600">Name:</span>
-						<input class="text-xs border border-slate-300 rounded px-1 py-0.5 w-44"
+						<span class="text-xs text-slate-600 dark:text-slate-400">Name:</span>
+						<input class="text-xs border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded px-1 py-0.5 w-44"
 							v-model="editHostname"
 							@change="onChangeHostname"
 							placeholder="device.local"
 						/>
-						<span class="text-xs text-slate-600 ml-3">Connect to:</span>
-						<select class="text-xs border border-slate-300 rounded px-1 py-0.5"
+						<span class="text-xs text-slate-600 dark:text-slate-400 ml-3">Connect to:</span>
+						<select class="text-xs border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded px-1 py-0.5"
 							v-model="connectParent"
 							@change="onChangeParent"
 						>
@@ -80,17 +83,54 @@
 								{{ opt.name }}
 							</option>
 						</select>
+						<span class="text-xs text-slate-600 dark:text-slate-400 ml-3">Speed:</span>
+						<select 
+							v-if="!showCustomSpeed"
+							class="text-xs border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded px-1 py-0.5"
+							v-model="editConnectionSpeed"
+							@change="onSpeedSelectChange"
+						>
+							<option value="">None</option>
+							<option value="10Mbps">10Mbps</option>
+							<option value="100Mbps">100Mbps</option>
+							<option value="1GbE">1GbE</option>
+							<option value="2.5GbE">2.5GbE</option>
+							<option value="5GbE">5GbE</option>
+							<option value="10GbE">10GbE</option>
+							<option value="25GbE">25GbE</option>
+							<option value="40GbE">40GbE</option>
+							<option value="100GbE">100GbE</option>
+							<option value="__custom__">Custom...</option>
+						</select>
+						<input 
+							v-else
+							class="text-xs border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded px-1 py-0.5 w-24"
+							v-model="editConnectionSpeed"
+							@blur="onCustomSpeedBlur"
+							@keyup.enter="onCustomSpeedBlur"
+							placeholder="e.g. 1GbE"
+							autofocus
+						/>
+						<button 
+							v-if="selectedNode.id !== parsed?.root.id"
+							@click="onRemoveNode" 
+							class="ml-3 px-2 py-0.5 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+							title="Remove this node"
+						>
+							Remove
+						</button>
 					</div>
 				</div>
 				<div class="w-full h-full">
 					<NetworkMap
+						ref="networkMapRef"
 						v-if="parsed"
 						:data="parsed.root"
 						:mode="mode"
 						:selectedId="selectedId"
 						@nodeSelected="id => selectedId = id"
 					/>
-					<div v-else class="h-full rounded border border-dashed border-slate-300 flex items-center justify-center text-slate-500">
+					<div v-else class="h-full rounded border border-dashed border-slate-300 dark:border-slate-600 flex items-center justify-center text-slate-500 dark:text-slate-400">
 						No map loaded yet.
 					</div>
 				</div>
@@ -99,21 +139,21 @@
 		<!-- Terminal / Logs Panel -->
 		<div 
 			v-if="logs.length" 
-			class="flex flex-col border-t border-slate-200 bg-slate-50 transition-all ease-linear duration-75"
+			class="flex flex-col border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 transition-all ease-linear duration-75"
 			:style="{ height: logsHeight + 'px' }"
 		>
 			<!-- Resize Handle -->
 			<div 
-				class="h-1 bg-slate-200 cursor-row-resize hover:bg-blue-400 active:bg-blue-600 flex justify-center"
+				class="h-1 bg-slate-200 dark:bg-slate-700 cursor-row-resize hover:bg-blue-400 active:bg-blue-600 flex justify-center"
 				@mousedown.prevent="startResize"
 			>
-				<div class="w-12 h-0.5 bg-slate-400 rounded my-auto"></div>
+				<div class="w-12 h-0.5 bg-slate-400 dark:bg-slate-500 rounded my-auto"></div>
 			</div>
 
 			<!-- Logs Content -->
 			<div 
 				ref="logContainer" 
-				class="flex-1 overflow-auto font-mono text-xs px-3 py-2"
+				class="flex-1 overflow-auto font-mono text-xs px-3 py-2 text-slate-700 dark:text-slate-300"
 			>
 				<div v-for="(line, idx) in logs" :key="idx" class="whitespace-pre-wrap text-slate-700">
 					<template v-if="downloadHref(line)">
@@ -145,10 +185,32 @@ const emptyRoot: TreeNode = { id: "root", name: "Network", role: "group", childr
 const logs = ref<string[]>([]);
 const running = ref(false);
 const mode = ref<'pan' | 'edit'>('pan'); // interaction mode
+const networkMapRef = ref<InstanceType<typeof NetworkMap> | null>(null);
 const editRole = ref<string>('unknown');
 const connectParent = ref<string>('');
 const editIp = ref<string>('');
 const editHostname = ref<string>('');
+const editConnectionSpeed = ref<string>('');
+const showCustomSpeed = ref<boolean>(false);
+
+// Track saved state for unsaved changes detection
+const savedStateHash = ref<string>('');
+
+// Compute hash of current state
+const currentStateHash = computed(() => {
+	if (!parsed.value?.root) return '';
+	try {
+		return JSON.stringify(parsed.value.root);
+	} catch {
+		return '';
+	}
+});
+
+// Check if there are unsaved changes
+const hasUnsavedChanges = computed(() => {
+	if (!savedStateHash.value) return true; // No saved state yet
+	return currentStateHash.value !== savedStateHash.value;
+});
 
 // Terminal Resize Logic
 const logsHeight = ref(192); // Default 12rem (48 * 4px)
@@ -179,7 +241,7 @@ function stopResize() {
 	document.body.style.userSelect = '';
 }
 
-const { applySavedPositions } = useMapLayout();
+const { applySavedPositions, clearPositions } = useMapLayout();
 const { parseNetworkMap } = useNetworkData();
 
 function onUpdateMap(p: ParsedNetworkMap) {
@@ -198,11 +260,120 @@ function findNodeById(n: TreeNode, id?: string): TreeNode | undefined {
 }
 
 function flattenDevices(root: TreeNode): TreeNode[] {
-	const list: TreeNode[] = [root]; // include router
-	for (const g of (root.children || [])) {
-		for (const c of (g.children || [])) list.push(c);
+	const res: TreeNode[] = [];
+	const walk = (n: TreeNode, isRoot = false) => {
+		// Don't add the root itself to the list
+		if (!isRoot) {
+			res.push(n);
+		}
+		for (const c of n.children || []) walk(c, false);
+	};
+	walk(root, true);
+	return res.filter(n => n.role !== "group");
+}
+
+// Sort nodes by depth, parent position, and IP address (matching DeviceList)
+function sortByDepthAndIP(nodes: TreeNode[], root: TreeNode): TreeNode[] {
+	// Build a map of all nodes
+	const allNodesMap = new Map<string, TreeNode>();
+	nodes.forEach(n => allNodesMap.set(n.id, n));
+	
+	// Calculate depth for each node based on parentId chain
+	const getDepth = (nodeId: string, visited = new Set<string>()): number => {
+		if (nodeId === root.id) return 0;
+		if (visited.has(nodeId)) return 1; // Prevent infinite loops
+		visited.add(nodeId);
+		
+		const node = allNodesMap.get(nodeId);
+		if (!node) return 1;
+		
+		const parentId = (node as any).parentId;
+		if (!parentId || parentId === root.id) {
+			return 1; // Direct connection to root
+		}
+		
+		// Recursively get parent's depth
+		return getDepth(parentId, visited) + 1;
+	};
+	
+	// Group nodes by depth
+	const nodesByDepth = new Map<number, TreeNode[]>();
+	nodes.forEach(node => {
+		const depth = getDepth(node.id);
+		if (!nodesByDepth.has(depth)) {
+			nodesByDepth.set(depth, []);
+		}
+		nodesByDepth.get(depth)!.push(node);
+	});
+	
+	// Parse IP address for sorting
+	const parseIpForSorting = (ipStr: string): number[] => {
+		const match = ipStr.match(/(\d+)\.(\d+)\.(\d+)\.(\d+)/);
+		if (match) {
+			return [
+				parseInt(match[1]),
+				parseInt(match[2]),
+				parseInt(match[3]),
+				parseInt(match[4])
+			];
+		}
+		return [0, 0, 0, 0];
+	};
+	
+	const compareIps = (a: TreeNode, b: TreeNode): number => {
+		const ipA = (a as any).ip || a.id;
+		const ipB = (b as any).ip || b.id;
+		const partsA = parseIpForSorting(ipA);
+		const partsB = parseIpForSorting(ipB);
+		
+		for (let i = 0; i < 4; i++) {
+			if (partsA[i] !== partsB[i]) {
+				return partsA[i] - partsB[i];
+			}
+		}
+		return 0;
+	};
+	
+	// Track node sort order for parent-based sorting
+	const nodeSortOrder = new Map<string, number>();
+	nodeSortOrder.set(root.id, 0);
+	
+	// Sort each depth level, considering parent positions
+	const maxDepthForSort = Math.max(...Array.from(nodesByDepth.keys()), 0);
+	for (let depth = 0; depth <= maxDepthForSort; depth++) {
+		const nodesAtDepth = nodesByDepth.get(depth) || [];
+		if (nodesAtDepth.length === 0) continue;
+		
+		// Sort by: 1) parent's sort order, 2) IP address
+		nodesAtDepth.sort((a, b) => {
+			const parentIdA = (a as any).parentId || root.id;
+			const parentIdB = (b as any).parentId || root.id;
+			const parentOrderA = nodeSortOrder.get(parentIdA) ?? 999999;
+			const parentOrderB = nodeSortOrder.get(parentIdB) ?? 999999;
+			
+			// First, compare by parent position
+			if (parentOrderA !== parentOrderB) {
+				return parentOrderA - parentOrderB;
+			}
+			
+			// Within same parent group, sort by IP
+			return compareIps(a, b);
+		});
+		
+		// Record sort order for this depth (for next depth's sorting)
+		nodesAtDepth.forEach((node, index) => {
+			nodeSortOrder.set(node.id, index);
+		});
 	}
-	return list;
+	
+	// Flatten back to array in sorted order
+	const sorted: TreeNode[] = [];
+	for (let depth = 0; depth <= maxDepthForSort; depth++) {
+		const nodesAtDepth = nodesByDepth.get(depth) || [];
+		sorted.push(...nodesAtDepth);
+	}
+	
+	return sorted;
 }
 
 function findGroupByPrefix(root: TreeNode, prefix: string): TreeNode | undefined {
@@ -263,10 +434,24 @@ const connectOptions = computed(() => {
 	if (!parsed.value) return [];
 	const root = parsed.value.root;
 	const all = flattenDevices(root);
+	const sorted = sortByDepthAndIP(all, root);
 	const current = selectedNode.value;
 	if (!current) return [];
+	
+	// Add root at the beginning, then add sorted devices
+	const allWithRoot = [root, ...sorted];
+	
+	// Deduplicate by IP address (keep first occurrence)
+	const seen = new Set<string>();
+	const deduplicated = allWithRoot.filter(d => {
+		const key = (d as any).ip || d.id;
+		if (seen.has(key)) return false;
+		seen.add(key);
+		return true;
+	});
+	
 	// Allow connecting to ANY device (including router) except itself
-	const allowed = all.filter(d => d.id !== current.id);
+	const allowed = deduplicated.filter(d => d.id !== current.id);
 	return allowed.map(d => ({ id: d.id, name: d.name }));
 });
 
@@ -276,6 +461,17 @@ watch(selectedNode, (n) => {
 	connectParent.value = (n as any)?.parentId || (parsed.value?.root.id || '');
 	editIp.value = (n as any)?.ip || (n as any)?.id || '';
 	editHostname.value = (n as any)?.hostname || '';
+	editConnectionSpeed.value = (n as any)?.connectionSpeed || '';
+	showCustomSpeed.value = false; // Reset to dropdown when selecting a new node
+});
+
+// Zoom to node when selected from device list
+watch(selectedId, (newId) => {
+	if (newId && networkMapRef.value) {
+		nextTick(() => {
+			networkMapRef.value?.zoomToNode(newId);
+		});
+	}
 });
 
 function onChangeParent() {
@@ -283,6 +479,32 @@ function onChangeParent() {
 	const node = findNodeById(parsed.value.root, selectedId.value);
 	if (!node) return;
 	(node as any).parentId = connectParent.value || undefined;
+	parsed.value = { ...parsed.value };
+}
+
+function onSpeedSelectChange() {
+	if (editConnectionSpeed.value === '__custom__') {
+		showCustomSpeed.value = true;
+		editConnectionSpeed.value = '';
+		return;
+	}
+	onChangeConnectionSpeed();
+}
+
+function onCustomSpeedBlur() {
+	if (!editConnectionSpeed.value.trim()) {
+		// If empty, go back to dropdown
+		showCustomSpeed.value = false;
+	}
+	onChangeConnectionSpeed();
+}
+
+function onChangeConnectionSpeed() {
+	if (!parsed.value || !selectedId.value) return;
+	const node = findNodeById(parsed.value.root, selectedId.value);
+	if (!node) return;
+	const speed = editConnectionSpeed.value.trim();
+	(node as any).connectionSpeed = speed || undefined;
 	parsed.value = { ...parsed.value };
 }
 
@@ -320,9 +542,26 @@ function onChangeHostname() {
 
 function onApplyLayout(layout: any) {
 	if (layout.root) {
-		// Full project load
+		// Full project load - reconstruct devices array from tree
+		const devices: Array<{ ip: string; hostname: string; role: any; depth: number }> = [];
+		const extractDevices = (node: TreeNode, depth: number) => {
+			if (node.ip && node.role !== 'group') {
+				devices.push({
+					ip: node.ip,
+					hostname: node.hostname || 'unknown',
+					role: node.role as any,
+					depth: depth
+				});
+			}
+			for (const child of (node.children || [])) {
+				extractDevices(child, depth + 1);
+			}
+		};
+		extractDevices(layout.root, 0);
+		
 		parsed.value = {
 			raw: "", // Not available when loading from JSON, but we have the root
+			devices: devices,
 			root: layout.root
 		};
 	}
@@ -339,6 +578,11 @@ function onApplyLayout(layout: any) {
 		// Force refresh if we just loaded the tree
 		parsed.value = { ...parsed.value };
 	}
+}
+
+function onMapSaved() {
+	// Update saved state hash to current state
+	savedStateHash.value = currentStateHash.value;
 }
 
 function onLog(line: string) {
@@ -362,6 +606,188 @@ function onClearLogs() {
 function downloadHref(line: string): string | null {
 	const m = /^DOWNLOAD:\s+(https?:\/\/[^\s]+)$/i.exec(line.trim());
 	return m ? m[1] : null;
+}
+
+function onRemoveNode() {
+	if (!parsed.value || !selectedId.value) return;
+	const root = parsed.value.root;
+	
+	// Don't allow removing the root gateway
+	if (selectedId.value === root.id) return;
+	
+	const nodeToRemove = findNodeById(root, selectedId.value);
+	if (!nodeToRemove) return;
+	
+	const nodeId = nodeToRemove.id;
+	
+	// Reassign any child nodes that have this node as their parent to the root
+	walkAll(root, (n) => {
+		if ((n as any).parentId === nodeId && n.id !== nodeId) {
+			(n as any).parentId = root.id;
+		}
+	});
+	
+	// Remove the node from its group
+	const removed = removeFromAllGroups(root, nodeId);
+	
+	if (removed) {
+		// Clear selection
+		selectedId.value = undefined;
+		// Trigger re-render
+		parsed.value = { ...parsed.value };
+	}
+}
+
+function onCleanUpLayout() {
+	if (!parsed.value) return;
+	
+	// Clear all saved positions
+	clearPositions();
+	
+	// Remove fx/fy from all nodes in the tree and calculate depth-based layout
+	const root = parsed.value.root;
+	
+	// Build a map of all nodes (including nested ones)
+	const allNodes = new Map<string, TreeNode>();
+	const collectNodes = (n: TreeNode) => {
+		allNodes.set(n.id, n);
+		for (const g of (n.children || [])) {
+			for (const c of (g.children || [])) {
+				allNodes.set(c.id, c);
+			}
+		}
+	};
+	collectNodes(root);
+	
+	// Calculate depth for each node based on parentId chain
+	const getDepth = (nodeId: string, visited = new Set<string>()): number => {
+		if (nodeId === root.id) return 0;
+		if (visited.has(nodeId)) return 0; // Prevent infinite loops
+		visited.add(nodeId);
+		
+		const node = allNodes.get(nodeId);
+		if (!node) return 0;
+		
+		const parentId = (node as any).parentId;
+		if (!parentId || parentId === root.id) {
+			// Direct connection to root
+			return 1;
+		}
+		
+		// Recursively get parent's depth
+		return getDepth(parentId, visited) + 1;
+	};
+	
+	// Group nodes by depth
+	const nodesByDepth = new Map<number, TreeNode[]>();
+	allNodes.forEach((node, id) => {
+		if (id === root.id) return; // Skip root itself
+		const depth = getDepth(id);
+		if (!nodesByDepth.has(depth)) {
+			nodesByDepth.set(depth, []);
+		}
+		nodesByDepth.get(depth)!.push(node);
+	});
+	
+	// Sort nodes within each depth by parent position, then by IP address
+	const parseIpForSorting = (ipStr: string): number[] => {
+		const match = ipStr.match(/(\d+)\.(\d+)\.(\d+)\.(\d+)/);
+		if (match) {
+			return [
+				parseInt(match[1]),
+				parseInt(match[2]),
+				parseInt(match[3]),
+				parseInt(match[4])
+			];
+		}
+		return [0, 0, 0, 0];
+	};
+	
+	const compareIps = (a: TreeNode, b: TreeNode): number => {
+		const ipA = (a as any).ip || a.id;
+		const ipB = (b as any).ip || b.id;
+		const partsA = parseIpForSorting(ipA);
+		const partsB = parseIpForSorting(ipB);
+		
+		for (let i = 0; i < 4; i++) {
+			if (partsA[i] !== partsB[i]) {
+				return partsA[i] - partsB[i];
+			}
+		}
+		return 0;
+	};
+	
+	// Track node sort order for parent-based sorting
+	const nodeSortOrder = new Map<string, number>();
+	nodeSortOrder.set(root.id, 0);
+	
+	// Sort each depth level, considering parent positions
+	const maxDepthForSort = Math.max(...Array.from(nodesByDepth.keys()), 0);
+	for (let depth = 1; depth <= maxDepthForSort; depth++) {
+		const nodesAtDepth = nodesByDepth.get(depth) || [];
+		if (nodesAtDepth.length === 0) continue;
+		
+		// Sort by: 1) parent's sort order, 2) IP address
+		nodesAtDepth.sort((a, b) => {
+			const parentIdA = (a as any).parentId || root.id;
+			const parentIdB = (b as any).parentId || root.id;
+			const parentOrderA = nodeSortOrder.get(parentIdA) ?? 999999;
+			const parentOrderB = nodeSortOrder.get(parentIdB) ?? 999999;
+			
+			// First, compare by parent position
+			if (parentOrderA !== parentOrderB) {
+				return parentOrderA - parentOrderB;
+			}
+			
+			// Within same parent group, sort by IP
+			return compareIps(a, b);
+		});
+		
+		// Record sort order for this depth (for next depth's sorting)
+		nodesAtDepth.forEach((node, index) => {
+			nodeSortOrder.set(node.id, index);
+		});
+	}
+	
+	// Layout parameters
+	const columnWidth = 220;
+	const nodeGapY = 100;
+	const marginX = 60;
+	const marginY = 40;
+	const canvasHeight = 800; // Approximate canvas height
+	
+	// Clear all positions
+	const clearNodePositions = (n: TreeNode) => {
+		delete (n as any).fx;
+		delete (n as any).fy;
+		for (const c of (n.children || [])) {
+			clearNodePositions(c);
+		}
+	};
+	clearNodePositions(root);
+	
+	// Position root
+	(root as any).fx = marginX;
+	(root as any).fy = canvasHeight / 2;
+	
+	// Position nodes by depth
+	const maxDepth = Math.max(...Array.from(nodesByDepth.keys()));
+	for (let depth = 1; depth <= maxDepth; depth++) {
+		const nodesAtDepth = nodesByDepth.get(depth) || [];
+		if (nodesAtDepth.length === 0) continue;
+		
+		const columnX = marginX + depth * columnWidth;
+		const totalHeight = Math.max(0, (nodesAtDepth.length - 1) * nodeGapY);
+		const startY = (canvasHeight - totalHeight) / 2;
+		
+		nodesAtDepth.forEach((node, idx) => {
+			(node as any).fx = columnX;
+			(node as any).fy = startY + idx * nodeGapY;
+		});
+	}
+	
+	// Trigger re-render by creating a new reference
+	parsed.value = { ...parsed.value };
 }
 </script>
 
