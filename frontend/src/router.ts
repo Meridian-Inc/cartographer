@@ -9,9 +9,10 @@ const routes = [
 		component: MainApp
 	},
 	{
-		path: '/embed',
+		path: '/embed/:embedId',
 		name: 'embed',
-		component: EmbedView
+		component: EmbedView,
+		props: true
 	}
 ];
 

@@ -222,17 +222,56 @@ def load_layout():
 		raise HTTPException(status_code=500, detail=f"Failed to load layout: {exc}")
 
 
-def _embed_config_path() -> pathlib.Path:
-	"""Path where the embed configuration is stored"""
+import secrets
+import string
+from datetime import datetime
+
+
+def _embeds_config_path() -> pathlib.Path:
+	"""Path where all embed configurations are stored"""
 	data_dir = pathlib.Path("/app/data")
 	if data_dir.exists():
-		return data_dir / "embed_config.json"
-	return _project_root() / "embed_config.json"
+		return data_dir / "embeds.json"
+	return _project_root() / "embeds.json"
 
 
-@router.get("/embed-data")
-def get_embed_data():
-	"""Get the network map data for the embed view (read-only, no auth required)"""
+def _generate_embed_id() -> str:
+	"""Generate a cryptographically secure random embed ID"""
+	# 24 characters from alphanumeric = ~143 bits of entropy
+	alphabet = string.ascii_letters + string.digits
+	return ''.join(secrets.choice(alphabet) for _ in range(24))
+
+
+def _load_all_embeds() -> dict:
+	"""Load all embed configurations"""
+	embeds_path = _embeds_config_path()
+	if not embeds_path.exists():
+		return {}
+	try:
+		with open(embeds_path, 'r') as f:
+			return json.load(f)
+	except Exception:
+		return {}
+
+
+def _save_all_embeds(embeds: dict) -> None:
+	"""Save all embed configurations"""
+	embeds_path = _embeds_config_path()
+	with open(embeds_path, 'w') as f:
+		json.dump(embeds, f, indent=2)
+
+
+@router.get("/embed-data/{embed_id}")
+def get_embed_data(embed_id: str):
+	"""Get the network map data for a specific embed (read-only, no auth required)"""
+	# Load embed config
+	embeds = _load_all_embeds()
+	embed_config = embeds.get(embed_id)
+	
+	if not embed_config:
+		raise HTTPException(status_code=404, detail="Embed not found")
+	
+	# Load the network map
 	layout_path = _saved_layout_path()
 	if not layout_path.exists():
 		return JSONResponse({
@@ -243,26 +282,10 @@ def get_embed_data():
 			"ownerDisplayName": None
 		})
 	
-	# Load embed config for settings
-	embed_config = {
-		"sensitiveMode": False,
-		"showOwner": False,
-		"ownerDisplayName": None
-	}
-	embed_config_path = _embed_config_path()
-	if embed_config_path.exists():
-		try:
-			with open(embed_config_path, 'r') as f:
-				saved_config = json.load(f)
-				embed_config.update(saved_config)
-		except Exception:
-			pass
-	
 	try:
 		with open(layout_path, 'r') as f:
 			layout = json.load(f)
 		
-		# Return just the root tree node for the embed
 		root = layout.get("root")
 		if not root:
 			return JSONResponse({
@@ -278,36 +301,123 @@ def get_embed_data():
 			"root": root,
 			"sensitiveMode": embed_config.get("sensitiveMode", False),
 			"showOwner": embed_config.get("showOwner", False),
-			"ownerDisplayName": embed_config.get("ownerDisplayName") if embed_config.get("showOwner") else None
+			"ownerDisplayName": embed_config.get("ownerDisplayName") if embed_config.get("showOwner") else None,
+			"name": embed_config.get("name", "Unnamed Embed")
 		})
 	except Exception as exc:
 		raise HTTPException(status_code=500, detail=f"Failed to load embed data: {exc}")
 
 
-@router.get("/embed-config")
-def get_embed_config():
-	"""Get the embed configuration"""
-	embed_config_path = _embed_config_path()
-	if not embed_config_path.exists():
-		return JSONResponse({"sensitiveMode": False})
-	
-	try:
-		with open(embed_config_path, 'r') as f:
-			config = json.load(f)
-		return JSONResponse(config)
-	except Exception as exc:
-		raise HTTPException(status_code=500, detail=f"Failed to load embed config: {exc}")
+@router.get("/embeds")
+def list_embeds():
+	"""List all embed configurations"""
+	embeds = _load_all_embeds()
+	# Return list with IDs but without exposing full config details
+	embed_list = []
+	for embed_id, config in embeds.items():
+		embed_list.append({
+			"id": embed_id,
+			"name": config.get("name", "Unnamed Embed"),
+			"sensitiveMode": config.get("sensitiveMode", False),
+			"showOwner": config.get("showOwner", False),
+			"ownerDisplayName": config.get("ownerDisplayName"),
+			"createdAt": config.get("createdAt"),
+			"updatedAt": config.get("updatedAt")
+		})
+	# Sort by creation date, newest first
+	embed_list.sort(key=lambda x: x.get("createdAt", ""), reverse=True)
+	return JSONResponse({"embeds": embed_list})
 
 
-@router.post("/embed-config")
-def save_embed_config(config: dict):
-	"""Save the embed configuration"""
+@router.post("/embeds")
+def create_embed(config: dict):
+	"""Create a new embed configuration"""
 	try:
-		embed_config_path = _embed_config_path()
-		with open(embed_config_path, 'w') as f:
-			json.dump(config, f, indent=2)
-		return JSONResponse({"success": True, "message": "Embed config saved"})
+		embeds = _load_all_embeds()
+		
+		# Generate unique ID
+		embed_id = _generate_embed_id()
+		while embed_id in embeds:  # Ensure uniqueness
+			embed_id = _generate_embed_id()
+		
+		# Create embed config with timestamp
+		now = datetime.utcnow().isoformat() + "Z"
+		embed_config = {
+			"name": config.get("name", "Unnamed Embed"),
+			"sensitiveMode": config.get("sensitiveMode", False),
+			"showOwner": config.get("showOwner", False),
+			"ownerDisplayType": config.get("ownerDisplayType", "fullName"),
+			"ownerDisplayName": config.get("ownerDisplayName"),
+			"createdAt": now,
+			"updatedAt": now
+		}
+		
+		embeds[embed_id] = embed_config
+		_save_all_embeds(embeds)
+		
+		return JSONResponse({
+			"success": True,
+			"id": embed_id,
+			"embed": embed_config
+		})
 	except Exception as exc:
-		raise HTTPException(status_code=500, detail=f"Failed to save embed config: {exc}")
+		raise HTTPException(status_code=500, detail=f"Failed to create embed: {exc}")
+
+
+@router.patch("/embeds/{embed_id}")
+def update_embed(embed_id: str, config: dict):
+	"""Update an existing embed configuration"""
+	try:
+		embeds = _load_all_embeds()
+		
+		if embed_id not in embeds:
+			raise HTTPException(status_code=404, detail="Embed not found")
+		
+		# Update fields
+		embed_config = embeds[embed_id]
+		if "name" in config:
+			embed_config["name"] = config["name"]
+		if "sensitiveMode" in config:
+			embed_config["sensitiveMode"] = config["sensitiveMode"]
+		if "showOwner" in config:
+			embed_config["showOwner"] = config["showOwner"]
+		if "ownerDisplayType" in config:
+			embed_config["ownerDisplayType"] = config["ownerDisplayType"]
+		if "ownerDisplayName" in config:
+			embed_config["ownerDisplayName"] = config["ownerDisplayName"]
+		
+		embed_config["updatedAt"] = datetime.utcnow().isoformat() + "Z"
+		
+		embeds[embed_id] = embed_config
+		_save_all_embeds(embeds)
+		
+		return JSONResponse({
+			"success": True,
+			"id": embed_id,
+			"embed": embed_config
+		})
+	except HTTPException:
+		raise
+	except Exception as exc:
+		raise HTTPException(status_code=500, detail=f"Failed to update embed: {exc}")
+
+
+@router.delete("/embeds/{embed_id}")
+def delete_embed(embed_id: str):
+	"""Delete an embed configuration"""
+	try:
+		embeds = _load_all_embeds()
+		
+		if embed_id not in embeds:
+			raise HTTPException(status_code=404, detail="Embed not found")
+		
+		del embeds[embed_id]
+		_save_all_embeds(embeds)
+		
+		return JSONResponse({"success": True, "message": "Embed deleted"})
+	except HTTPException:
+		raise
+	except Exception as exc:
+		raise HTTPException(status_code=500, detail=f"Failed to delete embed: {exc}")
 
 

@@ -90,6 +90,10 @@ import axios from 'axios';
 import type { TreeNode } from '../types/network';
 import NetworkMapEmbed from './NetworkMapEmbed.vue';
 
+const props = defineProps<{
+	embedId: string;
+}>();
+
 const loading = ref(true);
 const error = ref<string | null>(null);
 const mapData = ref<TreeNode | null>(null);
@@ -102,8 +106,14 @@ async function loadMapData() {
 	loading.value = true;
 	error.value = null;
 	
+	if (!props.embedId) {
+		error.value = 'Invalid embed URL.';
+		loading.value = false;
+		return;
+	}
+	
 	try {
-		const response = await axios.get('/api/embed-data');
+		const response = await axios.get(`/api/embed-data/${props.embedId}`);
 		if (response.data.exists && response.data.root) {
 			mapData.value = response.data.root;
 			sensitiveMode.value = response.data.sensitiveMode || false;
@@ -114,7 +124,11 @@ async function loadMapData() {
 		}
 	} catch (err: any) {
 		console.error('Failed to load embed data:', err);
-		error.value = err?.response?.data?.detail || 'Failed to load network map data.';
+		if (err?.response?.status === 404) {
+			error.value = 'Embed not found.';
+		} else {
+			error.value = err?.response?.data?.detail || 'Failed to load network map data.';
+		}
 	} finally {
 		loading.value = false;
 	}
