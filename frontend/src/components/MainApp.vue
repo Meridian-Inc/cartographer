@@ -348,9 +348,12 @@
 			>
 				<div v-for="(line, idx) in logs" :key="idx" class="whitespace-pre-wrap text-slate-700 dark:text-slate-300">
 					<template v-if="downloadHref(line)">
-						<a :href="downloadHref(line)!" class="text-blue-600 underline" target="_blank" rel="noopener">
+						<button 
+							@click="downloadNetworkMap(downloadHref(line)!)"
+							class="text-blue-600 hover:text-blue-500 underline cursor-pointer"
+						>
 							Download network_map.txt
-						</a>
+						</button>
 					</template>
 					<template v-else>
 						{{ line }}
@@ -1188,6 +1191,27 @@ function downloadHref(line: string): string | null {
 	// Match both absolute URLs (http/https) and relative paths (/api/...)
 	const m = /^DOWNLOAD:\s+((?:https?:\/\/[^\s]+|\/[^\s]+))$/i.exec(line.trim());
 	return m ? m[1] : null;
+}
+
+async function downloadNetworkMap(url: string) {
+	try {
+		// Use axios which already has the auth token configured
+		const response = await axios.get(url, { responseType: 'blob' });
+		
+		// Create a blob URL and trigger download
+		const blob = new Blob([response.data], { type: 'text/plain' });
+		const blobUrl = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = blobUrl;
+		a.download = 'network_map.txt';
+		document.body.appendChild(a);
+		a.click();
+		URL.revokeObjectURL(blobUrl);
+		document.body.removeChild(a);
+	} catch (error) {
+		console.error('[Download] Failed to download network map:', error);
+		logs.value.push('ERROR: Failed to download network map');
+	}
 }
 
 function onRemoveNode() {
