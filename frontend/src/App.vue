@@ -294,6 +294,7 @@
 				:node="selectedNode"
 				@close="closeNodeInfoPanel"
 				@toggleMonitoring="onToggleNodeMonitoring"
+				@updateNotes="onUpdateNodeNotes"
 			/>
 		</div>
 		<!-- Terminal / Logs Panel -->
@@ -840,6 +841,29 @@ async function onToggleNodeMonitoring(nodeId: string, enabled: boolean) {
 		
 		// Trigger auto-save
 		triggerAutoSave();
+	}
+}
+
+function onUpdateNodeNotes(nodeId: string, notes: string) {
+	if (!parsed.value?.root) return;
+	
+	const node = findNodeById(parsed.value.root, nodeId);
+	if (node) {
+		const oldNotes = node.notes;
+		node.notes = notes || undefined; // Don't store empty string
+		
+		// Only track version change if notes actually changed
+		if (oldNotes !== node.notes) {
+			if (notes) {
+				updateNodeVersion(node, ['Notes updated']);
+			} else if (oldNotes) {
+				updateNodeVersion(node, ['Notes cleared']);
+			}
+			
+			// Trigger reactivity and auto-save
+			parsed.value = { ...parsed.value };
+			triggerAutoSave();
+		}
 	}
 }
 

@@ -45,6 +45,8 @@ export interface TreeNode {
 	history?: NodeVersion[]; // Previous versions for audit trail
 	// Health monitoring
 	monitoringEnabled?: boolean; // Whether to include this node in health monitoring (default: true)
+	// User notes
+	notes?: string; // Custom notes attached to this node
 }
 
 export interface ParsedNetworkMap {

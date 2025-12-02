@@ -264,6 +264,55 @@
 					</div>
 				</section>
 
+				<!-- Notes Section -->
+				<section>
+					<div class="flex items-center justify-between mb-2">
+						<h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+							</svg>
+							Notes
+						</h3>
+						<button
+							v-if="!editingNotes && notesText"
+							@click="editingNotes = true"
+							class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400"
+							title="Edit notes"
+						>
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+							</svg>
+						</button>
+					</div>
+					<div class="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-3">
+						<!-- Editing mode -->
+						<div v-if="editingNotes || !notesText">
+							<textarea
+								v-model="notesText"
+								@input="onNotesInput"
+								@blur="onNotesBlur"
+								@focus="editingNotes = true"
+								class="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none"
+								:class="{ 'min-h-[80px]': editingNotes, 'min-h-[40px]': !editingNotes }"
+								placeholder="Add notes about this device..."
+								rows="3"
+							></textarea>
+							<p class="text-xs text-slate-400 dark:text-slate-500 mt-1">
+								Notes are saved automatically
+							</p>
+						</div>
+						<!-- Display mode -->
+						<div 
+							v-else
+							@click="editingNotes = true"
+							class="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 -m-2 p-2 rounded transition-colors"
+							title="Click to edit"
+						>
+							{{ notesText }}
+						</div>
+					</div>
+				</section>
+
 				<!-- Gateway Test IPs Section (only for gateway/router devices) -->
 				<section v-if="isGateway && node?.ip">
 					<div class="flex items-center justify-between mb-2">
@@ -673,6 +722,55 @@
 									:class="monitoringEnabled ? 'translate-x-5' : 'translate-x-0'"
 								></span>
 							</button>
+						</div>
+					</div>
+				</section>
+
+				<!-- Notes Section -->
+				<section>
+					<div class="flex items-center justify-between mb-2">
+						<h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+							</svg>
+							Notes
+						</h3>
+						<button
+							v-if="!editingNotes && notesText"
+							@click="editingNotes = true"
+							class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400"
+							title="Edit notes"
+						>
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+							</svg>
+						</button>
+					</div>
+					<div class="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-3">
+						<!-- Editing mode -->
+						<div v-if="editingNotes || !notesText">
+							<textarea
+								v-model="notesText"
+								@input="onNotesInput"
+								@blur="onNotesBlur"
+								@focus="editingNotes = true"
+								class="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none"
+								:class="{ 'min-h-[80px]': editingNotes, 'min-h-[40px]': !editingNotes }"
+								placeholder="Add notes about this device..."
+								rows="3"
+							></textarea>
+							<p class="text-xs text-slate-400 dark:text-slate-500 mt-1">
+								Notes are saved automatically
+							</p>
+						</div>
+						<!-- Display mode -->
+						<div 
+							v-else
+							@click="editingNotes = true"
+							class="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 -m-2 p-2 rounded transition-colors"
+							title="Click to edit"
+						>
+							{{ notesText }}
 						</div>
 					</div>
 				</section>
@@ -1099,6 +1197,7 @@ const props = defineProps<{
 const emit = defineEmits<{
 	(e: 'close'): void;
 	(e: 'toggleMonitoring', nodeId: string, enabled: boolean): void;
+	(e: 'updateNotes', nodeId: string, notes: string): void;
 }>();
 
 const { cachedMetrics } = useHealthMonitoring();
@@ -1139,6 +1238,48 @@ const localMetrics = ref<DeviceMetrics | null>(null);
 const loading = ref(false);
 const error = ref<string | null>(null);
 const scanningPorts = ref(false);
+
+// Notes editing
+const editingNotes = ref(false);
+const notesText = ref('');
+const notesSaveTimeout = ref<ReturnType<typeof setTimeout> | null>(null);
+
+// Initialize notes from node
+watch(() => props.node?.notes, (newNotes) => {
+	notesText.value = newNotes || '';
+}, { immediate: true });
+
+// Also reset when node changes
+watch(() => props.node?.id, () => {
+	editingNotes.value = false;
+	notesText.value = props.node?.notes || '';
+});
+
+function onNotesInput() {
+	// Debounce save - save after 500ms of no typing
+	if (notesSaveTimeout.value) {
+		clearTimeout(notesSaveTimeout.value);
+	}
+	notesSaveTimeout.value = setTimeout(() => {
+		saveNotes();
+	}, 500);
+}
+
+function saveNotes() {
+	if (props.node) {
+		emit('updateNotes', props.node.id, notesText.value);
+	}
+}
+
+function onNotesBlur() {
+	// Save immediately on blur
+	if (notesSaveTimeout.value) {
+		clearTimeout(notesSaveTimeout.value);
+		notesSaveTimeout.value = null;
+	}
+	saveNotes();
+	editingNotes.value = false;
+}
 
 // Use cached metrics from composable, falling back to local metrics (from manual refresh/port scan)
 const metrics = computed(() => {
