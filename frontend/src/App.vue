@@ -320,6 +320,7 @@
 			<NodeInfoPanel
 				v-if="showNodeInfoPanel && selectedNode"
 				:node="selectedNode"
+				:canEdit="canWrite"
 				@close="closeNodeInfoPanel"
 				@toggleMonitoring="onToggleNodeMonitoring"
 				@updateNotes="onUpdateNodeNotes"
@@ -906,6 +907,7 @@ function closeNodeInfoPanel() {
 }
 
 async function onToggleNodeMonitoring(nodeId: string, enabled: boolean) {
+	if (!canWrite.value) return; // Permission check
 	if (!parsed.value?.root) return;
 	
 	// Find the node and update its monitoringEnabled property
@@ -932,6 +934,7 @@ async function onToggleNodeMonitoring(nodeId: string, enabled: boolean) {
 }
 
 function onUpdateNodeNotes(nodeId: string, notes: string) {
+	if (!canWrite.value) return; // Permission check
 	if (!parsed.value?.root) return;
 	
 	const node = findNodeById(parsed.value.root, nodeId);

@@ -86,6 +86,11 @@
 
 			<!-- Metrics Content (also shown when offline or monitoring disabled) -->
 			<div v-if="monitoringEnabled && (metrics || isOffline)" class="p-4 space-y-4">
+				<!-- Readonly notice -->
+				<div v-if="!hasWritePermission" class="bg-slate-100 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs text-slate-500 dark:text-slate-400 text-center">
+					View only mode
+				</div>
+
 				<!-- Offline Notice -->
 				<div v-if="isOffline" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
 					<div class="flex items-start gap-2">
@@ -252,8 +257,12 @@
 							<button 
 								@click="toggleMonitoring"
 								class="relative w-11 h-6 rounded-full transition-colors"
-								:class="monitoringEnabled ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'"
-								:title="monitoringEnabled ? 'Click to disable monitoring' : 'Click to enable monitoring'"
+								:class="[
+									monitoringEnabled ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600',
+									!hasWritePermission ? 'opacity-50 cursor-not-allowed' : ''
+								]"
+								:disabled="!hasWritePermission"
+								:title="!hasWritePermission ? 'Write permission required' : (monitoringEnabled ? 'Click to disable monitoring' : 'Click to enable monitoring')"
 							>
 								<span 
 									class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
@@ -274,7 +283,7 @@
 							Notes
 						</h3>
 						<button
-							v-if="!editingNotes && notesText"
+							v-if="hasWritePermission && !editingNotes && notesText"
 							@click="editingNotes = true"
 							class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400"
 							title="Edit notes"
@@ -285,8 +294,8 @@
 						</button>
 					</div>
 					<div class="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-3">
-						<!-- Editing mode -->
-						<div v-if="editingNotes || !notesText">
+						<!-- Editing mode (only for users with write permission) -->
+						<div v-if="hasWritePermission && (editingNotes || !notesText)">
 							<textarea
 								v-model="notesText"
 								@input="onNotesInput"
@@ -301,14 +310,19 @@
 								Notes are saved automatically
 							</p>
 						</div>
-						<!-- Display mode -->
+						<!-- Display mode (with edit capability for write users) -->
 						<div 
-							v-else
-							@click="editingNotes = true"
-							class="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 -m-2 p-2 rounded transition-colors"
-							title="Click to edit"
+							v-else-if="notesText"
+							@click="hasWritePermission && (editingNotes = true)"
+							class="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap -m-2 p-2 rounded transition-colors"
+							:class="hasWritePermission ? 'cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800' : ''"
+							:title="hasWritePermission ? 'Click to edit' : ''"
 						>
 							{{ notesText }}
+						</div>
+						<!-- No notes (readonly) -->
+						<div v-else class="text-sm text-slate-400 dark:text-slate-500 italic">
+							No notes
 						</div>
 					</div>
 				</section>
@@ -364,6 +378,7 @@
 										</div>
 									</div>
 									<button
+										v-if="hasWritePermission"
 										@click="removeTestIP(tip.ip)"
 										class="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
 										title="Remove this test IP"
@@ -491,8 +506,8 @@
 							</p>
 						</div>
 
-						<!-- Quick add presets -->
-						<div v-if="!showAddTestIP" class="flex flex-wrap gap-1.5">
+						<!-- Quick add presets (only for users with write permission) -->
+						<div v-if="hasWritePermission && !showAddTestIP" class="flex flex-wrap gap-1.5">
 							<button
 								v-for="preset in presetTestIPs.filter(p => !testIPs.some(t => t.ip === p.ip))"
 								:key="preset.ip"
@@ -510,8 +525,8 @@
 							</button>
 						</div>
 
-						<!-- Add custom test IP form -->
-						<div v-if="showAddTestIP" class="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-3 space-y-2">
+						<!-- Add custom test IP form (only for users with write permission) -->
+						<div v-if="hasWritePermission && showAddTestIP" class="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-3 space-y-2">
 							<div class="flex gap-2">
 								<input
 									v-model="newTestIP"
@@ -697,6 +712,11 @@
 
 			<!-- Device Info Only (when monitoring disabled) -->
 			<div v-else-if="!monitoringEnabled && node?.ip" class="p-4 space-y-4">
+				<!-- Readonly notice -->
+				<div v-if="!hasWritePermission" class="bg-slate-100 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs text-slate-500 dark:text-slate-400 text-center">
+					View only mode
+				</div>
+
 				<section>
 					<h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Device Info</h3>
 					<div class="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-3 space-y-2">
@@ -714,8 +734,12 @@
 							<button 
 								@click="toggleMonitoring"
 								class="relative w-11 h-6 rounded-full transition-colors"
-								:class="monitoringEnabled ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'"
-								:title="monitoringEnabled ? 'Click to disable monitoring' : 'Click to enable monitoring'"
+								:class="[
+									monitoringEnabled ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600',
+									!hasWritePermission ? 'opacity-50 cursor-not-allowed' : ''
+								]"
+								:disabled="!hasWritePermission"
+								:title="!hasWritePermission ? 'Write permission required' : (monitoringEnabled ? 'Click to disable monitoring' : 'Click to enable monitoring')"
 							>
 								<span 
 									class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
@@ -736,7 +760,7 @@
 							Notes
 						</h3>
 						<button
-							v-if="!editingNotes && notesText"
+							v-if="hasWritePermission && !editingNotes && notesText"
 							@click="editingNotes = true"
 							class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400"
 							title="Edit notes"
@@ -747,8 +771,8 @@
 						</button>
 					</div>
 					<div class="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-3">
-						<!-- Editing mode -->
-						<div v-if="editingNotes || !notesText">
+						<!-- Editing mode (only for users with write permission) -->
+						<div v-if="hasWritePermission && (editingNotes || !notesText)">
 							<textarea
 								v-model="notesText"
 								@input="onNotesInput"
@@ -763,14 +787,19 @@
 								Notes are saved automatically
 							</p>
 						</div>
-						<!-- Display mode -->
+						<!-- Display mode (with edit capability for write users) -->
 						<div 
-							v-else
-							@click="editingNotes = true"
-							class="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 -m-2 p-2 rounded transition-colors"
-							title="Click to edit"
+							v-else-if="notesText"
+							@click="hasWritePermission && (editingNotes = true)"
+							class="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap -m-2 p-2 rounded transition-colors"
+							:class="hasWritePermission ? 'cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800' : ''"
+							:title="hasWritePermission ? 'Click to edit' : ''"
 						>
 							{{ notesText }}
+						</div>
+						<!-- No notes (readonly) -->
+						<div v-else class="text-sm text-slate-400 dark:text-slate-500 italic">
+							No notes
 						</div>
 					</div>
 				</section>
@@ -826,6 +855,7 @@
 										</div>
 									</div>
 									<button
+										v-if="hasWritePermission"
 										@click="removeTestIP(tip.ip)"
 										class="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
 										title="Remove this test IP"
@@ -953,8 +983,8 @@
 							</p>
 						</div>
 
-						<!-- Quick add presets -->
-						<div v-if="!showAddTestIP" class="flex flex-wrap gap-1.5">
+						<!-- Quick add presets (only for users with write permission) -->
+						<div v-if="hasWritePermission && !showAddTestIP" class="flex flex-wrap gap-1.5">
 							<button
 								v-for="preset in presetTestIPs.filter(p => !testIPs.some(t => t.ip === p.ip))"
 								:key="preset.ip"
@@ -972,8 +1002,8 @@
 							</button>
 						</div>
 
-						<!-- Add custom test IP form -->
-						<div v-if="showAddTestIP" class="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-3 space-y-2">
+						<!-- Add custom test IP form (only for users with write permission) -->
+						<div v-if="hasWritePermission && showAddTestIP" class="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-3 space-y-2">
 							<div class="flex gap-2">
 								<input
 									v-model="newTestIP"
@@ -1192,6 +1222,7 @@ import { useHealthMonitoring } from '../composables/useHealthMonitoring';
 
 const props = defineProps<{
 	node?: TreeNode;
+	canEdit?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -1199,6 +1230,9 @@ const emit = defineEmits<{
 	(e: 'toggleMonitoring', nodeId: string, enabled: boolean): void;
 	(e: 'updateNotes', nodeId: string, notes: string): void;
 }>();
+
+// Check if user has write permission
+const hasWritePermission = computed(() => props.canEdit !== false);
 
 const { cachedMetrics } = useHealthMonitoring();
 
@@ -1228,6 +1262,7 @@ const monitoringEnabled = computed(() => {
 });
 
 function toggleMonitoring() {
+	if (!hasWritePermission.value) return;
 	if (props.node) {
 		const newState = !monitoringEnabled.value;
 		emit('toggleMonitoring', props.node.id, newState);
@@ -1256,6 +1291,7 @@ watch(() => props.node?.id, () => {
 });
 
 function onNotesInput() {
+	if (!hasWritePermission.value) return;
 	// Debounce save - save after 500ms of no typing
 	if (notesSaveTimeout.value) {
 		clearTimeout(notesSaveTimeout.value);
@@ -1266,6 +1302,7 @@ function onNotesInput() {
 }
 
 function saveNotes() {
+	if (!hasWritePermission.value) return;
 	if (props.node) {
 		emit('updateNotes', props.node.id, notesText.value);
 	}
@@ -1277,7 +1314,9 @@ function onNotesBlur() {
 		clearTimeout(notesSaveTimeout.value);
 		notesSaveTimeout.value = null;
 	}
-	saveNotes();
+	if (hasWritePermission.value) {
+		saveNotes();
+	}
 	editingNotes.value = false;
 }
 
@@ -1621,6 +1660,7 @@ async function checkTestIPsNow() {
 }
 
 function addTestIP() {
+	if (!hasWritePermission.value) return;
 	const ip = newTestIP.value.trim();
 	if (!ip) return;
 
@@ -1653,6 +1693,7 @@ function addTestIP() {
 }
 
 function removeTestIP(ip: string) {
+	if (!hasWritePermission.value) return;
 	testIPs.value = testIPs.value.filter(t => t.ip !== ip);
 	testIPMetrics.value = testIPMetrics.value.filter(m => m.ip !== ip);
 
@@ -1698,6 +1739,7 @@ const presetTestIPs: GatewayTestIP[] = [
 ];
 
 function addPresetTestIP(preset: GatewayTestIP) {
+	if (!hasWritePermission.value) return;
 	if (testIPs.value.some(t => t.ip === preset.ip)) {
 		testIPsError.value = `${preset.label || preset.ip} is already in the list`;
 		return;

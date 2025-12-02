@@ -71,13 +71,23 @@
 				>
 					<h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-3">Health Monitoring</h3>
 					
+					<!-- Readonly notice -->
+					<div v-if="!props.canEdit" class="mb-3 p-2 bg-slate-100 dark:bg-slate-900 rounded text-xs text-slate-500 dark:text-slate-400 text-center">
+						View only mode
+					</div>
+
 					<!-- Enable/Disable -->
 					<div class="flex items-center justify-between mb-3">
 						<span class="text-xs text-slate-600 dark:text-slate-400">Passive Monitoring</span>
 						<button 
 							@click="toggleMonitoring"
 							class="relative w-11 h-6 rounded-full transition-colors"
-							:class="healthConfig.enabled ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'"
+							:class="[
+								healthConfig.enabled ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600',
+								!props.canEdit ? 'opacity-50 cursor-not-allowed' : ''
+							]"
+							:disabled="!props.canEdit"
+							:title="!props.canEdit ? 'Write permission required' : ''"
 						>
 							<span 
 								class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
@@ -92,7 +102,8 @@
 						<select 
 							v-model="healthConfig.check_interval_seconds"
 							@change="updateHealthConfig"
-							class="w-full text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded px-2 py-1"
+							:disabled="!props.canEdit"
+							class="w-full text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded px-2 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
 						>
 							<option :value="10">10 seconds</option>
 							<option :value="30">30 seconds</option>
@@ -109,7 +120,12 @@
 						<button 
 							@click="toggleDns"
 							class="relative w-11 h-6 rounded-full transition-colors"
-							:class="healthConfig.include_dns ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'"
+							:class="[
+								healthConfig.include_dns ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600',
+								!props.canEdit ? 'opacity-50 cursor-not-allowed' : ''
+							]"
+							:disabled="!props.canEdit"
+							:title="!props.canEdit ? 'Write permission required' : ''"
 						>
 							<span 
 								class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
@@ -272,11 +288,13 @@ async function updateHealthConfig() {
 }
 
 async function toggleMonitoring() {
+	if (!props.canEdit) return;
 	healthConfig.enabled = !healthConfig.enabled;
 	await updateHealthConfig();
 }
 
 async function toggleDns() {
+	if (!props.canEdit) return;
 	healthConfig.include_dns = !healthConfig.include_dns;
 	await updateHealthConfig();
 }
