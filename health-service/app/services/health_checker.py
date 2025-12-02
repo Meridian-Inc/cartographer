@@ -1,6 +1,9 @@
 import asyncio
 import socket
 import time
+import json
+import os
+from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Optional, Dict, List, Set
 from collections import deque
@@ -23,6 +26,10 @@ from ..models import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Data persistence directory
+DATA_DIR = Path(os.environ.get("HEALTH_DATA_DIR", "/app/data"))
+GATEWAY_TEST_IPS_FILE = DATA_DIR / "gateway_test_ips.json"
 
 # Common ports to check for different services
 COMMON_PORTS = {
@@ -64,6 +71,58 @@ class HealthChecker:
         self._gateway_test_ips: Dict[str, GatewayTestIPConfig] = {}  # gateway_ip -> config
         self._test_ip_metrics_cache: Dict[str, Dict[str, GatewayTestIPMetrics]] = {}  # gateway_ip -> {test_ip -> metrics}
         self._test_ip_history: Dict[str, deque] = {}  # "gateway_ip:test_ip" -> deque of (timestamp, success, latency)
+        
+        # Load persisted test IP configurations
+        self._load_gateway_test_ips()
+    
+    def _save_gateway_test_ips(self) -> None:
+        """Save gateway test IP configurations to disk"""
+        try:
+            # Ensure data directory exists
+            DATA_DIR.mkdir(parents=True, exist_ok=True)
+            
+            # Convert to serializable format
+            data = {}
+            for gateway_ip, config in self._gateway_test_ips.items():
+                data[gateway_ip] = {
+                    "gateway_ip": config.gateway_ip,
+                    "test_ips": [{"ip": tip.ip, "label": tip.label} for tip in config.test_ips],
+                    "enabled": config.enabled
+                }
+            
+            # Write to file
+            with open(GATEWAY_TEST_IPS_FILE, 'w') as f:
+                json.dump(data, f, indent=2)
+            
+            logger.debug(f"Saved {len(data)} gateway test IP configurations to {GATEWAY_TEST_IPS_FILE}")
+        except Exception as e:
+            logger.error(f"Failed to save gateway test IPs: {e}")
+    
+    def _load_gateway_test_ips(self) -> None:
+        """Load gateway test IP configurations from disk"""
+        try:
+            if not GATEWAY_TEST_IPS_FILE.exists():
+                logger.debug(f"No gateway test IPs file found at {GATEWAY_TEST_IPS_FILE}")
+                return
+            
+            with open(GATEWAY_TEST_IPS_FILE, 'r') as f:
+                data = json.load(f)
+            
+            # Convert back to model objects
+            for gateway_ip, config_data in data.items():
+                test_ips = [
+                    GatewayTestIP(ip=tip["ip"], label=tip.get("label"))
+                    for tip in config_data.get("test_ips", [])
+                ]
+                self._gateway_test_ips[gateway_ip] = GatewayTestIPConfig(
+                    gateway_ip=config_data["gateway_ip"],
+                    test_ips=test_ips,
+                    enabled=config_data.get("enabled", True)
+                )
+            
+            logger.info(f"Loaded {len(self._gateway_test_ips)} gateway test IP configurations from {GATEWAY_TEST_IPS_FILE}")
+        except Exception as e:
+            logger.error(f"Failed to load gateway test IPs: {e}")
     
     def _record_check(self, ip: str, success: bool, latency_ms: Optional[float]):
         """Record a health check result for historical tracking"""
@@ -395,6 +454,9 @@ class HealthChecker:
         if gateway_ip not in self._test_ip_metrics_cache:
             self._test_ip_metrics_cache[gateway_ip] = {}
         
+        # Persist to disk
+        self._save_gateway_test_ips()
+        
         logger.info(f"Set {len(test_ips)} test IPs for gateway {gateway_ip}")
         return config
     
@@ -412,6 +474,8 @@ class HealthChecker:
             del self._gateway_test_ips[gateway_ip]
             if gateway_ip in self._test_ip_metrics_cache:
                 del self._test_ip_metrics_cache[gateway_ip]
+            # Persist to disk
+            self._save_gateway_test_ips()
             logger.info(f"Removed test IPs for gateway {gateway_ip}")
             return True
         return False

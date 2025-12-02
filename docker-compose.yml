@@ -37,8 +37,11 @@ services:
     container_name: cartographer-health
     # Use host network to ping actual LAN devices
     network_mode: host
+    volumes:
+      - health-data:/app/data
     environment:
       - CORS_ORIGINS=*
+      - HEALTH_DATA_DIR=/app/data
     # Health checks require ping capabilities
     cap_add:
       - NET_RAW
@@ -52,4 +55,6 @@ services:
 
 volumes:
   cartographer-data:
+    driver: local
+  health-data:
     driver: local
