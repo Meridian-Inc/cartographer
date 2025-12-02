@@ -42,8 +42,9 @@ function getNodeHealthStatus(nodeId: string, nodeRef?: TreeNode): HealthStatus |
 const svgRef = ref<SVGSVGElement | null>(null);
 
 let cleanup: (() => void) | null = null;
-let currentTransform = d3.zoomIdentity.translate(24, 24);
+let currentTransform = d3.zoomIdentity;
 let currentZoom: d3.ZoomBehavior<SVGSVGElement, unknown> | null = null;
+let initialTransform: d3.ZoomTransform | null = null; // Calculated centered transform
 
 function roleIcon(role?: string): string {
 	const r = role || "unknown";
@@ -102,20 +103,7 @@ function render() {
 	const width = (svgRef.value?.clientWidth || 800);
 	const height = (svgRef.value?.clientHeight || 600);
 
-	const g = svg.attr("viewBox", [0, 0, width, height].join(" ")).append("g").attr("class", "zoom-layer").attr("transform", "translate(24,24)");
-
-	const zoom = d3.zoom<SVGSVGElement, unknown>()
-		.scaleExtent([0.1, 4])
-		.on("zoom", (event) => {
-			g.attr("transform", event.transform);
-			currentTransform = event.transform;
-		});
-	
-	currentZoom = zoom;
-	svg.call(zoom).call(zoom.transform, currentTransform);
-
-	// Disable double-click zoom for cleaner experience
-	svg.on("dblclick.zoom", null);
+	const g = svg.attr("viewBox", [0, 0, width, height].join(" ")).append("g").attr("class", "zoom-layer");
 
 	// ─────────────────────────────────────────────────────────────────────────────
 	// Depth-based layout (left → right)
@@ -274,6 +262,42 @@ function render() {
 	nodes.forEach(n => {
 		idToNode.set(n.id, n);
 	});
+
+	// Calculate bounding box of all nodes to center the view
+	if (nodes.length > 0) {
+		const minX = Math.min(...nodes.map(n => n.x));
+		const maxX = Math.max(...nodes.map(n => n.x));
+		const minY = Math.min(...nodes.map(n => n.y));
+		const maxY = Math.max(...nodes.map(n => n.y));
+		
+		// Calculate the center of the network
+		const networkCenterX = (minX + maxX) / 2;
+		const networkCenterY = (minY + maxY) / 2;
+		
+		// Calculate translation to center the network in the viewport
+		const translateX = (width / 2) - networkCenterX;
+		const translateY = (height / 2) - networkCenterY;
+		
+		// Store as initial transform (only set once per data load)
+		if (!initialTransform) {
+			initialTransform = d3.zoomIdentity.translate(translateX, translateY);
+			currentTransform = initialTransform;
+		}
+	}
+
+	// Set up zoom behavior (after center is calculated)
+	const zoom = d3.zoom<SVGSVGElement, unknown>()
+		.scaleExtent([0.1, 4])
+		.on("zoom", (event) => {
+			g.attr("transform", event.transform);
+			currentTransform = event.transform;
+		});
+	
+	currentZoom = zoom;
+	svg.call(zoom).call(zoom.transform, currentTransform);
+
+	// Disable double-click zoom for cleaner experience
+	svg.on("dblclick.zoom", null);
 
 	// Build links based on parentId
 	for (const n of nodes) {
@@ -436,12 +460,12 @@ function zoomOut() {
 function resetView() {
 	if (!svgRef.value || !currentZoom) return;
 	const svg = d3.select(svgRef.value);
-	const width = svgRef.value.clientWidth || 800;
-	const height = svgRef.value.clientHeight || 600;
 	
+	// Use the calculated initial centered transform
+	const resetTransform = initialTransform || d3.zoomIdentity;
 	svg.transition()
 		.duration(500)
-		.call(currentZoom.transform, d3.zoomIdentity.translate(24, 24));
+		.call(currentZoom.transform, resetTransform);
 }
 
 defineExpose({
@@ -473,7 +497,11 @@ onBeforeUnmount(() => {
 	if (cleanup) cleanup();
 });
 
-watch(() => [props.data, props.sensitiveMode, props.isDark, props.healthMetrics], () => {
+watch(() => [props.data, props.sensitiveMode, props.isDark, props.healthMetrics], (newVal, oldVal) => {
+	// Reset initial transform when data changes to recenter the view
+	if (newVal[0] !== oldVal?.[0]) {
+		initialTransform = null;
+	}
 	render();
 }, { deep: true });
 </script>
