@@ -13,6 +13,7 @@ from ..models import (
     GatewayTestIPConfig,
     GatewayTestIPsResponse,
     SetGatewayTestIPsRequest,
+    SpeedTestResult,
 )
 from ..services.health_checker import health_checker
 
@@ -285,4 +286,16 @@ async def get_cached_test_ip_metrics(gateway_ip: str):
     Get cached metrics for all test IPs of a gateway without performing a new check.
     """
     return health_checker.get_cached_test_ip_metrics(gateway_ip)
+
+
+# ==================== Speed Test Endpoints ====================
+
+@router.post("/speedtest", response_model=SpeedTestResult)
+async def run_speed_test():
+    """
+    Run an ISP speed test.
+    This is a manual operation that takes 30-60 seconds to complete.
+    Returns download/upload speeds in Mbps.
+    """
+    return await health_checker.run_speed_test()
 

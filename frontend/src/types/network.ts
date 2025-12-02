@@ -153,4 +153,32 @@ export interface GatewayTestIPsResponse {
 	last_check?: string; // ISO timestamp
 }
 
+// Speed Test types
+export interface SpeedTestResult {
+	success: boolean;
+	timestamp: string; // ISO timestamp
+	
+	// Speed results (in Mbps)
+	download_mbps?: number;
+	upload_mbps?: number;
+	
+	// Ping to speed test server
+	ping_ms?: number;
+	
+	// Server info
+	server_name?: string;
+	server_location?: string;
+	server_sponsor?: string;
+	
+	// Client info
+	client_ip?: string;
+	client_isp?: string;
+	
+	// Error info (if failed)
+	error_message?: string;
+	
+	// Duration of the test
+	duration_seconds?: number;
+}
+
 

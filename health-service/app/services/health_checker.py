@@ -19,6 +19,7 @@ from ..models import (
     GatewayTestIPConfig,
     GatewayTestIPMetrics,
     GatewayTestIPsResponse,
+    SpeedTestResult,
 )
 
 logger = logging.getLogger(__name__)
@@ -577,6 +578,76 @@ class HealthChecker:
             test_ips=metrics_list,
             last_check=last_check
         )
+    
+    # ==================== Speed Test ====================
+    
+    async def run_speed_test(self) -> SpeedTestResult:
+        """
+        Run an ISP speed test using speedtest-cli.
+        This is a blocking operation that can take 30-60 seconds.
+        """
+        start_time = time.time()
+        
+        try:
+            import speedtest
+            
+            logger.info("Starting speed test...")
+            
+            # Run speedtest in a thread pool to avoid blocking
+            loop = asyncio.get_event_loop()
+            
+            def do_speed_test():
+                st = speedtest.Speedtest()
+                st.get_best_server()
+                st.download()
+                st.upload()
+                return st.results.dict()
+            
+            # Run in thread pool executor
+            results = await loop.run_in_executor(None, do_speed_test)
+            
+            duration = time.time() - start_time
+            
+            # Extract results
+            download_mbps = results.get('download', 0) / 1_000_000  # Convert to Mbps
+            upload_mbps = results.get('upload', 0) / 1_000_000  # Convert to Mbps
+            ping_ms = results.get('ping', None)
+            
+            server = results.get('server', {})
+            client = results.get('client', {})
+            
+            logger.info(f"Speed test completed: {download_mbps:.2f} Mbps down, {upload_mbps:.2f} Mbps up")
+            
+            return SpeedTestResult(
+                success=True,
+                timestamp=datetime.utcnow(),
+                download_mbps=round(download_mbps, 2),
+                upload_mbps=round(upload_mbps, 2),
+                ping_ms=ping_ms,
+                server_name=server.get('name'),
+                server_location=f"{server.get('city', '')}, {server.get('country', '')}".strip(', '),
+                server_sponsor=server.get('sponsor'),
+                client_ip=client.get('ip'),
+                client_isp=client.get('isp'),
+                duration_seconds=round(duration, 1)
+            )
+            
+        except ImportError:
+            logger.error("speedtest-cli not installed")
+            return SpeedTestResult(
+                success=False,
+                timestamp=datetime.utcnow(),
+                error_message="speedtest-cli is not installed",
+                duration_seconds=time.time() - start_time
+            )
+        except Exception as e:
+            logger.error(f"Speed test failed: {e}")
+            return SpeedTestResult(
+                success=False,
+                timestamp=datetime.utcnow(),
+                error_message=str(e),
+                duration_seconds=time.time() - start_time
+            )
     
     # ==================== Background Monitoring ====================
     

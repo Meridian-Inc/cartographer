@@ -163,3 +163,33 @@ class SetGatewayTestIPsRequest(BaseModel):
     gateway_ip: str
     test_ips: List[GatewayTestIP]
 
+
+# ==================== Speed Test Models ====================
+
+class SpeedTestResult(BaseModel):
+    """Result of an ISP speed test"""
+    success: bool
+    timestamp: datetime
+    
+    # Speed results (in Mbps)
+    download_mbps: Optional[float] = None
+    upload_mbps: Optional[float] = None
+    
+    # Ping to speed test server
+    ping_ms: Optional[float] = None
+    
+    # Server info
+    server_name: Optional[str] = None
+    server_location: Optional[str] = None
+    server_sponsor: Optional[str] = None
+    
+    # Client info
+    client_ip: Optional[str] = None
+    client_isp: Optional[str] = None
+    
+    # Error info (if failed)
+    error_message: Optional[str] = None
+    
+    # Duration of the test
+    duration_seconds: Optional[float] = None
+

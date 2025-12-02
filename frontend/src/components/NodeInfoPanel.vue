@@ -517,6 +517,133 @@
 						</button>
 					</div>
 				</section>
+
+				<!-- ISP Speed Test Section (only for gateway devices) -->
+				<section v-if="isGateway">
+					<div class="flex items-center justify-between mb-2">
+						<h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+							</svg>
+							ISP Speed Test
+						</h3>
+						<button
+							@click="speedTestExpanded = !speedTestExpanded"
+							class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400"
+						>
+							<svg 
+								xmlns="http://www.w3.org/2000/svg" 
+								class="h-4 w-4 transition-transform duration-200"
+								:class="{ 'rotate-180': !speedTestExpanded }"
+								fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
+							>
+								<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+							</svg>
+						</button>
+					</div>
+
+					<div v-show="speedTestExpanded" class="space-y-3">
+						<!-- Error message -->
+						<div v-if="speedTestError" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-2 text-xs text-red-700 dark:text-red-300">
+							{{ speedTestError }}
+							<button @click="speedTestError = null" class="ml-2 underline">Dismiss</button>
+						</div>
+
+						<!-- Speed test results -->
+						<div v-if="speedTestResult && speedTestResult.success" class="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-3 space-y-3">
+							<!-- Download/Upload speeds -->
+							<div class="grid grid-cols-2 gap-3">
+								<div class="text-center p-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
+									<div class="text-xs text-slate-500 dark:text-slate-400 mb-1">Download</div>
+									<div class="text-lg font-bold text-emerald-600 dark:text-emerald-400">
+										{{ formatSpeed(speedTestResult.download_mbps) }}
+									</div>
+								</div>
+								<div class="text-center p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+									<div class="text-xs text-slate-500 dark:text-slate-400 mb-1">Upload</div>
+									<div class="text-lg font-bold text-blue-600 dark:text-blue-400">
+										{{ formatSpeed(speedTestResult.upload_mbps) }}
+									</div>
+								</div>
+							</div>
+
+							<!-- Ping -->
+							<div v-if="speedTestResult.ping_ms != null" class="flex items-center justify-between text-xs">
+								<span class="text-slate-500 dark:text-slate-400">Ping</span>
+								<span class="font-medium text-slate-700 dark:text-slate-300">{{ speedTestResult.ping_ms.toFixed(1) }} ms</span>
+							</div>
+
+							<!-- Server info -->
+							<div v-if="speedTestResult.server_name || speedTestResult.server_location" class="pt-2 border-t border-slate-200 dark:border-slate-700 space-y-1">
+								<div v-if="speedTestResult.server_sponsor" class="flex items-center justify-between text-xs">
+									<span class="text-slate-500 dark:text-slate-400">Server</span>
+									<span class="font-medium text-slate-700 dark:text-slate-300">{{ speedTestResult.server_sponsor }}</span>
+								</div>
+								<div v-if="speedTestResult.server_location" class="flex items-center justify-between text-xs">
+									<span class="text-slate-500 dark:text-slate-400">Location</span>
+									<span class="font-medium text-slate-700 dark:text-slate-300">{{ speedTestResult.server_location }}</span>
+								</div>
+							</div>
+
+							<!-- ISP info -->
+							<div v-if="speedTestResult.client_isp" class="flex items-center justify-between text-xs">
+								<span class="text-slate-500 dark:text-slate-400">ISP</span>
+								<span class="font-medium text-slate-700 dark:text-slate-300">{{ speedTestResult.client_isp }}</span>
+							</div>
+
+							<!-- Test info -->
+							<div class="flex items-center justify-between text-xs pt-2 border-t border-slate-200 dark:border-slate-700">
+								<span class="text-slate-500 dark:text-slate-400">Tested</span>
+								<span class="text-slate-500 dark:text-slate-400">
+									{{ formatTimestamp(speedTestResult.timestamp) }}
+									<span v-if="speedTestResult.duration_seconds" class="ml-1">({{ speedTestResult.duration_seconds }}s)</span>
+								</span>
+							</div>
+						</div>
+
+						<!-- No results yet / empty state -->
+						<div v-else-if="!speedTestRunning" class="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-4 text-center">
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 mx-auto mb-2 text-slate-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+							</svg>
+							<p class="text-xs text-slate-500 dark:text-slate-400 mb-1">
+								Test your internet connection speed
+							</p>
+							<p class="text-xs text-slate-400 dark:text-slate-500">
+								Takes 30-60 seconds to complete
+							</p>
+						</div>
+
+						<!-- Running state -->
+						<div v-if="speedTestRunning" class="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-4">
+							<div class="flex flex-col items-center">
+								<svg class="animate-spin h-8 w-8 text-blue-500 mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+									<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+									<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+								</svg>
+								<p class="text-sm font-medium text-slate-700 dark:text-slate-300">Running speed test...</p>
+								<p class="text-xs text-slate-500 dark:text-slate-400 mt-1">This may take up to 60 seconds</p>
+							</div>
+						</div>
+
+						<!-- Run test button -->
+						<button
+							@click="runSpeedTest"
+							:disabled="speedTestRunning"
+							class="w-full px-3 py-2 text-xs rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:border-blue-400 dark:hover:border-blue-600 hover:text-blue-600 dark:hover:text-blue-400 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+						>
+							<svg 
+								xmlns="http://www.w3.org/2000/svg" 
+								class="h-3.5 w-3.5"
+								:class="{ 'animate-spin': speedTestRunning }"
+								fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
+							>
+								<path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+							</svg>
+							{{ speedTestRunning ? 'Testing...' : (speedTestResult ? 'Run Again' : 'Run Speed Test') }}
+						</button>
+					</div>
+				</section>
 			</div>
 
 			<!-- Device Info Only (when monitoring disabled) -->
@@ -803,6 +930,133 @@
 						</button>
 					</div>
 				</section>
+
+				<!-- ISP Speed Test Section (shown even when device monitoring disabled) -->
+				<section v-if="isGateway">
+					<div class="flex items-center justify-between mb-2">
+						<h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+							</svg>
+							ISP Speed Test
+						</h3>
+						<button
+							@click="speedTestExpanded = !speedTestExpanded"
+							class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400"
+						>
+							<svg 
+								xmlns="http://www.w3.org/2000/svg" 
+								class="h-4 w-4 transition-transform duration-200"
+								:class="{ 'rotate-180': !speedTestExpanded }"
+								fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
+							>
+								<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+							</svg>
+						</button>
+					</div>
+
+					<div v-show="speedTestExpanded" class="space-y-3">
+						<!-- Error message -->
+						<div v-if="speedTestError" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-2 text-xs text-red-700 dark:text-red-300">
+							{{ speedTestError }}
+							<button @click="speedTestError = null" class="ml-2 underline">Dismiss</button>
+						</div>
+
+						<!-- Speed test results -->
+						<div v-if="speedTestResult && speedTestResult.success" class="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-3 space-y-3">
+							<!-- Download/Upload speeds -->
+							<div class="grid grid-cols-2 gap-3">
+								<div class="text-center p-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
+									<div class="text-xs text-slate-500 dark:text-slate-400 mb-1">Download</div>
+									<div class="text-lg font-bold text-emerald-600 dark:text-emerald-400">
+										{{ formatSpeed(speedTestResult.download_mbps) }}
+									</div>
+								</div>
+								<div class="text-center p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+									<div class="text-xs text-slate-500 dark:text-slate-400 mb-1">Upload</div>
+									<div class="text-lg font-bold text-blue-600 dark:text-blue-400">
+										{{ formatSpeed(speedTestResult.upload_mbps) }}
+									</div>
+								</div>
+							</div>
+
+							<!-- Ping -->
+							<div v-if="speedTestResult.ping_ms != null" class="flex items-center justify-between text-xs">
+								<span class="text-slate-500 dark:text-slate-400">Ping</span>
+								<span class="font-medium text-slate-700 dark:text-slate-300">{{ speedTestResult.ping_ms.toFixed(1) }} ms</span>
+							</div>
+
+							<!-- Server info -->
+							<div v-if="speedTestResult.server_name || speedTestResult.server_location" class="pt-2 border-t border-slate-200 dark:border-slate-700 space-y-1">
+								<div v-if="speedTestResult.server_sponsor" class="flex items-center justify-between text-xs">
+									<span class="text-slate-500 dark:text-slate-400">Server</span>
+									<span class="font-medium text-slate-700 dark:text-slate-300">{{ speedTestResult.server_sponsor }}</span>
+								</div>
+								<div v-if="speedTestResult.server_location" class="flex items-center justify-between text-xs">
+									<span class="text-slate-500 dark:text-slate-400">Location</span>
+									<span class="font-medium text-slate-700 dark:text-slate-300">{{ speedTestResult.server_location }}</span>
+								</div>
+							</div>
+
+							<!-- ISP info -->
+							<div v-if="speedTestResult.client_isp" class="flex items-center justify-between text-xs">
+								<span class="text-slate-500 dark:text-slate-400">ISP</span>
+								<span class="font-medium text-slate-700 dark:text-slate-300">{{ speedTestResult.client_isp }}</span>
+							</div>
+
+							<!-- Test info -->
+							<div class="flex items-center justify-between text-xs pt-2 border-t border-slate-200 dark:border-slate-700">
+								<span class="text-slate-500 dark:text-slate-400">Tested</span>
+								<span class="text-slate-500 dark:text-slate-400">
+									{{ formatTimestamp(speedTestResult.timestamp) }}
+									<span v-if="speedTestResult.duration_seconds" class="ml-1">({{ speedTestResult.duration_seconds }}s)</span>
+								</span>
+							</div>
+						</div>
+
+						<!-- No results yet / empty state -->
+						<div v-else-if="!speedTestRunning" class="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-4 text-center">
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 mx-auto mb-2 text-slate-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+							</svg>
+							<p class="text-xs text-slate-500 dark:text-slate-400 mb-1">
+								Test your internet connection speed
+							</p>
+							<p class="text-xs text-slate-400 dark:text-slate-500">
+								Takes 30-60 seconds to complete
+							</p>
+						</div>
+
+						<!-- Running state -->
+						<div v-if="speedTestRunning" class="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-4">
+							<div class="flex flex-col items-center">
+								<svg class="animate-spin h-8 w-8 text-blue-500 mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+									<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+									<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+								</svg>
+								<p class="text-sm font-medium text-slate-700 dark:text-slate-300">Running speed test...</p>
+								<p class="text-xs text-slate-500 dark:text-slate-400 mt-1">This may take up to 60 seconds</p>
+							</div>
+						</div>
+
+						<!-- Run test button -->
+						<button
+							@click="runSpeedTest"
+							:disabled="speedTestRunning"
+							class="w-full px-3 py-2 text-xs rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:border-blue-400 dark:hover:border-blue-600 hover:text-blue-600 dark:hover:text-blue-400 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+						>
+							<svg 
+								xmlns="http://www.w3.org/2000/svg" 
+								class="h-3.5 w-3.5"
+								:class="{ 'animate-spin': speedTestRunning }"
+								fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
+							>
+								<path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+							</svg>
+							{{ speedTestRunning ? 'Testing...' : (speedTestResult ? 'Run Again' : 'Run Speed Test') }}
+						</button>
+					</div>
+				</section>
 			</div>
 
 			<!-- No IP Warning -->
@@ -834,7 +1088,7 @@
 <script lang="ts" setup>
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
 import axios from 'axios';
-import type { TreeNode, DeviceMetrics, HealthStatus, GatewayTestIP, GatewayTestIPMetrics, GatewayTestIPsResponse } from '../types/network';
+import type { TreeNode, DeviceMetrics, HealthStatus, GatewayTestIP, GatewayTestIPMetrics, GatewayTestIPsResponse, SpeedTestResult } from '../types/network';
 import MetricCard from './MetricCard.vue';
 import { useHealthMonitoring } from '../composables/useHealthMonitoring';
 
@@ -862,6 +1116,12 @@ const newTestIPLabel = ref('');
 const showAddTestIP = ref(false);
 const testIPsExpanded = ref(true);
 let testIPPollingInterval: ReturnType<typeof setInterval> | null = null;
+
+// Speed test state
+const speedTestResult = ref<SpeedTestResult | null>(null);
+const speedTestRunning = ref(false);
+const speedTestError = ref<string | null>(null);
+const speedTestExpanded = ref(true);
 
 // Whether monitoring is enabled for this node (default: true)
 const monitoringEnabled = computed(() => {
@@ -1304,6 +1564,37 @@ function addPresetTestIP(preset: GatewayTestIP) {
 	testIPs.value.push({ ...preset });
 	testIPsError.value = null;
 	saveTestIPs();
+}
+
+// ==================== Speed Test Functions ====================
+
+async function runSpeedTest() {
+	speedTestRunning.value = true;
+	speedTestError.value = null;
+
+	try {
+		const response = await axios.post<SpeedTestResult>('/api/health/speedtest', {}, {
+			timeout: 120000 // 2 minute timeout
+		});
+		speedTestResult.value = response.data;
+		
+		if (!response.data.success) {
+			speedTestError.value = response.data.error_message || 'Speed test failed';
+		}
+	} catch (err: any) {
+		console.error('Speed test failed:', err);
+		speedTestError.value = err.response?.data?.detail || err.message || 'Failed to run speed test';
+	} finally {
+		speedTestRunning.value = false;
+	}
+}
+
+function formatSpeed(mbps?: number): string {
+	if (mbps === undefined || mbps === null) return '—';
+	if (mbps >= 1000) {
+		return `${(mbps / 1000).toFixed(2)} Gbps`;
+	}
+	return `${mbps.toFixed(2)} Mbps`;
 }
 </script>
 

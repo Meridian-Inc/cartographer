@@ -14,11 +14,11 @@ router = APIRouter(prefix="/health", tags=["health"])
 HEALTH_SERVICE_URL = os.environ.get("HEALTH_SERVICE_URL", "http://localhost:8001")
 
 
-async def proxy_request(method: str, path: str, params: dict = None, json_body: dict = None):
+async def proxy_request(method: str, path: str, params: dict = None, json_body: dict = None, timeout: float = 30.0):
     """Forward a request to the health service"""
     url = f"{HEALTH_SERVICE_URL}/api/health{path}"
     
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=timeout) as client:
         try:
             if method == "GET":
                 response = await client.get(url, params=params)
@@ -203,3 +203,11 @@ async def check_gateway_test_ips(gateway_ip: str):
 async def get_cached_test_ip_metrics(gateway_ip: str):
     """Proxy get cached test IP metrics for a gateway"""
     return await proxy_request("GET", f"/gateway/{gateway_ip}/test-ips/cached")
+
+
+# ==================== Speed Test Endpoints ====================
+
+@router.post("/speedtest")
+async def run_speed_test():
+    """Proxy run speed test - can take 30-60 seconds"""
+    return await proxy_request("POST", "/speedtest", timeout=120.0)  # 2 minute timeout for speed test
