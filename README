@@ -1,10 +1,10 @@
 # Cartographer
 
+![Application screenshot](assets/application.png)
+
 **See every device on your network at a glance.**
 
 Cartographer is a self-hosted app that maps out your home or office network. It finds all the devices, shows how they're connected, and keeps an eye on their health — so you always know what's online and what's not.
-
-![Application screenshot](assets/application.png)
 
 ## What it does
 
