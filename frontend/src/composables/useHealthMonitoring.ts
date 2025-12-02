@@ -96,6 +96,10 @@ export function useHealthMonitoring() {
 		try {
 			const response = await axios.get<Record<string, DeviceMetrics>>('/api/health/cached');
 			cachedMetrics.value = response.data;
+			const deviceCount = Object.keys(response.data).length;
+			if (deviceCount > 0) {
+				console.log(`[Health] Fetched cached metrics for ${deviceCount} devices`);
+			}
 			return response.data;
 		} catch (error) {
 			console.error('[Health] Failed to fetch cached metrics:', error);

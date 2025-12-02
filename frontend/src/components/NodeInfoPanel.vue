@@ -252,22 +252,24 @@ import { ref, watch, computed, onMounted } from 'vue';
 import axios from 'axios';
 import type { TreeNode, DeviceMetrics, HealthStatus } from '../types/network';
 import MetricCard from './MetricCard.vue';
+import { useHealthMonitoring } from '../composables/useHealthMonitoring';
 
 const props = defineProps<{
 	node?: TreeNode;
-	cachedMetrics?: Record<string, DeviceMetrics>;
 }>();
 
 const emit = defineEmits<{
 	(e: 'close'): void;
 }>();
 
+const { cachedMetrics } = useHealthMonitoring();
+
 const localMetrics = ref<DeviceMetrics | null>(null);
 const loading = ref(false);
 const error = ref<string | null>(null);
 const scanningPorts = ref(false);
 
-// Use cached metrics from parent, falling back to local metrics (from manual refresh/port scan)
+// Use cached metrics from composable, falling back to local metrics (from manual refresh/port scan)
 const metrics = computed(() => {
 	const ip = props.node?.ip;
 	if (!ip) return null;
@@ -277,8 +279,8 @@ const metrics = computed(() => {
 		return localMetrics.value;
 	}
 	
-	// Otherwise use cached metrics from parent
-	return props.cachedMetrics?.[ip] || null;
+	// Otherwise use cached metrics from the health monitoring composable
+	return cachedMetrics.value?.[ip] || null;
 });
 
 // True when we couldn't reach the node (connection error or unhealthy status with no data)

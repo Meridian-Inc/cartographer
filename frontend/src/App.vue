@@ -292,7 +292,6 @@
 			<NodeInfoPanel
 				v-if="showNodeInfoPanel && selectedNode"
 				:node="selectedNode"
-				:cachedMetrics="cachedMetrics"
 				@close="closeNodeInfoPanel"
 			/>
 		</div>
@@ -460,7 +459,10 @@ function stopResize() {
 
 const { applySavedPositions, clearPositions, exportLayout } = useMapLayout();
 const { parseNetworkMap } = useNetworkData();
-const { registerDevices, startPolling, stopPolling, cachedMetrics } = useHealthMonitoring();
+const { registerDevices, startPolling, stopPolling } = useHealthMonitoring();
+
+// Track if we've done initial registration
+let hasRegisteredDevices = false;
 
 // Register devices for health monitoring whenever parsed changes
 watch(() => parsed.value?.root, async (root) => {
@@ -471,15 +473,28 @@ watch(() => parsed.value?.root, async (root) => {
 		
 		if (ips.length > 0) {
 			await registerDevices(ips);
+			hasRegisteredDevices = true;
 			console.log(`[Health] Registered ${ips.length} device IPs for monitoring`);
 		}
 	}
-}, { immediate: true });
+});
 
 // Start polling for health updates when app mounts
-onMounted(() => {
-	// Poll for cached health metrics every 10 seconds
+onMounted(async () => {
+	// Start polling for cached health metrics every 10 seconds
 	startPolling(10000);
+	
+	// If we already have parsed data (from MapControls loading saved layout),
+	// register devices now
+	if (parsed.value?.root && !hasRegisteredDevices) {
+		const devices = flattenDevices(parsed.value.root);
+		const ips = devices.map(d => d.ip).filter((ip): ip is string => !!ip);
+		if (ips.length > 0) {
+			await registerDevices(ips);
+			hasRegisteredDevices = true;
+			console.log(`[Health] Registered ${ips.length} device IPs for monitoring (on mount)`);
+		}
+	}
 });
 
 // Stop polling when app unmounts
