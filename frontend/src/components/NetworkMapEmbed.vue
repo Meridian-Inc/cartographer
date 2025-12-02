@@ -384,37 +384,35 @@ function render() {
 		.attr("font-size", "11px")
 		.text((d: any) => d.name);
 
-	// Draw connection speed labels (only if not in sensitive mode)
-	if (!props.sensitiveMode) {
-		const linksWithSpeed = links.filter((l: any) => {
-			const speed = (l.target.ref as any)?.connectionSpeed;
-			return speed && speed.trim().length > 0;
-		});
+	// Draw connection speed labels (speeds don't contain sensitive info, always show)
+	const linksWithSpeed = links.filter((l: any) => {
+		const speed = (l.target.ref as any)?.connectionSpeed;
+		return speed && speed.trim().length > 0;
+	});
 
-		if (linksWithSpeed.length > 0) {
-			const speedLabelGroup = g.append("g").attr("class", "speed-labels");
-			
-			speedLabelGroup.selectAll("text.speed-label")
-				.data(linksWithSpeed)
-				.join("text")
-				.attr("class", "speed-label")
-				.attr("x", (d: any) => (d.source.x + d.target.x) / 2)
-				.attr("y", (d: any) => (d.source.y + d.target.y) / 2)
-				.attr("text-anchor", "middle")
-				.attr("dy", "-0.5em")
-				.attr("font-size", "10px")
-				.attr("font-weight", "600")
-				.attr("font-style", "italic")
-				.attr("fill", dark ? "#93c5fd" : "#1e40af")
-				.attr("opacity", dark ? 0.8 : 0.6)
-				.attr("transform", (d: any) => {
-					const angle = getBezierAngle(d.source, d.target);
-					const centerX = (d.source.x + d.target.x) / 2;
-					const centerY = (d.source.y + d.target.y) / 2;
-					return `rotate(${angle}, ${centerX}, ${centerY})`;
-				})
-				.text((d: any) => (d.target.ref as any).connectionSpeed);
-		}
+	if (linksWithSpeed.length > 0) {
+		const speedLabelGroup = g.append("g").attr("class", "speed-labels");
+		
+		speedLabelGroup.selectAll("text.speed-label")
+			.data(linksWithSpeed)
+			.join("text")
+			.attr("class", "speed-label")
+			.attr("x", (d: any) => (d.source.x + d.target.x) / 2)
+			.attr("y", (d: any) => (d.source.y + d.target.y) / 2)
+			.attr("text-anchor", "middle")
+			.attr("dy", "-0.5em")
+			.attr("font-size", "10px")
+			.attr("font-weight", "600")
+			.attr("font-style", "italic")
+			.attr("fill", dark ? "#93c5fd" : "#1e40af")
+			.attr("opacity", dark ? 0.8 : 0.6)
+			.attr("transform", (d: any) => {
+				const angle = getBezierAngle(d.source, d.target);
+				const centerX = (d.source.x + d.target.x) / 2;
+				const centerY = (d.source.y + d.target.y) / 2;
+				return `rotate(${angle}, ${centerX}, ${centerY})`;
+			})
+			.text((d: any) => (d.target.ref as any).connectionSpeed);
 	}
 
 	cleanup = () => {
