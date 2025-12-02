@@ -45,15 +45,6 @@ class CheckHistoryEntry(BaseModel):
     latency_ms: Optional[float] = None
 
 
-class SpeedTestResult(BaseModel):
-    """Result of a speed test"""
-    download_mbps: Optional[float] = None
-    upload_mbps: Optional[float] = None
-    test_server: Optional[str] = None
-    test_timestamp: Optional[datetime] = None
-    error: Optional[str] = None
-
-
 class DeviceMetrics(BaseModel):
     """Comprehensive metrics for a device"""
     ip: str
@@ -75,9 +66,6 @@ class DeviceMetrics(BaseModel):
     checks_passed_24h: int = 0
     checks_failed_24h: int = 0
     check_history: List[CheckHistoryEntry] = []  # Recent check history for timeline display
-    
-    # Speed test results (for external IPs / internet connectivity)
-    speed_test: Optional[SpeedTestResult] = None
     
     # Additional info
     last_seen_online: Optional[datetime] = None
@@ -124,4 +112,54 @@ class MonitoringStatus(BaseModel):
 class RegisterDevicesRequest(BaseModel):
     """Request to register devices for monitoring"""
     ips: List[str]
+
+
+# ==================== Gateway Test IP Models ====================
+
+class GatewayTestIP(BaseModel):
+    """A test IP configured for a gateway device (for internet connectivity checks)"""
+    ip: str
+    label: Optional[str] = None  # Optional friendly name (e.g., "Google DNS", "Cloudflare")
+
+
+class GatewayTestIPConfig(BaseModel):
+    """Configuration for test IPs on a gateway"""
+    gateway_ip: str
+    test_ips: List[GatewayTestIP] = []
+    enabled: bool = True
+
+
+class GatewayTestIPMetrics(BaseModel):
+    """Metrics for a single test IP"""
+    ip: str
+    label: Optional[str] = None
+    status: HealthStatus
+    last_check: datetime
+    
+    # Ping metrics
+    ping: Optional[PingResult] = None
+    
+    # Historical data
+    uptime_percent_24h: Optional[float] = None
+    avg_latency_24h_ms: Optional[float] = None
+    checks_passed_24h: int = 0
+    checks_failed_24h: int = 0
+    check_history: List[CheckHistoryEntry] = []
+    
+    # Additional info
+    last_seen_online: Optional[datetime] = None
+    consecutive_failures: int = 0
+
+
+class GatewayTestIPsResponse(BaseModel):
+    """Response with all test IP metrics for a gateway"""
+    gateway_ip: str
+    test_ips: List[GatewayTestIPMetrics] = []
+    last_check: Optional[datetime] = None
+
+
+class SetGatewayTestIPsRequest(BaseModel):
+    """Request to set test IPs for a gateway"""
+    gateway_ip: str
+    test_ips: List[GatewayTestIP]
 

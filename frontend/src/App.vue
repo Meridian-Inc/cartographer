@@ -294,7 +294,6 @@
 				:node="selectedNode"
 				@close="closeNodeInfoPanel"
 				@toggleMonitoring="onToggleNodeMonitoring"
-				@updateTestIps="onUpdateTestIps"
 			/>
 		</div>
 		<!-- Terminal / Logs Panel -->
@@ -465,51 +464,28 @@ const { registerDevices, startPolling, stopPolling } = useHealthMonitoring();
 
 // Track if we've done initial registration
 let hasRegisteredDevices = false;
-let lastRegisteredIps: string[] = [];
 
-// Helper to get IPs of devices that have monitoring enabled, including test IPs from gateways
+// Helper to get IPs of devices that have monitoring enabled
 function getMonitoredDeviceIPs(root: TreeNode): string[] {
 	const devices = flattenDevices(root);
-	const ips: string[] = [];
-	
-	for (const d of devices) {
-		// Add device IP if monitoring is enabled
-		if (d.ip && d.monitoringEnabled !== false) {
-			ips.push(d.ip);
-		}
-		
-		// Add test IPs from gateway devices (always monitored if they exist)
-		if (d.role === 'gateway/router' && d.testIps && d.testIps.length > 0) {
-			ips.push(...d.testIps);
-		}
-	}
-	
-	// Remove duplicates
-	return [...new Set(ips)];
+	return devices
+		.filter(d => d.ip && d.monitoringEnabled !== false) // Only include nodes with monitoring enabled (default: true)
+		.map(d => d.ip!)
+		.filter((ip): ip is string => !!ip);
 }
 
-// Register devices for health monitoring whenever parsed changes (deep watch to catch testIps changes)
-watch(
-	() => parsed.value?.root,
-	async (root) => {
-		if (root) {
-			const ips = getMonitoredDeviceIPs(root);
-			
-			// Only re-register if the IP list has changed
-			const ipsChanged = ips.length !== lastRegisteredIps.length || 
-				ips.some((ip, i) => !lastRegisteredIps.includes(ip)) ||
-				lastRegisteredIps.some(ip => !ips.includes(ip));
-			
-			if (ips.length > 0 && ipsChanged) {
-				lastRegisteredIps = [...ips];
-				await registerDevices(ips);
-				hasRegisteredDevices = true;
-				console.log(`[Health] Registered ${ips.length} device IPs for monitoring:`, ips);
-			}
+// Register devices for health monitoring whenever parsed changes
+watch(() => parsed.value?.root, async (root) => {
+	if (root) {
+		const ips = getMonitoredDeviceIPs(root);
+		
+		if (ips.length > 0) {
+			await registerDevices(ips);
+			hasRegisteredDevices = true;
+			console.log(`[Health] Registered ${ips.length} device IPs for monitoring`);
 		}
-	},
-	{ deep: true }
-);
+	}
+});
 
 // Start polling for health updates when app mounts
 onMounted(async () => {
@@ -521,10 +497,9 @@ onMounted(async () => {
 	if (parsed.value?.root && !hasRegisteredDevices) {
 		const ips = getMonitoredDeviceIPs(parsed.value.root);
 		if (ips.length > 0) {
-			lastRegisteredIps = [...ips];
 			await registerDevices(ips);
 			hasRegisteredDevices = true;
-			console.log(`[Health] Registered ${ips.length} device IPs for monitoring (on mount):`, ips);
+			console.log(`[Health] Registered ${ips.length} device IPs for monitoring (on mount)`);
 		}
 	}
 });
@@ -865,32 +840,6 @@ async function onToggleNodeMonitoring(nodeId: string, enabled: boolean) {
 		
 		// Trigger auto-save
 		triggerAutoSave();
-	}
-}
-
-async function onUpdateTestIps(nodeId: string, testIps: string[]) {
-	if (!parsed.value?.root) return;
-	
-	// Find the node and update its testIps property
-	const node = findNodeById(parsed.value.root, nodeId);
-	if (node) {
-		node.testIps = testIps;
-		
-		// Update the version for change tracking
-		const now = new Date().toISOString();
-		node.updatedAt = now;
-		node.version = (node.version || 0) + 1;
-		
-		console.log(`[Health] Updated test IPs for ${node.name || nodeId}:`, testIps);
-		
-		// Trigger auto-save
-		triggerAutoSave();
-		
-		// Re-register devices to include the new test IPs in monitoring
-		const allIps = getMonitoredDeviceIPs(parsed.value.root);
-		lastRegisteredIps = [...allIps];
-		await registerDevices(allIps);
-		console.log(`[Health] Re-registered devices with test IPs:`, allIps);
 	}
 }
 

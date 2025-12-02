@@ -10,7 +10,9 @@ from ..models import (
     MonitoringConfig,
     MonitoringStatus,
     RegisterDevicesRequest,
-    SpeedTestResult,
+    GatewayTestIPConfig,
+    GatewayTestIPsResponse,
+    SetGatewayTestIPsRequest,
 )
 from ..services.health_checker import health_checker
 
@@ -132,20 +134,6 @@ async def check_dns(ip: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/speedtest", response_model=SpeedTestResult)
-async def run_speed_test():
-    """
-    Run an internet speed test to measure download and upload speeds.
-    Uses Cloudflare's speed test servers for reliable measurement.
-    Note: This test may take 10-30 seconds to complete.
-    """
-    try:
-        result = await health_checker.run_speed_test()
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 # ==================== Monitoring Endpoints ====================
 
 @router.post("/monitoring/devices")
@@ -231,4 +219,69 @@ async def trigger_immediate_check():
         "checked_devices": len(health_checker.get_monitored_devices()),
         "timestamp": datetime.utcnow()
     }
+
+
+# ==================== Gateway Test IP Endpoints ====================
+
+@router.post("/gateway/{gateway_ip}/test-ips", response_model=GatewayTestIPConfig)
+async def set_gateway_test_ips(gateway_ip: str, request: SetGatewayTestIPsRequest):
+    """
+    Set test IPs for a gateway device.
+    These IPs will be checked periodically to test internet connectivity.
+    """
+    if request.gateway_ip != gateway_ip:
+        raise HTTPException(status_code=400, detail="Gateway IP in path must match request body")
+    
+    config = health_checker.set_gateway_test_ips(gateway_ip, request.test_ips)
+    return config
+
+
+@router.get("/gateway/{gateway_ip}/test-ips", response_model=GatewayTestIPConfig)
+async def get_gateway_test_ips(gateway_ip: str):
+    """
+    Get test IP configuration for a gateway device.
+    """
+    config = health_checker.get_gateway_test_ips(gateway_ip)
+    if config is None:
+        raise HTTPException(status_code=404, detail="No test IPs configured for this gateway")
+    return config
+
+
+@router.delete("/gateway/{gateway_ip}/test-ips")
+async def remove_gateway_test_ips(gateway_ip: str):
+    """
+    Remove all test IPs for a gateway device.
+    """
+    if health_checker.remove_gateway_test_ips(gateway_ip):
+        return {"message": f"Removed test IPs for gateway {gateway_ip}"}
+    raise HTTPException(status_code=404, detail="No test IPs configured for this gateway")
+
+
+@router.get("/gateway/{gateway_ip}/test-ips/check", response_model=GatewayTestIPsResponse)
+async def check_gateway_test_ips(gateway_ip: str):
+    """
+    Perform an immediate check of all test IPs for a gateway.
+    Returns current metrics for all configured test IPs.
+    """
+    config = health_checker.get_gateway_test_ips(gateway_ip)
+    if config is None:
+        raise HTTPException(status_code=404, detail="No test IPs configured for this gateway")
+    
+    return await health_checker.check_gateway_test_ips(gateway_ip)
+
+
+@router.get("/gateway/{gateway_ip}/test-ips/cached", response_model=GatewayTestIPsResponse)
+async def get_cached_test_ip_metrics(gateway_ip: str):
+    """
+    Get cached metrics for all test IPs of a gateway without performing a new check.
+    """
+    return health_checker.get_cached_test_ip_metrics(gateway_ip)
+
+
+@router.get("/gateway/test-ips/all")
+async def get_all_gateway_test_ips():
+    """
+    Get all gateway test IP configurations.
+    """
+    return health_checker.get_all_gateway_test_ips()
 

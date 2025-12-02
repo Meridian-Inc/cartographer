@@ -264,205 +264,257 @@
 					</div>
 				</section>
 
-				<!-- Internet Connectivity Tests (Gateway/Router only) -->
-				<section v-if="isGatewayDevice">
-					<h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Internet Connectivity</h3>
-					<div class="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-3 space-y-3">
-						<!-- Test IP List -->
-						<div v-if="testIps.length > 0" class="space-y-2">
-							<div 
-								v-for="(ip, idx) in testIps" 
-								:key="ip"
-								class="bg-white dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700 overflow-hidden"
-							>
-								<div class="flex items-center justify-between px-3 py-2">
-									<div class="flex items-center gap-2">
-										<div 
-											class="w-2 h-2 rounded-full"
-											:class="getTestIpStatusColor(ip)"
-										></div>
-										<span class="text-sm font-mono text-slate-700 dark:text-slate-300">{{ ip }}</span>
-									</div>
-									<div class="flex items-center gap-1">
-										<button 
-											@click="testSingleIp(ip)"
-											:disabled="testingIp === ip"
-											class="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 disabled:opacity-50"
-											title="Test this IP"
-										>
-											<svg 
-												xmlns="http://www.w3.org/2000/svg" 
-												class="h-4 w-4" 
-												:class="{ 'animate-spin': testingIp === ip }"
-												fill="none" 
-												viewBox="0 0 24 24" 
-												stroke="currentColor" 
-												stroke-width="2"
-											>
-												<path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-											</svg>
-										</button>
-										<button 
-											@click="removeTestIp(idx)"
-											class="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400"
-											title="Remove this IP"
-										>
-											<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-												<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-											</svg>
-										</button>
-									</div>
-								</div>
-								<!-- Test Results (from cached metrics or manual test) -->
-								<div v-if="getTestIpMetrics(ip)" class="px-3 py-2 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700 text-xs space-y-2">
-									<div class="flex justify-between">
-										<span class="text-slate-500 dark:text-slate-400">Status</span>
-										<span :class="getTestIpMetrics(ip)?.ping?.success ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'">
-											{{ getTestIpMetrics(ip)?.ping?.success ? 'Reachable' : 'Unreachable' }}
-										</span>
-									</div>
-									<div v-if="getTestIpMetrics(ip)?.ping?.avg_latency_ms" class="flex justify-between">
-										<span class="text-slate-500 dark:text-slate-400">Latency</span>
-										<span class="text-slate-700 dark:text-slate-300">{{ getTestIpMetrics(ip)!.ping!.avg_latency_ms!.toFixed(1) }} ms</span>
-									</div>
-									<div v-if="getTestIpMetrics(ip)?.ping?.packet_loss_percent != null" class="flex justify-between">
-										<span class="text-slate-500 dark:text-slate-400">Packet Loss</span>
-										<span :class="getTestIpMetrics(ip)!.ping!.packet_loss_percent > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-700 dark:text-slate-300'">
-											{{ getTestIpMetrics(ip)!.ping!.packet_loss_percent.toFixed(1) }}%
-										</span>
-									</div>
-									<div v-if="getTestIpMetrics(ip)?.ping?.jitter_ms != null" class="flex justify-between">
-										<span class="text-slate-500 dark:text-slate-400">Jitter</span>
-										<span class="text-slate-700 dark:text-slate-300">{{ getTestIpMetrics(ip)!.ping!.jitter_ms!.toFixed(2) }} ms</span>
-									</div>
-									<!-- Uptime Timeline -->
-									<div v-if="getTestIpTimelineSegments(ip).length > 0 || getTestIpMetrics(ip)?.uptime_percent_24h != null" class="pt-2 border-t border-slate-200 dark:border-slate-700">
-										<div class="flex justify-between items-center mb-1">
-											<span class="text-slate-500 dark:text-slate-400">Uptime (24h)</span>
-											<span :class="getUptimeColor(getTestIpMetrics(ip)?.uptime_percent_24h || 0)">
-												{{ getTestIpMetrics(ip)?.uptime_percent_24h?.toFixed(1) || '0' }}%
-											</span>
-										</div>
-										<div class="h-2 bg-slate-200 dark:bg-slate-700 rounded overflow-hidden flex">
-											<template v-if="getTestIpTimelineSegments(ip).length > 0">
-												<div
-													v-for="(entry, histIdx) in getTestIpTimelineSegments(ip)"
-													:key="histIdx"
-													class="h-full"
-													:class="entry.success ? 'bg-emerald-500' : 'bg-red-500'"
-													:style="{ width: entry.width + '%' }"
-													:title="formatTimelineTooltip(entry)"
-												></div>
-											</template>
-											<template v-else>
-												<div 
-													class="h-full bg-emerald-500"
-													:style="{ width: `${getTestIpMetrics(ip)?.uptime_percent_24h || 0}%` }"
-												></div>
-											</template>
-										</div>
-									</div>
-								</div>
-							</div>
-						</div>
-						
-						<!-- Add New Test IP -->
-						<div class="flex gap-2">
-							<input 
-								v-model="newTestIp"
-								type="text"
-								placeholder="8.8.8.8 or 1.1.1.1"
-								class="flex-1 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded px-2 py-1"
-								@keyup.enter="addTestIp"
-							/>
-							<button 
-								@click="addTestIp"
-								:disabled="!newTestIp.trim()"
-								class="px-3 py-1 text-sm rounded bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-							>
-								Add
-							</button>
-						</div>
-						
-						<!-- Test All Button -->
-						<button 
-							v-if="testIps.length > 0"
-							@click="testAllIps"
-							:disabled="testingAll"
-							class="w-full px-3 py-2 text-sm rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 flex items-center justify-center gap-2"
+				<!-- Gateway Test IPs Section (only for gateway/router devices) -->
+				<section v-if="isGateway && node?.ip">
+					<div class="flex items-center justify-between mb-2">
+						<h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+							</svg>
+							Internet Test IPs
+						</h3>
+						<button
+							@click="testIPsExpanded = !testIPsExpanded"
+							class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400"
 						>
 							<svg 
 								xmlns="http://www.w3.org/2000/svg" 
-								class="h-4 w-4" 
-								:class="{ 'animate-spin': testingAll }"
-								fill="none" 
-								viewBox="0 0 24 24" 
-								stroke="currentColor" 
-								stroke-width="2"
+								class="h-4 w-4 transition-transform duration-200"
+								:class="{ 'rotate-180': !testIPsExpanded }"
+								fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
 							>
-								<path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+								<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
 							</svg>
-							{{ testingAll ? 'Testing...' : 'Test All' }}
 						</button>
-						
-						<!-- ISP Speed Test -->
-						<div class="pt-2 border-t border-slate-200 dark:border-slate-700">
-							<div class="flex items-center justify-between mb-2">
-								<span class="text-xs font-medium text-slate-600 dark:text-slate-400">ISP Speed</span>
-								<button 
-									@click="runSpeedTest"
-									:disabled="runningSpeedTest"
-									class="px-2 py-1 text-xs rounded bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-50 flex items-center gap-1"
-								>
-									<svg 
-										xmlns="http://www.w3.org/2000/svg" 
-										class="h-3 w-3" 
-										:class="{ 'animate-spin': runningSpeedTest }"
-										fill="none" 
-										viewBox="0 0 24 24" 
-										stroke="currentColor" 
-										stroke-width="2"
+					</div>
+					
+					<div v-show="testIPsExpanded" class="space-y-3">
+						<!-- Error message -->
+						<div v-if="testIPsError" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-2 text-xs text-red-700 dark:text-red-300">
+							{{ testIPsError }}
+							<button @click="testIPsError = null" class="ml-2 underline">Dismiss</button>
+						</div>
+
+						<!-- Test IPs list -->
+						<div v-if="testIPs.length > 0" class="space-y-2">
+							<div 
+								v-for="tip in testIPs" 
+								:key="tip.ip"
+								class="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-3"
+							>
+								<!-- Test IP header -->
+								<div class="flex items-center justify-between mb-2">
+									<div class="flex items-center gap-2">
+										<div 
+											class="w-2.5 h-2.5 rounded-full animate-pulse"
+											:class="getTestIPStatusColor(getTestIPMetrics(tip.ip)?.status)"
+										></div>
+										<div>
+											<span class="text-sm font-medium text-slate-700 dark:text-slate-300 font-mono">{{ tip.ip }}</span>
+											<span v-if="tip.label" class="text-xs text-slate-500 dark:text-slate-400 ml-2">({{ tip.label }})</span>
+										</div>
+									</div>
+									<button
+										@click="removeTestIP(tip.ip)"
+										class="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+										title="Remove this test IP"
 									>
-										<path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-									</svg>
-									{{ runningSpeedTest ? 'Testing...' : 'Test Speed' }}
-								</button>
+										<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+											<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+										</svg>
+									</button>
+								</div>
+
+								<!-- Test IP metrics (if available) -->
+								<template v-if="getTestIPMetrics(tip.ip)">
+									<div class="space-y-2">
+										<!-- Status -->
+										<div class="flex items-center justify-between text-xs">
+											<span class="text-slate-500 dark:text-slate-400">Status</span>
+											<span 
+												class="font-medium"
+												:class="{
+													'text-emerald-600 dark:text-emerald-400': getTestIPMetrics(tip.ip)?.status === 'healthy',
+													'text-amber-600 dark:text-amber-400': getTestIPMetrics(tip.ip)?.status === 'degraded',
+													'text-red-600 dark:text-red-400': getTestIPMetrics(tip.ip)?.status === 'unhealthy',
+													'text-slate-500 dark:text-slate-400': !getTestIPMetrics(tip.ip)?.status || getTestIPMetrics(tip.ip)?.status === 'unknown'
+												}"
+											>
+												{{ getTestIPStatusLabel(getTestIPMetrics(tip.ip)?.status) }}
+											</span>
+										</div>
+
+										<!-- Latency -->
+										<div v-if="getTestIPMetrics(tip.ip)?.ping?.avg_latency_ms != null" class="flex items-center justify-between text-xs">
+											<span class="text-slate-500 dark:text-slate-400">Latency</span>
+											<span class="font-medium text-slate-700 dark:text-slate-300">
+												{{ getTestIPMetrics(tip.ip)?.ping?.avg_latency_ms?.toFixed(1) }} ms
+											</span>
+										</div>
+
+										<!-- Packet Loss -->
+										<div v-if="getTestIPMetrics(tip.ip)?.ping?.packet_loss_percent != null" class="flex items-center justify-between text-xs">
+											<span class="text-slate-500 dark:text-slate-400">Packet Loss</span>
+											<span 
+												class="font-medium"
+												:class="getTestIPMetrics(tip.ip)?.ping?.packet_loss_percent === 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'"
+											>
+												{{ getTestIPMetrics(tip.ip)?.ping?.packet_loss_percent?.toFixed(1) }}%
+											</span>
+										</div>
+
+										<!-- Jitter -->
+										<div v-if="getTestIPMetrics(tip.ip)?.ping?.jitter_ms != null" class="flex items-center justify-between text-xs">
+											<span class="text-slate-500 dark:text-slate-400">Jitter</span>
+											<span class="font-medium text-slate-700 dark:text-slate-300">
+												{{ getTestIPMetrics(tip.ip)?.ping?.jitter_ms?.toFixed(2) }} ms
+											</span>
+										</div>
+
+										<!-- 24h Uptime -->
+										<div v-if="getTestIPMetrics(tip.ip)?.uptime_percent_24h != null" class="pt-2 border-t border-slate-200 dark:border-slate-700">
+											<div class="flex items-center justify-between text-xs mb-1">
+												<span class="text-slate-500 dark:text-slate-400">24h Uptime</span>
+												<span 
+													class="font-medium"
+													:class="getUptimeColor(getTestIPMetrics(tip.ip)?.uptime_percent_24h || 0)"
+												>
+													{{ getTestIPMetrics(tip.ip)?.uptime_percent_24h?.toFixed(1) }}%
+												</span>
+											</div>
+											<!-- Mini timeline -->
+											<div 
+												v-if="getTestIPMetrics(tip.ip)?.check_history?.length"
+												class="h-2 bg-slate-200 dark:bg-slate-700 rounded overflow-hidden flex"
+											>
+												<div
+													v-for="(entry, idx) in getTestIPMetrics(tip.ip)?.check_history?.slice(-50)"
+													:key="idx"
+													class="h-full"
+													:class="entry.success ? 'bg-emerald-500' : 'bg-red-500'"
+													:style="{ width: `${100 / Math.min(50, getTestIPMetrics(tip.ip)?.check_history?.length || 1)}%` }"
+												></div>
+											</div>
+										</div>
+
+										<!-- Checks count -->
+										<div v-if="getTestIPMetrics(tip.ip)?.checks_passed_24h || getTestIPMetrics(tip.ip)?.checks_failed_24h" class="flex items-center justify-between text-xs">
+											<span class="text-slate-500 dark:text-slate-400">24h Checks</span>
+											<span class="space-x-1">
+												<span class="text-emerald-600 dark:text-emerald-400">{{ getTestIPMetrics(tip.ip)?.checks_passed_24h || 0 }}✓</span>
+												<span class="text-slate-400">/</span>
+												<span class="text-red-600 dark:text-red-400">{{ getTestIPMetrics(tip.ip)?.checks_failed_24h || 0 }}✗</span>
+											</span>
+										</div>
+
+										<!-- Last check time -->
+										<div v-if="getTestIPMetrics(tip.ip)?.last_check" class="flex items-center justify-between text-xs">
+											<span class="text-slate-500 dark:text-slate-400">Last Check</span>
+											<span class="text-slate-500 dark:text-slate-400">
+												{{ formatTimestamp(getTestIPMetrics(tip.ip)?.last_check || '') }}
+											</span>
+										</div>
+									</div>
+								</template>
+
+								<!-- Loading state for this IP -->
+								<div v-else-if="testIPsLoading" class="text-xs text-slate-500 dark:text-slate-400 italic">
+									Checking...
+								</div>
+
+								<!-- No metrics yet -->
+								<div v-else class="text-xs text-slate-500 dark:text-slate-400 italic">
+									Awaiting first check...
+								</div>
 							</div>
-							<!-- Speed Test Results -->
-							<div v-if="speedTestResult" class="bg-white dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700 p-2 text-xs space-y-1">
-								<div class="flex justify-between">
-									<span class="text-slate-500 dark:text-slate-400">Download</span>
-									<span class="text-emerald-600 dark:text-emerald-400 font-medium">
-										{{ speedTestResult.download_mbps ? speedTestResult.download_mbps.toFixed(1) + ' Mbps' : 'N/A' }}
-									</span>
-								</div>
-								<div class="flex justify-between">
-									<span class="text-slate-500 dark:text-slate-400">Upload</span>
-									<span class="text-blue-600 dark:text-blue-400 font-medium">
-										{{ speedTestResult.upload_mbps ? speedTestResult.upload_mbps.toFixed(1) + ' Mbps' : 'N/A' }}
-									</span>
-								</div>
-								<div v-if="speedTestResult.test_server" class="flex justify-between">
-									<span class="text-slate-500 dark:text-slate-400">Server</span>
-									<span class="text-slate-600 dark:text-slate-300">{{ speedTestResult.test_server }}</span>
-								</div>
-								<div v-if="speedTestResult.test_timestamp" class="flex justify-between">
-									<span class="text-slate-500 dark:text-slate-400">Tested</span>
-									<span class="text-slate-600 dark:text-slate-300">{{ formatTimestamp(speedTestResult.test_timestamp) }}</span>
-								</div>
-								<div v-if="speedTestResult.error" class="text-red-500 dark:text-red-400">
-									{{ speedTestResult.error }}
-								</div>
-							</div>
-							<p v-else class="text-[10px] text-slate-400 dark:text-slate-500">
-								Click "Test Speed" to measure your ISP download/upload speeds.
+						</div>
+
+						<!-- Empty state -->
+						<div v-else-if="!testIPsLoading" class="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-4 text-center">
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 mx-auto mb-2 text-slate-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+							</svg>
+							<p class="text-xs text-slate-500 dark:text-slate-400 mb-2">
+								No test IPs configured
+							</p>
+							<p class="text-xs text-slate-400 dark:text-slate-500">
+								Add external IPs to monitor internet connectivity
 							</p>
 						</div>
-						
-						<!-- Help text -->
-						<p class="text-[10px] text-slate-400 dark:text-slate-500">
-							Add external IPs (e.g., 8.8.8.8, 1.1.1.1) to test internet connectivity through this gateway.
-						</p>
+
+						<!-- Quick add presets -->
+						<div v-if="!showAddTestIP" class="flex flex-wrap gap-1.5">
+							<button
+								v-for="preset in presetTestIPs.filter(p => !testIPs.some(t => t.ip === p.ip))"
+								:key="preset.ip"
+								@click="addPresetTestIP(preset)"
+								class="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:border-blue-400 dark:hover:border-blue-600 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+								:title="`Add ${preset.label}`"
+							>
+								+ {{ preset.label }}
+							</button>
+							<button
+								@click="showAddTestIP = true"
+								class="px-2 py-1 text-xs rounded border border-dashed border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-slate-400 dark:hover:border-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+							>
+								+ Custom IP
+							</button>
+						</div>
+
+						<!-- Add custom test IP form -->
+						<div v-if="showAddTestIP" class="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-3 space-y-2">
+							<div class="flex gap-2">
+								<input
+									v-model="newTestIP"
+									type="text"
+									placeholder="IP address (e.g., 8.8.8.8)"
+									class="flex-1 px-2 py-1.5 text-xs border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+									@keyup.enter="addTestIP"
+								/>
+							</div>
+							<div class="flex gap-2">
+								<input
+									v-model="newTestIPLabel"
+									type="text"
+									placeholder="Label (optional, e.g., Google DNS)"
+									class="flex-1 px-2 py-1.5 text-xs border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+									@keyup.enter="addTestIP"
+								/>
+							</div>
+							<div class="flex justify-end gap-2">
+								<button
+									@click="showAddTestIP = false; newTestIP = ''; newTestIPLabel = ''; testIPsError = null"
+									class="px-3 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+								>
+									Cancel
+								</button>
+								<button
+									@click="addTestIP"
+									:disabled="!newTestIP.trim()"
+									class="px-3 py-1 text-xs rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+								>
+									Add
+								</button>
+							</div>
+						</div>
+
+						<!-- Refresh button -->
+						<button
+							v-if="testIPs.length > 0"
+							@click="checkTestIPsNow"
+							:disabled="testIPsLoading"
+							class="w-full px-3 py-2 text-xs rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+						>
+							<svg 
+								xmlns="http://www.w3.org/2000/svg" 
+								class="h-3.5 w-3.5" 
+								:class="{ 'animate-spin': testIPsLoading }"
+								fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
+							>
+								<path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+							</svg>
+							{{ testIPsLoading ? 'Checking...' : 'Check Now' }}
+						</button>
 					</div>
 				</section>
 			</div>
@@ -497,208 +549,6 @@
 						</div>
 					</div>
 				</section>
-
-				<!-- Internet Connectivity Tests (Gateway/Router only - also shown when monitoring disabled) -->
-				<section v-if="isGatewayDevice">
-					<h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Internet Connectivity</h3>
-					<div class="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-3 space-y-3">
-						<!-- Test IP List -->
-						<div v-if="testIps.length > 0" class="space-y-2">
-							<div 
-								v-for="(ip, idx) in testIps" 
-								:key="ip"
-								class="bg-white dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700 overflow-hidden"
-							>
-								<div class="flex items-center justify-between px-3 py-2">
-									<div class="flex items-center gap-2">
-										<div 
-											class="w-2 h-2 rounded-full"
-											:class="getTestIpStatusColor(ip)"
-										></div>
-										<span class="text-sm font-mono text-slate-700 dark:text-slate-300">{{ ip }}</span>
-									</div>
-									<div class="flex items-center gap-1">
-										<button 
-											@click="testSingleIp(ip)"
-											:disabled="testingIp === ip"
-											class="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 disabled:opacity-50"
-											title="Test this IP"
-										>
-											<svg 
-												xmlns="http://www.w3.org/2000/svg" 
-												class="h-4 w-4" 
-												:class="{ 'animate-spin': testingIp === ip }"
-												fill="none" 
-												viewBox="0 0 24 24" 
-												stroke="currentColor" 
-												stroke-width="2"
-											>
-												<path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-											</svg>
-										</button>
-										<button 
-											@click="removeTestIp(idx)"
-											class="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400"
-											title="Remove this IP"
-										>
-											<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-												<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-											</svg>
-										</button>
-									</div>
-								</div>
-								<!-- Test Results (from cached metrics or manual test) -->
-								<div v-if="getTestIpMetrics(ip)" class="px-3 py-2 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700 text-xs space-y-2">
-									<div class="flex justify-between">
-										<span class="text-slate-500 dark:text-slate-400">Status</span>
-										<span :class="getTestIpMetrics(ip)?.ping?.success ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'">
-											{{ getTestIpMetrics(ip)?.ping?.success ? 'Reachable' : 'Unreachable' }}
-										</span>
-									</div>
-									<div v-if="getTestIpMetrics(ip)?.ping?.avg_latency_ms" class="flex justify-between">
-										<span class="text-slate-500 dark:text-slate-400">Latency</span>
-										<span class="text-slate-700 dark:text-slate-300">{{ getTestIpMetrics(ip)!.ping!.avg_latency_ms!.toFixed(1) }} ms</span>
-									</div>
-									<div v-if="getTestIpMetrics(ip)?.ping?.packet_loss_percent != null" class="flex justify-between">
-										<span class="text-slate-500 dark:text-slate-400">Packet Loss</span>
-										<span :class="getTestIpMetrics(ip)!.ping!.packet_loss_percent > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-700 dark:text-slate-300'">
-											{{ getTestIpMetrics(ip)!.ping!.packet_loss_percent.toFixed(1) }}%
-										</span>
-									</div>
-									<div v-if="getTestIpMetrics(ip)?.ping?.jitter_ms != null" class="flex justify-between">
-										<span class="text-slate-500 dark:text-slate-400">Jitter</span>
-										<span class="text-slate-700 dark:text-slate-300">{{ getTestIpMetrics(ip)!.ping!.jitter_ms!.toFixed(2) }} ms</span>
-									</div>
-									<!-- Uptime Timeline -->
-									<div v-if="getTestIpTimelineSegments(ip).length > 0 || getTestIpMetrics(ip)?.uptime_percent_24h != null" class="pt-2 border-t border-slate-200 dark:border-slate-700">
-										<div class="flex justify-between items-center mb-1">
-											<span class="text-slate-500 dark:text-slate-400">Uptime (24h)</span>
-											<span :class="getUptimeColor(getTestIpMetrics(ip)?.uptime_percent_24h || 0)">
-												{{ getTestIpMetrics(ip)?.uptime_percent_24h?.toFixed(1) || '0' }}%
-											</span>
-										</div>
-										<div class="h-2 bg-slate-200 dark:bg-slate-700 rounded overflow-hidden flex">
-											<template v-if="getTestIpTimelineSegments(ip).length > 0">
-												<div
-													v-for="(entry, histIdx) in getTestIpTimelineSegments(ip)"
-													:key="histIdx"
-													class="h-full"
-													:class="entry.success ? 'bg-emerald-500' : 'bg-red-500'"
-													:style="{ width: entry.width + '%' }"
-													:title="formatTimelineTooltip(entry)"
-												></div>
-											</template>
-											<template v-else>
-												<div 
-													class="h-full bg-emerald-500"
-													:style="{ width: `${getTestIpMetrics(ip)?.uptime_percent_24h || 0}%` }"
-												></div>
-											</template>
-										</div>
-									</div>
-								</div>
-							</div>
-						</div>
-						
-						<!-- Add New Test IP -->
-						<div class="flex gap-2">
-							<input 
-								v-model="newTestIp"
-								type="text"
-								placeholder="8.8.8.8 or 1.1.1.1"
-								class="flex-1 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded px-2 py-1"
-								@keyup.enter="addTestIp"
-							/>
-							<button 
-								@click="addTestIp"
-								:disabled="!newTestIp.trim()"
-								class="px-3 py-1 text-sm rounded bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-							>
-								Add
-							</button>
-						</div>
-						
-						<!-- Test All Button -->
-						<button 
-							v-if="testIps.length > 0"
-							@click="testAllIps"
-							:disabled="testingAll"
-							class="w-full px-3 py-2 text-sm rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 flex items-center justify-center gap-2"
-						>
-							<svg 
-								xmlns="http://www.w3.org/2000/svg" 
-								class="h-4 w-4" 
-								:class="{ 'animate-spin': testingAll }"
-								fill="none" 
-								viewBox="0 0 24 24" 
-								stroke="currentColor" 
-								stroke-width="2"
-							>
-								<path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-							</svg>
-							{{ testingAll ? 'Testing...' : 'Test All' }}
-						</button>
-						
-						<!-- ISP Speed Test -->
-						<div class="pt-2 border-t border-slate-200 dark:border-slate-700">
-							<div class="flex items-center justify-between mb-2">
-								<span class="text-xs font-medium text-slate-600 dark:text-slate-400">ISP Speed</span>
-								<button 
-									@click="runSpeedTest"
-									:disabled="runningSpeedTest"
-									class="px-2 py-1 text-xs rounded bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-50 flex items-center gap-1"
-								>
-									<svg 
-										xmlns="http://www.w3.org/2000/svg" 
-										class="h-3 w-3" 
-										:class="{ 'animate-spin': runningSpeedTest }"
-										fill="none" 
-										viewBox="0 0 24 24" 
-										stroke="currentColor" 
-										stroke-width="2"
-									>
-										<path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-									</svg>
-									{{ runningSpeedTest ? 'Testing...' : 'Test Speed' }}
-								</button>
-							</div>
-							<!-- Speed Test Results -->
-							<div v-if="speedTestResult" class="bg-white dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700 p-2 text-xs space-y-1">
-								<div class="flex justify-between">
-									<span class="text-slate-500 dark:text-slate-400">Download</span>
-									<span class="text-emerald-600 dark:text-emerald-400 font-medium">
-										{{ speedTestResult.download_mbps ? speedTestResult.download_mbps.toFixed(1) + ' Mbps' : 'N/A' }}
-									</span>
-								</div>
-								<div class="flex justify-between">
-									<span class="text-slate-500 dark:text-slate-400">Upload</span>
-									<span class="text-blue-600 dark:text-blue-400 font-medium">
-										{{ speedTestResult.upload_mbps ? speedTestResult.upload_mbps.toFixed(1) + ' Mbps' : 'N/A' }}
-									</span>
-								</div>
-								<div v-if="speedTestResult.test_server" class="flex justify-between">
-									<span class="text-slate-500 dark:text-slate-400">Server</span>
-									<span class="text-slate-600 dark:text-slate-300">{{ speedTestResult.test_server }}</span>
-								</div>
-								<div v-if="speedTestResult.test_timestamp" class="flex justify-between">
-									<span class="text-slate-500 dark:text-slate-400">Tested</span>
-									<span class="text-slate-600 dark:text-slate-300">{{ formatTimestamp(speedTestResult.test_timestamp) }}</span>
-								</div>
-								<div v-if="speedTestResult.error" class="text-red-500 dark:text-red-400">
-									{{ speedTestResult.error }}
-								</div>
-							</div>
-							<p v-else class="text-[10px] text-slate-400 dark:text-slate-500">
-								Click "Test Speed" to measure your ISP download/upload speeds.
-							</p>
-						</div>
-						
-						<!-- Help text -->
-						<p class="text-[10px] text-slate-400 dark:text-slate-500">
-							Add external IPs (e.g., 8.8.8.8, 1.1.1.1) to test internet connectivity through this gateway.
-						</p>
-					</div>
-				</section>
 			</div>
 
 			<!-- No IP Warning -->
@@ -728,9 +578,9 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, watch, computed, onMounted } from 'vue';
+import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
 import axios from 'axios';
-import type { TreeNode, DeviceMetrics, HealthStatus } from '../types/network';
+import type { TreeNode, DeviceMetrics, HealthStatus, GatewayTestIP, GatewayTestIPMetrics, GatewayTestIPsResponse } from '../types/network';
 import MetricCard from './MetricCard.vue';
 import { useHealthMonitoring } from '../composables/useHealthMonitoring';
 
@@ -741,164 +591,34 @@ const props = defineProps<{
 const emit = defineEmits<{
 	(e: 'close'): void;
 	(e: 'toggleMonitoring', nodeId: string, enabled: boolean): void;
-	(e: 'updateTestIps', nodeId: string, testIps: string[]): void;
 }>();
 
 const { cachedMetrics } = useHealthMonitoring();
+
+// Check if this node is a gateway device
+const isGateway = computed(() => props.node?.role === 'gateway/router');
+
+// Test IP state
+const testIPs = ref<GatewayTestIP[]>([]);
+const testIPMetrics = ref<GatewayTestIPMetrics[]>([]);
+const testIPsLoading = ref(false);
+const testIPsError = ref<string | null>(null);
+const newTestIP = ref('');
+const newTestIPLabel = ref('');
+const showAddTestIP = ref(false);
+const testIPsExpanded = ref(true);
+let testIPPollingInterval: ReturnType<typeof setInterval> | null = null;
 
 // Whether monitoring is enabled for this node (default: true)
 const monitoringEnabled = computed(() => {
 	return props.node?.monitoringEnabled !== false;
 });
 
-// Whether this is a gateway/router device
-const isGatewayDevice = computed(() => {
-	return props.node?.role === 'gateway/router';
-});
-
-// Test IPs for gateway devices
-const testIps = computed(() => props.node?.testIps || []);
-const newTestIp = ref('');
-const testIpResults = ref<Record<string, DeviceMetrics>>({});
-const testingIp = ref<string | null>(null);
-const testingAll = ref(false);
-
-// ISP Speed test state
-const runningSpeedTest = ref(false);
-const speedTestResult = ref<{ 
-	download_mbps?: number; 
-	upload_mbps?: number; 
-	test_server?: string; 
-	test_timestamp?: string;
-	error?: string;
-} | null>(null);
-
 function toggleMonitoring() {
 	if (props.node) {
 		const newState = !monitoringEnabled.value;
 		emit('toggleMonitoring', props.node.id, newState);
 	}
-}
-
-// Internet connectivity test functions
-function addTestIp() {
-	const ip = newTestIp.value.trim();
-	if (!ip || !props.node) return;
-	
-	// Validate IP format (basic)
-	const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
-	if (!ipRegex.test(ip)) {
-		alert('Please enter a valid IP address');
-		return;
-	}
-	
-	// Don't add duplicates
-	if (testIps.value.includes(ip)) {
-		newTestIp.value = '';
-		return;
-	}
-	
-	const updated = [...testIps.value, ip];
-	emit('updateTestIps', props.node.id, updated);
-	newTestIp.value = '';
-}
-
-function removeTestIp(index: number) {
-	if (!props.node) return;
-	const updated = testIps.value.filter((_, i) => i !== index);
-	emit('updateTestIps', props.node.id, updated);
-	
-	// Remove results for this IP
-	const ip = testIps.value[index];
-	if (ip && testIpResults.value[ip]) {
-		delete testIpResults.value[ip];
-	}
-}
-
-async function testSingleIp(ip: string) {
-	testingIp.value = ip;
-	try {
-		const response = await axios.get<DeviceMetrics>(`/api/health/check/${ip}`, {
-			params: { include_ports: false, include_dns: false },
-			timeout: 15000
-		});
-		testIpResults.value[ip] = response.data;
-	} catch (err: any) {
-		console.error(`Failed to test ${ip}:`, err);
-		// Store a failed result
-		testIpResults.value[ip] = {
-			ip,
-			status: 'unhealthy',
-			last_check: new Date().toISOString(),
-			ping: { success: false, packet_loss_percent: 100 },
-			open_ports: [],
-			checks_passed_24h: 0,
-			checks_failed_24h: 1,
-			check_history: [],
-			consecutive_failures: 1
-		};
-	} finally {
-		testingIp.value = null;
-	}
-}
-
-async function testAllIps() {
-	testingAll.value = true;
-	for (const ip of testIps.value) {
-		await testSingleIp(ip);
-	}
-	testingAll.value = false;
-}
-
-async function runSpeedTest() {
-	runningSpeedTest.value = true;
-	try {
-		const response = await axios.get('/api/health/speedtest', { timeout: 60000 });
-		speedTestResult.value = response.data;
-	} catch (err: any) {
-		console.error('Speed test failed:', err);
-		speedTestResult.value = {
-			error: err.response?.data?.detail || err.message || 'Speed test failed'
-		};
-	} finally {
-		runningSpeedTest.value = false;
-	}
-}
-
-function getTestIpStatusColor(ip: string): string {
-	// Check cached metrics first, then local test results
-	const cached = cachedMetrics.value?.[ip];
-	const local = testIpResults.value[ip];
-	const result = cached || local;
-	if (!result) return 'bg-slate-400';
-	if (result.ping?.success) return 'bg-emerald-500';
-	return 'bg-red-500';
-}
-
-// Get metrics for a test IP (prefer cached, fall back to local test results)
-function getTestIpMetrics(ip: string): DeviceMetrics | null {
-	return cachedMetrics.value?.[ip] || testIpResults.value[ip] || null;
-}
-
-// Get timeline segments for a test IP
-function getTestIpTimelineSegments(ip: string): TimelineSegment[] {
-	const metrics = getTestIpMetrics(ip);
-	if (!metrics?.check_history || metrics.check_history.length === 0) return [];
-	
-	// Sort by timestamp (oldest first)
-	const sorted = [...metrics.check_history].sort((a, b) => 
-		new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-	);
-	
-	// Each segment gets equal width
-	const segmentWidth = 100 / sorted.length;
-	
-	return sorted.map(entry => ({
-		success: entry.success,
-		width: segmentWidth,
-		timestamp: entry.timestamp,
-		latency_ms: entry.latency_ms
-	}));
 }
 
 const localMetrics = ref<DeviceMetrics | null>(null);
@@ -1117,7 +837,219 @@ watch(() => props.node?.ip, (newIp, oldIp) => {
 	if (newIp !== oldIp) {
 		localMetrics.value = null;
 		error.value = null;
+		// Reset test IP state
+		testIPs.value = [];
+		testIPMetrics.value = [];
+		testIPsError.value = null;
+		showAddTestIP.value = false;
 	}
 });
+
+// Load test IPs when gateway node is selected
+watch([() => props.node?.ip, isGateway], async ([ip, isGw]) => {
+	if (ip && isGw) {
+		await loadTestIPs();
+		startTestIPPolling();
+	} else {
+		stopTestIPPolling();
+	}
+}, { immediate: true });
+
+// Cleanup polling on unmount
+onUnmounted(() => {
+	stopTestIPPolling();
+});
+
+// ==================== Test IP Functions ====================
+
+function startTestIPPolling() {
+	stopTestIPPolling();
+	// Poll for test IP metrics every 15 seconds
+	testIPPollingInterval = setInterval(async () => {
+		if (props.node?.ip && isGateway.value) {
+			await fetchTestIPMetrics();
+		}
+	}, 15000);
+}
+
+function stopTestIPPolling() {
+	if (testIPPollingInterval) {
+		clearInterval(testIPPollingInterval);
+		testIPPollingInterval = null;
+	}
+}
+
+async function loadTestIPs() {
+	const ip = props.node?.ip;
+	if (!ip) return;
+
+	testIPsLoading.value = true;
+	testIPsError.value = null;
+
+	try {
+		// First try to get configuration
+		const configResponse = await axios.get<{ gateway_ip: string; test_ips: GatewayTestIP[]; enabled: boolean }>(
+			`/api/health/gateway/${ip}/test-ips`
+		);
+		testIPs.value = configResponse.data.test_ips || [];
+
+		// Then get cached metrics
+		await fetchTestIPMetrics();
+	} catch (err: any) {
+		if (err.response?.status === 404) {
+			// No test IPs configured yet - that's fine
+			testIPs.value = [];
+			testIPMetrics.value = [];
+		} else {
+			console.error('Failed to load test IPs:', err);
+			testIPsError.value = err.response?.data?.detail || err.message || 'Failed to load test IPs';
+		}
+	} finally {
+		testIPsLoading.value = false;
+	}
+}
+
+async function fetchTestIPMetrics() {
+	const ip = props.node?.ip;
+	if (!ip || testIPs.value.length === 0) return;
+
+	try {
+		const response = await axios.get<GatewayTestIPsResponse>(
+			`/api/health/gateway/${ip}/test-ips/cached`
+		);
+		testIPMetrics.value = response.data.test_ips || [];
+	} catch (err: any) {
+		console.error('Failed to fetch test IP metrics:', err);
+	}
+}
+
+async function saveTestIPs() {
+	const ip = props.node?.ip;
+	if (!ip) return;
+
+	testIPsLoading.value = true;
+	testIPsError.value = null;
+
+	try {
+		await axios.post(`/api/health/gateway/${ip}/test-ips`, {
+			gateway_ip: ip,
+			test_ips: testIPs.value
+		});
+
+		// Immediately check the test IPs
+		await checkTestIPsNow();
+	} catch (err: any) {
+		console.error('Failed to save test IPs:', err);
+		testIPsError.value = err.response?.data?.detail || err.message || 'Failed to save test IPs';
+	} finally {
+		testIPsLoading.value = false;
+	}
+}
+
+async function checkTestIPsNow() {
+	const ip = props.node?.ip;
+	if (!ip) return;
+
+	testIPsLoading.value = true;
+
+	try {
+		const response = await axios.get<GatewayTestIPsResponse>(
+			`/api/health/gateway/${ip}/test-ips/check`
+		);
+		testIPMetrics.value = response.data.test_ips || [];
+	} catch (err: any) {
+		console.error('Failed to check test IPs:', err);
+		testIPsError.value = err.response?.data?.detail || err.message || 'Failed to check test IPs';
+	} finally {
+		testIPsLoading.value = false;
+	}
+}
+
+function addTestIP() {
+	const ip = newTestIP.value.trim();
+	if (!ip) return;
+
+	// Basic IP validation
+	const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
+	if (!ipRegex.test(ip)) {
+		testIPsError.value = 'Please enter a valid IP address';
+		return;
+	}
+
+	// Check for duplicates
+	if (testIPs.value.some(t => t.ip === ip)) {
+		testIPsError.value = 'This IP is already in the list';
+		return;
+	}
+
+	testIPs.value.push({
+		ip,
+		label: newTestIPLabel.value.trim() || undefined
+	});
+
+	// Clear form
+	newTestIP.value = '';
+	newTestIPLabel.value = '';
+	showAddTestIP.value = false;
+	testIPsError.value = null;
+
+	// Save and check
+	saveTestIPs();
+}
+
+function removeTestIP(ip: string) {
+	testIPs.value = testIPs.value.filter(t => t.ip !== ip);
+	testIPMetrics.value = testIPMetrics.value.filter(m => m.ip !== ip);
+
+	if (testIPs.value.length === 0) {
+		// Remove configuration entirely
+		const gatewayIp = props.node?.ip;
+		if (gatewayIp) {
+			axios.delete(`/api/health/gateway/${gatewayIp}/test-ips`).catch(console.error);
+		}
+	} else {
+		saveTestIPs();
+	}
+}
+
+function getTestIPMetrics(ip: string): GatewayTestIPMetrics | undefined {
+	return testIPMetrics.value.find(m => m.ip === ip);
+}
+
+function getTestIPStatusColor(status?: HealthStatus): string {
+	switch (status) {
+		case 'healthy': return 'bg-emerald-500';
+		case 'degraded': return 'bg-amber-500';
+		case 'unhealthy': return 'bg-red-500';
+		default: return 'bg-slate-400';
+	}
+}
+
+function getTestIPStatusLabel(status?: HealthStatus): string {
+	switch (status) {
+		case 'healthy': return 'Online';
+		case 'degraded': return 'Degraded';
+		case 'unhealthy': return 'Offline';
+		default: return 'Unknown';
+	}
+}
+
+// Preset test IPs for quick add
+const presetTestIPs: GatewayTestIP[] = [
+	{ ip: '8.8.8.8', label: 'Google DNS' },
+	{ ip: '1.1.1.1', label: 'Cloudflare DNS' },
+	{ ip: '9.9.9.9', label: 'Quad9 DNS' },
+	{ ip: '208.67.222.222', label: 'OpenDNS' },
+];
+
+function addPresetTestIP(preset: GatewayTestIP) {
+	if (testIPs.value.some(t => t.ip === preset.ip)) {
+		testIPsError.value = `${preset.label || preset.ip} is already in the list`;
+		return;
+	}
+	testIPs.value.push({ ...preset });
+	testIPsError.value = null;
+	saveTestIPs();
+}
 </script>
 
