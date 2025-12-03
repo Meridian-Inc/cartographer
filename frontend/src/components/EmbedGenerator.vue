@@ -1,20 +1,25 @@
 <template>
-	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" @click.self="$emit('close')">
-		<div class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden max-h-[90vh] flex flex-col">
+	<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" @click.self="$emit('close')">
+		<div class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden max-h-[90vh] flex flex-col">
 			<!-- Header -->
-			<div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-indigo-500 to-purple-600">
+			<div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
 				<div class="flex items-center gap-3">
-					<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-					</svg>
-					<h2 class="text-lg font-semibold text-white">Manage Embeds</h2>
+					<div class="w-9 h-9 rounded-lg bg-cyan-100 dark:bg-cyan-900/30 flex items-center justify-center">
+						<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-cyan-600 dark:text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+						</svg>
+					</div>
+					<div>
+						<h2 class="text-lg font-semibold text-slate-900 dark:text-white">Manage Embeds</h2>
+						<p class="text-xs text-slate-500 dark:text-slate-400">Share your network map</p>
+					</div>
 				</div>
 				<button 
 					@click="$emit('close')" 
-					class="p-1 rounded hover:bg-white/20 text-white/80 hover:text-white transition-colors"
+					class="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
 				>
-					<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+					<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
 					</svg>
 				</button>
 			</div>
@@ -45,23 +50,23 @@
 					<div v-if="!selectedEmbed && canWrite" class="mb-6">
 						<button 
 							@click="showCreateForm = !showCreateForm"
-							class="w-full px-4 py-3 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-500 transition-colors flex items-center justify-center gap-2"
+							class="w-full px-4 py-3 bg-cyan-600 text-white font-medium rounded-lg hover:bg-cyan-500 transition-colors flex items-center justify-center gap-2"
 						>
-							<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
 							</svg>
 							Create New Embed
 						</button>
 
 						<!-- Create Form -->
-						<div v-if="showCreateForm" class="mt-4 p-4 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
+						<div v-if="showCreateForm" class="mt-4 p-4 rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700">
 							<div class="mb-4">
-								<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Embed Name</label>
+								<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Embed Name</label>
 								<input 
 									v-model="newEmbedName"
 									type="text"
 									placeholder="e.g., Public Dashboard, Client View..."
-									class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+									class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-shadow"
 								/>
 							</div>
 
@@ -86,15 +91,15 @@
 							<!-- Show Owner -->
 							<div class="flex items-center justify-between mb-4">
 								<div class="flex items-center gap-2">
-									<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+									<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-cyan-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
 									</svg>
 									<span class="text-sm text-slate-700 dark:text-slate-300">Show Owner</span>
 								</div>
 								<button 
 									@click="newEmbedShowOwner = !newEmbedShowOwner"
 									class="relative w-10 h-6 rounded-full transition-colors"
-									:class="newEmbedShowOwner ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600'"
+									:class="newEmbedShowOwner ? 'bg-cyan-500' : 'bg-slate-300 dark:bg-slate-600'"
 								>
 									<span class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform" :class="newEmbedShowOwner ? 'translate-x-4' : ''"></span>
 								</button>
@@ -103,11 +108,11 @@
 							<!-- Owner Display Type -->
 							<div v-if="newEmbedShowOwner" class="mb-4 pl-6">
 								<label class="flex items-center gap-2 cursor-pointer mb-1">
-									<input type="radio" v-model="newEmbedOwnerType" value="fullName" class="text-indigo-600" />
+									<input type="radio" v-model="newEmbedOwnerType" value="fullName" class="text-cyan-600 focus:ring-cyan-500" />
 									<span class="text-sm text-slate-600 dark:text-slate-400">Full Name ({{ currentUser?.first_name }} {{ currentUser?.last_name }})</span>
 								</label>
 								<label class="flex items-center gap-2 cursor-pointer">
-									<input type="radio" v-model="newEmbedOwnerType" value="username" class="text-indigo-600" />
+									<input type="radio" v-model="newEmbedOwnerType" value="username" class="text-cyan-600 focus:ring-cyan-500" />
 									<span class="text-sm text-slate-600 dark:text-slate-400">Username ({{ currentUser?.username }})</span>
 								</label>
 							</div>
@@ -150,7 +155,7 @@
 							<div 
 								v-for="embed in embeds" 
 								:key="embed.id"
-								class="p-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-600 cursor-pointer transition-colors bg-white dark:bg-slate-800/50"
+								class="p-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-cyan-400 dark:hover:border-cyan-600 cursor-pointer transition-colors bg-white dark:bg-slate-800/50"
 								@click="selectEmbed(embed)"
 							>
 								<div class="flex items-center justify-between">
@@ -198,7 +203,7 @@
 
 						<!-- Embed URL -->
 						<div class="mb-4">
-							<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Embed URL</label>
+							<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Embed URL</label>
 							<div class="flex gap-2">
 								<input 
 									type="text" 
@@ -208,9 +213,9 @@
 								/>
 								<button 
 									@click="copyUrl(selectedEmbed.id)"
-									class="px-3 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-500 transition-colors"
+									class="px-4 py-2 bg-cyan-600 text-white text-sm font-medium rounded-lg hover:bg-cyan-500 transition-colors"
 								>
-									{{ copiedId === selectedEmbed.id ? '✓' : 'Copy' }}
+									{{ copiedId === selectedEmbed.id ? '✓ Copied' : 'Copy' }}
 								</button>
 							</div>
 						</div>
@@ -235,18 +240,18 @@
 						</div>
 
 						<!-- Settings -->
-						<div class="mb-4 p-3 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
-							<div class="text-xs font-medium text-slate-600 dark:text-slate-400 uppercase tracking-wide mb-2">Settings</div>
+						<div class="mb-4 p-3 rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700">
+							<div class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Settings</div>
 							<div class="space-y-2 text-sm">
 								<div class="flex items-center justify-between">
 									<span class="text-slate-600 dark:text-slate-400">Sensitive Mode</span>
-									<span :class="selectedEmbed.sensitiveMode ? 'text-amber-600' : 'text-slate-500'">
+									<span :class="selectedEmbed.sensitiveMode ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500 dark:text-slate-500'">
 										{{ selectedEmbed.sensitiveMode ? 'Enabled' : 'Disabled' }}
 									</span>
 								</div>
 								<div class="flex items-center justify-between">
 									<span class="text-slate-600 dark:text-slate-400">Show Owner</span>
-									<span :class="selectedEmbed.showOwner ? 'text-indigo-600' : 'text-slate-500'">
+									<span :class="selectedEmbed.showOwner ? 'text-cyan-600 dark:text-cyan-400' : 'text-slate-500 dark:text-slate-500'">
 										{{ selectedEmbed.showOwner ? selectedEmbed.ownerDisplayName : 'Disabled' }}
 									</span>
 								</div>
@@ -254,11 +259,11 @@
 						</div>
 
 						<!-- Actions -->
-						<div class="flex items-center justify-between">
+						<div class="flex items-center justify-between pt-2">
 							<button 
 								v-if="isOwner"
 								@click="confirmDelete = true"
-								class="px-3 py-1.5 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+								class="px-3 py-1.5 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
 							>
 								Delete Embed
 							</button>
@@ -267,10 +272,10 @@
 								:href="getEmbedUrl(selectedEmbed.id)"
 								target="_blank"
 								rel="noopener noreferrer"
-								class="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-500 transition-colors flex items-center gap-2"
+								class="px-4 py-2 bg-cyan-600 text-white text-sm font-medium rounded-lg hover:bg-cyan-500 transition-colors flex items-center gap-2"
 							>
-								<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+								<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
 								</svg>
 								Open Preview
 							</a>

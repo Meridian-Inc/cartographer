@@ -48,133 +48,232 @@
 				</div>
 			</aside>
 			<main class="flex-1 p-3 relative bg-slate-50 dark:bg-slate-900">
-				<!-- Add Node button (top-left, edit mode only) -->
-				<div v-if="mode === 'edit'" class="absolute top-2 left-3 z-10">
-					<button
-						@click="onAddNode"
-						class="px-3 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-sm text-slate-700 dark:text-slate-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 hover:border-emerald-400 dark:hover:border-emerald-600 hover:text-emerald-700 dark:hover:text-emerald-400 transition-colors flex items-center gap-1.5"
-						title="Add a new node to the network map"
-					>
-						<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-							<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-						</svg>
-						Add Node
-					</button>
-				</div>
-				<!-- Interaction mode toggle (top-right) -->
-				<div class="absolute top-2 right-3 z-10 flex items-center gap-2">
-					<div class="rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-sm overflow-hidden flex items-center">
+				<!-- Unified top toolbar -->
+				<div class="absolute top-3 left-3 right-3 z-10 flex items-center justify-between pointer-events-none">
+					<!-- Left: Navigation controls (horizontal) -->
+					<div class="flex items-center h-8 bg-white/95 dark:bg-slate-800/95 backdrop-blur border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm px-1 pointer-events-auto">
 						<button
-							class="px-3 py-1 text-xs"
-							:class="mode === 'pan' ? 'bg-blue-600 text-white' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'"
-							@click="mode = 'pan'"
-							title="Pan mode (default)"
+							@click="networkMapRef?.zoomIn()"
+							class="h-6 w-6 flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors text-slate-600 dark:text-slate-400"
+							title="Zoom in"
 						>
-							Pan
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+							</svg>
 						</button>
 						<button
-							class="px-3 py-1 text-xs border-l border-slate-300 dark:border-slate-600"
-							:class="[
-								mode === 'edit' ? 'bg-blue-600 text-white' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700',
-								!canWrite ? 'opacity-50 cursor-not-allowed' : ''
-							]"
-							@click="canWrite && (mode = 'edit')"
-							:disabled="!canWrite"
-							:title="canWrite ? 'Edit nodes (drag + type) + Pan' : 'Edit mode requires write permissions'"
+							@click="networkMapRef?.zoomOut()"
+							class="h-6 w-6 flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors text-slate-600 dark:text-slate-400"
+							title="Zoom out"
 						>
-							Edit
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7" />
+							</svg>
+						</button>
+						<div class="w-px h-4 bg-slate-200 dark:bg-slate-600 mx-0.5"></div>
+						<button
+							@click="networkMapRef?.fitToView()"
+							class="h-6 w-6 flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors text-slate-600 dark:text-slate-400"
+							title="Fit all nodes in view"
+						>
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+							</svg>
+						</button>
+						<button
+							@click="networkMapRef?.resetView()"
+							class="h-6 w-6 flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors text-slate-600 dark:text-slate-400"
+							title="Reset view to origin"
+						>
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+							</svg>
 						</button>
 					</div>
-					<button
-						@click="toggleHistoryPanel"
-						class="px-3 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 shadow-sm flex items-center gap-1.5 transition-colors"
-						:class="showHistoryPanel 
-							? 'bg-amber-500 text-white border-amber-500 hover:bg-amber-600' 
-							: 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-amber-50 dark:hover:bg-amber-900/30 hover:border-amber-400 dark:hover:border-amber-600 hover:text-amber-700 dark:hover:text-amber-400'"
-						title="View node change history"
-					>
-						<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-							<path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-						</svg>
-						History
-					</button>
-				</div>
-				<!-- Node configuration panel (bottom-right) -->
-				<div class="absolute bottom-2 right-3 z-10">
-					<div v-if="mode === 'edit' && selectedNode" class="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded px-2 py-1 shadow-sm">
-						<span class="text-xs text-slate-600 dark:text-slate-400">Type:</span>
-						<select class="text-xs border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded px-1 py-0.5"
-							v-model="editRole"
-							@change="onChangeRole"
+
+					<!-- Right: Mode toggle + Actions -->
+					<div class="flex items-center gap-1.5 pointer-events-auto">
+						<!-- Add Node button (edit mode only) -->
+						<button
+							v-if="mode === 'edit'"
+							@click="onAddNode"
+							class="flex items-center gap-1.5 px-2.5 h-8 text-xs font-medium rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm transition-colors"
+							title="Add a new node to the network map"
 						>
-							<option value="gateway/router">Gateway / Router</option>
-							<option value="firewall">Firewall</option>
-							<option value="switch/ap">Switch / AP</option>
-							<option value="server">Server</option>
-							<option value="service">Service</option>
-							<option value="nas">NAS</option>
-							<option value="client">Client</option>
-							<option value="unknown">Unknown</option>
-						</select>
-						<span class="text-xs text-slate-600 dark:text-slate-400 ml-3">IP:</span>
-						<input class="text-xs border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded px-1 py-0.5 w-36"
-							v-model="editIp"
-							@change="onChangeIp"
-							placeholder="192.168.1.10"
-						/>
-						<span class="text-xs text-slate-600 dark:text-slate-400">Name:</span>
-						<input class="text-xs border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded px-1 py-0.5 w-44"
-							v-model="editHostname"
-							@change="onChangeHostname"
-							placeholder="device.local"
-						/>
-						<span class="text-xs text-slate-600 dark:text-slate-400 ml-3">Connect to:</span>
-						<select class="text-xs border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded px-1 py-0.5"
-							v-model="connectParent"
-							@change="onChangeParent"
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+							</svg>
+							Add Node
+						</button>
+
+						<!-- Mode toggle -->
+						<div class="flex items-center h-8 bg-white/95 dark:bg-slate-800/95 backdrop-blur border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm px-0.5">
+							<button
+								class="px-2.5 h-6 text-xs font-medium rounded-md transition-colors flex items-center gap-1.5"
+								:class="mode === 'pan' 
+									? 'bg-cyan-500 text-white shadow-sm' 
+									: 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'"
+								@click="mode = 'pan'"
+								title="Pan mode - drag to navigate"
+							>
+								<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11" />
+								</svg>
+								Pan
+							</button>
+							<button
+								class="px-2.5 h-6 text-xs font-medium rounded-md transition-colors flex items-center gap-1.5"
+								:class="[
+									mode === 'edit' 
+										? 'bg-cyan-500 text-white shadow-sm' 
+										: 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200',
+									!canWrite ? 'opacity-40 cursor-not-allowed' : ''
+								]"
+								@click="canWrite && (mode = 'edit')"
+								:disabled="!canWrite"
+								:title="canWrite ? 'Edit mode - drag nodes to reposition' : 'Edit mode requires write permissions'"
+							>
+								<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+								</svg>
+								Edit
+							</button>
+						</div>
+
+						<!-- History button -->
+						<button
+							@click="toggleHistoryPanel"
+							class="h-8 w-8 flex items-center justify-center rounded-lg border transition-colors"
+							:class="showHistoryPanel 
+								? 'bg-amber-500 text-white border-amber-500 shadow-sm' 
+								: 'bg-white/95 dark:bg-slate-800/95 backdrop-blur border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:border-amber-300 dark:hover:border-amber-600'"
+							title="View change history"
 						>
-							<option v-for="opt in connectOptions" :key="opt.id" :value="opt.id">
-								{{ opt.name }}
-							</option>
-						</select>
-						<span class="text-xs text-slate-600 dark:text-slate-400 ml-3">Speed:</span>
-						<select 
-							v-if="!showCustomSpeed"
-							class="text-xs border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded px-1 py-0.5"
-							v-model="editConnectionSpeed"
-							@change="onSpeedSelectChange"
-						>
-							<option value="">None</option>
-							<option value="10Mbps">10Mbps</option>
-							<option value="100Mbps">100Mbps</option>
-							<option value="1GbE">1GbE</option>
-							<option value="2.5GbE">2.5GbE</option>
-							<option value="5GbE">5GbE</option>
-							<option value="10GbE">10GbE</option>
-							<option value="25GbE">25GbE</option>
-							<option value="40GbE">40GbE</option>
-							<option value="100GbE">100GbE</option>
-							<option value="__custom__">Custom...</option>
-						</select>
-						<input 
-							v-else
-							class="text-xs border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded px-1 py-0.5 w-24"
-							v-model="editConnectionSpeed"
-							@blur="onCustomSpeedBlur"
-							@keyup.enter="onCustomSpeedBlur"
-							placeholder="e.g. 1GbE"
-							autofocus
-						/>
-						<button 
-							v-if="selectedNode.id !== parsed?.root.id"
-							@click="onRemoveNode" 
-							class="ml-3 px-2 py-0.5 text-xs bg-red-600 text-white rounded hover:bg-red-700"
-							title="Remove this node"
-						>
-							Remove
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+							</svg>
 						</button>
 					</div>
 				</div>
+
+				<!-- Node configuration panel (bottom center, edit mode only) -->
+				<Transition
+					enter-active-class="transition-all duration-200 ease-out"
+					enter-from-class="opacity-0 translate-y-2"
+					enter-to-class="opacity-100 translate-y-0"
+					leave-active-class="transition-all duration-150 ease-in"
+					leave-from-class="opacity-100 translate-y-0"
+					leave-to-class="opacity-0 translate-y-2"
+				>
+					<div v-if="mode === 'edit' && selectedNode" class="absolute bottom-3 left-1/2 -translate-x-1/2 z-10">
+						<div class="bg-white/95 dark:bg-slate-800/95 backdrop-blur border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg p-2">
+							<div class="flex items-center gap-3">
+								<!-- Node type selector -->
+								<div class="flex items-center gap-1.5">
+									<span class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-medium">Type</span>
+									<select 
+										class="text-xs bg-slate-100 dark:bg-slate-700 border-0 rounded-md px-2 py-1 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-cyan-500"
+										v-model="editRole"
+										@change="onChangeRole"
+									>
+										<option value="gateway/router">Gateway</option>
+										<option value="firewall">Firewall</option>
+										<option value="switch/ap">Switch/AP</option>
+										<option value="server">Server</option>
+										<option value="service">Service</option>
+										<option value="nas">NAS</option>
+										<option value="client">Client</option>
+										<option value="unknown">Unknown</option>
+									</select>
+								</div>
+
+								<div class="w-px h-6 bg-slate-200 dark:bg-slate-600"></div>
+
+								<!-- IP input -->
+								<div class="flex items-center gap-1.5">
+									<span class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-medium">IP</span>
+									<input 
+										class="text-xs bg-slate-100 dark:bg-slate-700 border-0 rounded-md px-2 py-1 w-28 text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:ring-2 focus:ring-cyan-500"
+										v-model="editIp"
+										@change="onChangeIp"
+										placeholder="192.168.1.x"
+									/>
+								</div>
+
+								<!-- Hostname input -->
+								<div class="flex items-center gap-1.5">
+									<span class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-medium">Name</span>
+									<input 
+										class="text-xs bg-slate-100 dark:bg-slate-700 border-0 rounded-md px-2 py-1 w-32 text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:ring-2 focus:ring-cyan-500"
+										v-model="editHostname"
+										@change="onChangeHostname"
+										placeholder="hostname"
+									/>
+								</div>
+
+								<div class="w-px h-6 bg-slate-200 dark:bg-slate-600"></div>
+
+								<!-- Parent selector -->
+								<div class="flex items-center gap-1.5">
+									<span class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-medium">Parent</span>
+									<select 
+										class="text-xs bg-slate-100 dark:bg-slate-700 border-0 rounded-md px-2 py-1 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-cyan-500 max-w-32"
+										v-model="connectParent"
+										@change="onChangeParent"
+									>
+										<option v-for="opt in connectOptions" :key="opt.id" :value="opt.id">
+											{{ opt.name }}
+										</option>
+									</select>
+								</div>
+
+								<!-- Speed selector -->
+								<div class="flex items-center gap-1.5">
+									<span class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-medium">Speed</span>
+									<select 
+										v-if="!showCustomSpeed"
+										class="text-xs bg-slate-100 dark:bg-slate-700 border-0 rounded-md px-2 py-1 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-cyan-500"
+										v-model="editConnectionSpeed"
+										@change="onSpeedSelectChange"
+									>
+										<option value="">—</option>
+										<option value="10Mbps">10M</option>
+										<option value="100Mbps">100M</option>
+										<option value="1GbE">1G</option>
+										<option value="2.5GbE">2.5G</option>
+										<option value="5GbE">5G</option>
+										<option value="10GbE">10G</option>
+										<option value="25GbE">25G</option>
+										<option value="40GbE">40G</option>
+										<option value="100GbE">100G</option>
+										<option value="__custom__">Custom</option>
+									</select>
+									<input 
+										v-else
+										class="text-xs bg-slate-100 dark:bg-slate-700 border-0 rounded-md px-2 py-1 w-16 text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:ring-2 focus:ring-cyan-500"
+										v-model="editConnectionSpeed"
+										@blur="onCustomSpeedBlur"
+										@keyup.enter="onCustomSpeedBlur"
+										placeholder="1GbE"
+										autofocus
+									/>
+								</div>
+
+								<!-- Delete button -->
+								<button 
+									v-if="selectedNode.id !== parsed?.root.id"
+									@click="onRemoveNode" 
+									class="p-1.5 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+									title="Remove this node"
+								>
+									<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+									</svg>
+								</button>
+							</div>
+						</div>
+					</div>
+				</Transition>
 				<div class="w-full h-full">
 					<NetworkMap
 						ref="networkMapRef"
@@ -386,16 +485,12 @@
 		<button
 			v-if="!showAssistant"
 			@click="showAssistant = true"
-			class="fixed bottom-6 right-6 z-40 p-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 rounded-full shadow-lg hover:shadow-xl transition-all group"
+			class="fixed bottom-4 right-4 z-40 p-3 bg-gradient-to-br from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 rounded-xl shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200"
 			title="Open Network Assistant"
 		>
-			<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-				<path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+			<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+				<path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
 			</svg>
-			<span class="absolute -top-1 -right-1 flex h-3 w-3">
-				<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75"></span>
-				<span class="relative inline-flex rounded-full h-3 w-3 bg-violet-300"></span>
-			</span>
 		</button>
 	</div>
 </template>

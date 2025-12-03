@@ -106,7 +106,12 @@
 
 				<!-- Ping Metrics (only shown when monitoring is enabled) -->
 				<section v-if="monitoringEnabled && metrics?.ping">
-					<h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Connectivity</h3>
+					<h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+						<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
+						</svg>
+						Connectivity
+					</h3>
 					<div class="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-3 space-y-2">
 						<div class="grid grid-cols-2 gap-3">
 							<MetricCard 
@@ -134,7 +139,12 @@
 
 				<!-- 24h Statistics (only shown when monitoring is enabled) -->
 				<section v-if="monitoringEnabled && (metrics?.uptime_percent_24h != null || metrics?.check_history?.length)">
-					<h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">24h Uptime</h3>
+					<h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+						<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+						</svg>
+						24h Uptime
+					</h3>
 					<div class="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-3 space-y-3">
 						<!-- Uptime percentage and timeline -->
 						<div class="space-y-2">
@@ -190,7 +200,12 @@
 
 				<!-- DNS Information -->
 				<section v-if="metrics?.dns">
-					<h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">DNS</h3>
+					<h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+						<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+						</svg>
+						DNS
+					</h3>
 					<div class="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-3 space-y-2">
 						<div v-if="metrics.dns.reverse_dns" class="flex items-start justify-between gap-2">
 							<span class="text-xs text-slate-500 dark:text-slate-400 flex-shrink-0">Reverse DNS</span>
@@ -212,7 +227,12 @@
 
 				<!-- Open Ports -->
 				<section v-if="metrics?.open_ports && metrics.open_ports.length > 0">
-					<h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Open Ports</h3>
+					<h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+						<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+						</svg>
+						Open Ports
+					</h3>
 					<div class="bg-slate-50 dark:bg-slate-900/50 rounded-lg overflow-hidden">
 						<div 
 							v-for="port in metrics.open_ports" 
@@ -233,7 +253,12 @@
 
 				<!-- Device Info -->
 				<section>
-					<h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Device Info</h3>
+					<h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+						<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+						</svg>
+						Device Info
+					</h3>
 					<div class="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-3 space-y-2">
 						<div class="flex items-center justify-between">
 							<span class="text-xs text-slate-500 dark:text-slate-400">Role</span>
@@ -718,7 +743,12 @@
 				</div>
 
 				<section>
-					<h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Device Info</h3>
+					<h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+						<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+						</svg>
+						Device Info
+					</h3>
 					<div class="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-3 space-y-2">
 						<div class="flex items-center justify-between">
 							<span class="text-xs text-slate-500 dark:text-slate-400">Role</span>

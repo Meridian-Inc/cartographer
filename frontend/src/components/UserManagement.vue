@@ -1,28 +1,38 @@
 <template>
 	<Teleport to="body">
-		<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+		<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
 			<div class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
 				<!-- Header -->
-				<div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700">
-					<h2 class="text-xl font-semibold text-slate-900 dark:text-white">User Management</h2>
+				<div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+					<div class="flex items-center gap-3">
+						<div class="w-9 h-9 rounded-lg bg-cyan-100 dark:bg-cyan-900/30 flex items-center justify-center">
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-cyan-600 dark:text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+							</svg>
+						</div>
+						<div>
+							<h2 class="text-lg font-semibold text-slate-900 dark:text-white">User Management</h2>
+							<p class="text-xs text-slate-500 dark:text-slate-400">Manage users and invitations</p>
+						</div>
+					</div>
 					<button
 						@click="$emit('close')"
-						class="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500"
+						class="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
 					>
-						<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+						<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
 						</svg>
 					</button>
 				</div>
 
 				<!-- Tabs -->
-				<div class="flex border-b border-slate-200 dark:border-slate-700 px-6">
+				<div class="flex border-b border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30">
 					<button
 						@click="switchTab('users')"
 						:class="[
-							'px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors',
+							'px-6 py-3 text-sm font-medium border-b-2 -mb-px transition-colors',
 							activeTab === 'users' 
-								? 'border-cyan-500 text-cyan-600 dark:text-cyan-400' 
+								? 'border-cyan-500 text-cyan-600 dark:text-cyan-400 bg-white dark:bg-slate-800' 
 								: 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
 						]"
 					>
@@ -31,14 +41,14 @@
 					<button
 						@click="switchTab('invites')"
 						:class="[
-							'px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-2',
+							'px-6 py-3 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-2',
 							activeTab === 'invites' 
-								? 'border-cyan-500 text-cyan-600 dark:text-cyan-400' 
+								? 'border-cyan-500 text-cyan-600 dark:text-cyan-400 bg-white dark:bg-slate-800' 
 								: 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
 						]"
 					>
 						Invitations
-						<span v-if="pendingInvites.length > 0" class="px-1.5 py-0.5 text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-full">
+						<span v-if="pendingInvites.length > 0" class="px-1.5 py-0.5 text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-full tabular-nums">
 							{{ pendingInvites.length }}
 						</span>
 					</button>

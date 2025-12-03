@@ -527,9 +527,82 @@ function zoomToNode(nodeId: string) {
 		.call(currentZoom.transform, d3.zoomIdentity.translate(x, y).scale(scale));
 }
 
-// Expose the zoom function
+// Navigation control functions
+function zoomIn() {
+	if (!svgRef.value || !currentZoom) return;
+	const svg = d3.select(svgRef.value);
+	svg.transition()
+		.duration(300)
+		.call(currentZoom.scaleBy, 1.4);
+}
+
+function zoomOut() {
+	if (!svgRef.value || !currentZoom) return;
+	const svg = d3.select(svgRef.value);
+	svg.transition()
+		.duration(300)
+		.call(currentZoom.scaleBy, 0.7);
+}
+
+function resetView() {
+	if (!svgRef.value || !currentZoom) return;
+	const svg = d3.select(svgRef.value);
+	svg.transition()
+		.duration(500)
+		.call(currentZoom.transform, d3.zoomIdentity.translate(24, 24));
+}
+
+function fitToView() {
+	if (!svgRef.value || !currentZoom || nodePositions.size === 0) return;
+	
+	const svg = d3.select(svgRef.value);
+	const width = svgRef.value.clientWidth || 800;
+	const height = svgRef.value.clientHeight || 600;
+	
+	// Find bounds of all nodes
+	let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+	nodePositions.forEach(pos => {
+		minX = Math.min(minX, pos.x);
+		minY = Math.min(minY, pos.y);
+		maxX = Math.max(maxX, pos.x);
+		maxY = Math.max(maxY, pos.y);
+	});
+	
+	// Add padding
+	const padding = 60;
+	minX -= padding;
+	minY -= padding;
+	maxX += padding;
+	maxY += padding;
+	
+	const contentWidth = maxX - minX;
+	const contentHeight = maxY - minY;
+	
+	// Calculate scale to fit
+	const scale = Math.min(
+		width / contentWidth,
+		height / contentHeight,
+		2 // Max scale
+	) * 0.9; // Leave some margin
+	
+	// Calculate translation to center
+	const centerX = (minX + maxX) / 2;
+	const centerY = (minY + maxY) / 2;
+	const x = width / 2 - centerX * scale;
+	const y = height / 2 - centerY * scale;
+	
+	svg.transition()
+		.duration(500)
+		.call(currentZoom.transform, d3.zoomIdentity.translate(x, y).scale(scale));
+}
+
+// Expose the zoom functions
 defineExpose({
-	zoomToNode
+	zoomToNode,
+	zoomIn,
+	zoomOut,
+	resetView,
+	fitToView
 });
 
 onMounted(() => {

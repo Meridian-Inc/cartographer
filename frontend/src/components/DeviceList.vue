@@ -1,27 +1,55 @@
 <template>
 	<div class="h-full flex flex-col">
-		<div class="p-3 border-b border-slate-200 dark:border-slate-700">
-			<input
-				v-model="query"
-				type="text"
-				placeholder="Search by IP, hostname, role..."
-				class="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 px-3 py-2 text-sm"
-			/>
+		<!-- Header -->
+		<div class="flex items-center gap-2 px-4 py-3 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
+			<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-cyan-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+				<path stroke-linecap="round" stroke-linejoin="round" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+			</svg>
+			<h2 class="font-semibold text-slate-800 dark:text-slate-100">Devices</h2>
+			<span class="ml-auto text-xs text-slate-500 dark:text-slate-400 tabular-nums">{{ filtered.length }}</span>
 		</div>
+		
+		<!-- Search -->
+		<div class="p-3 border-b border-slate-200 dark:border-slate-700">
+			<div class="relative">
+				<svg xmlns="http://www.w3.org/2000/svg" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+				</svg>
+				<input
+					v-model="query"
+					type="text"
+					placeholder="Search devices..."
+					class="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 pl-9 pr-3 py-2 text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-shadow"
+				/>
+			</div>
+		</div>
+		
+		<!-- Device List -->
 		<div class="flex-1 overflow-auto">
-			<ul>
+			<ul class="divide-y divide-slate-100 dark:divide-slate-700/50">
 				<li
 					v-for="d in filtered"
 					:key="d.id"
 					@click="$emit('select', d.id)"
-					class="px-3 py-2 border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer flex items-center gap-2"
-					:class="{'bg-amber-50 dark:bg-amber-900/30': d.id === selectedId }"
+					class="px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer flex items-center gap-3 transition-colors"
+					:class="{'bg-cyan-50 dark:bg-cyan-900/20 border-l-2 border-l-cyan-500': d.id === selectedId }"
 				>
-					<span class="w-2 h-2 rounded-full" :class="roleDot(d.role)"></span>
-					<span class="text-xs text-slate-500 dark:text-slate-400">{{ d.role }}</span>
-					<span class="text-sm text-slate-800 dark:text-slate-200">{{ d.name }}</span>
+					<span class="w-2.5 h-2.5 rounded-full flex-shrink-0" :class="roleDot(d.role)"></span>
+					<div class="min-w-0 flex-1">
+						<div class="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{{ d.name }}</div>
+						<div class="text-xs text-slate-500 dark:text-slate-400 capitalize">{{ d.role?.replace('/', ' / ') }}</div>
+					</div>
 				</li>
 			</ul>
+			
+			<!-- Empty State -->
+			<div v-if="filtered.length === 0 && query" class="p-6 text-center">
+				<svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 mx-auto mb-2 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+				</svg>
+				<p class="text-sm text-slate-500 dark:text-slate-400">No devices found</p>
+				<p class="text-xs text-slate-400 dark:text-slate-500 mt-1">Try a different search term</p>
+			</div>
 		</div>
 	</div>
 </template>
