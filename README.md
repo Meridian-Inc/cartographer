@@ -1,4 +1,4 @@
-# Cartographer
+# 🗺️ Cartographer
 
 [![Network Map](assets/application.png)](https://cartographer.artzima.dev/embed/yJLRHFuiajaxkWvLc44Gm0f4)
 
