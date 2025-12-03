@@ -513,14 +513,19 @@ class MetricsAggregator:
             speed_test_results,
         )
         
-        # Count node statuses
+        # Count node statuses (excluding root and group nodes to match frontend)
+        # The frontend's flattenDevices excludes the root node and filters out role="group"
         status_counts = {
             HealthStatus.HEALTHY: 0,
             HealthStatus.DEGRADED: 0,
             HealthStatus.UNHEALTHY: 0,
             HealthStatus.UNKNOWN: 0,
         }
-        for node in nodes.values():
+        device_nodes = {
+            node_id: node for node_id, node in nodes.items()
+            if node_id != root_node_id and node.role != DeviceRole.GROUP
+        }
+        for node in device_nodes.values():
             status_counts[node.status] = status_counts.get(node.status, 0) + 1
         
         # Build gateway ISP info list
@@ -530,16 +535,17 @@ class MetricsAggregator:
                 gateways.append(node.isp_info)
         
         # Create the snapshot
+        # total_nodes uses device_nodes count (excludes root and group nodes) to match frontend
         snapshot = NetworkTopologySnapshot(
             snapshot_id=str(uuid.uuid4()),
             timestamp=datetime.utcnow(),
             version=1,
-            total_nodes=len(nodes),
+            total_nodes=len(device_nodes),
             healthy_nodes=status_counts[HealthStatus.HEALTHY],
             degraded_nodes=status_counts[HealthStatus.DEGRADED],
             unhealthy_nodes=status_counts[HealthStatus.UNHEALTHY],
             unknown_nodes=status_counts[HealthStatus.UNKNOWN],
-            nodes=nodes,
+            nodes=nodes,  # Keep all nodes for topology/connections, but counts exclude root/groups
             connections=connections,
             gateways=gateways,
             root_node_id=root_node_id,
@@ -547,10 +553,11 @@ class MetricsAggregator:
         
         self._last_snapshot = snapshot
         logger.info(
-            f"Generated snapshot with {len(nodes)} nodes "
+            f"Generated snapshot with {len(device_nodes)} devices "
             f"(healthy={status_counts[HealthStatus.HEALTHY]}, "
             f"degraded={status_counts[HealthStatus.DEGRADED]}, "
-            f"unhealthy={status_counts[HealthStatus.UNHEALTHY]})"
+            f"unhealthy={status_counts[HealthStatus.UNHEALTHY]}, "
+            f"total tree nodes={len(nodes)})"
         )
         
         return snapshot
