@@ -364,6 +364,39 @@
 
 		<!-- User Management Modal -->
 		<UserManagement v-if="showUserManagement" @close="showUserManagement = false" />
+
+		<!-- Assistant Panel (Slide-in from right) -->
+		<Transition
+			enter-active-class="transition-transform duration-300 ease-out"
+			enter-from-class="translate-x-full"
+			enter-to-class="translate-x-0"
+			leave-active-class="transition-transform duration-200 ease-in"
+			leave-from-class="translate-x-0"
+			leave-to-class="translate-x-full"
+		>
+			<div 
+				v-if="showAssistant" 
+				class="fixed right-0 top-0 bottom-0 w-[420px] z-50 shadow-2xl"
+			>
+				<AssistantChat @close="showAssistant = false" />
+			</div>
+		</Transition>
+
+		<!-- Assistant Toggle Button (Floating) -->
+		<button
+			v-if="!showAssistant"
+			@click="showAssistant = true"
+			class="fixed bottom-6 right-6 z-40 p-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 rounded-full shadow-lg hover:shadow-xl transition-all group"
+			title="Open Network Assistant"
+		>
+			<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+				<path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+			</svg>
+			<span class="absolute -top-1 -right-1 flex h-3 w-3">
+				<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75"></span>
+				<span class="relative inline-flex rounded-full h-3 w-3 bg-violet-300"></span>
+			</span>
+		</button>
 	</div>
 </template>
 
@@ -378,6 +411,7 @@ import SetupWizard from "./SetupWizard.vue";
 import LoginScreen from "./LoginScreen.vue";
 import UserMenu from "./UserMenu.vue";
 import UserManagement from "./UserManagement.vue";
+import AssistantChat from "./AssistantChat.vue";
 import type { ParsedNetworkMap, TreeNode, NodeVersion } from "../types/network";
 import { useMapLayout } from "../composables/useMapLayout";
 import { useNetworkData } from "../composables/useNetworkData";
@@ -389,6 +423,7 @@ const { isAuthenticated, canWrite, checkSetupStatus, verifySession } = useAuth()
 const authLoading = ref(true);
 const needsSetup = ref(false);
 const showUserManagement = ref(false);
+const showAssistant = ref(false);
 
 // Check auth status on mount
 async function initAuth() {

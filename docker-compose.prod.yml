@@ -39,6 +39,8 @@ services:
       - AUTH_SERVICE_URL=http://localhost:8002
       # Metrics service is on localhost when using host network
       - METRICS_SERVICE_URL=http://localhost:8003
+      # Assistant service is on localhost when using host network
+      - ASSISTANT_SERVICE_URL=http://localhost:8004
     cap_add:
       - NET_ADMIN
       - NET_RAW
@@ -49,6 +51,8 @@ services:
       auth:
         condition: service_healthy
       metrics:
+        condition: service_healthy
+      assistant:
         condition: service_healthy
 
   # Health Monitoring Microservice
@@ -125,6 +129,34 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8003/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # AI Assistant Microservice
+  assistant:
+    image: ${REGISTRY:-yourusername}/cartographer-assistant:${TAG:-latest}
+    container_name: cartographer-assistant
+    # Use host network for consistent localhost access
+    network_mode: host
+    environment:
+      - CORS_ORIGINS=*
+      # Metrics service for network context
+      - METRICS_SERVICE_URL=http://localhost:8003
+      # AI Provider API Keys (set in environment)
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      # Ollama (local models)
+      - OLLAMA_HOST=${OLLAMA_HOST:-http://localhost:11434}
+    restart: unless-stopped
+    depends_on:
+      metrics:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/healthz"]
       interval: 30s
       timeout: 10s
       retries: 3
