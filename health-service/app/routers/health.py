@@ -308,11 +308,47 @@ async def get_cached_test_ip_metrics(gateway_ip: str):
 # ==================== Speed Test Endpoints ====================
 
 @router.post("/speedtest", response_model=SpeedTestResult)
-async def run_speed_test():
+async def run_speed_test(gateway_ip: Optional[str] = None):
     """
     Run an ISP speed test.
     This is a manual operation that takes 30-60 seconds to complete.
     Returns download/upload speeds in Mbps.
+    
+    Args:
+        gateway_ip: Optional gateway IP to associate this test with (for storage/retrieval)
     """
-    return await health_checker.run_speed_test()
+    return await health_checker.run_speed_test(gateway_ip)
+
+
+@router.post("/gateway/{gateway_ip}/speedtest", response_model=SpeedTestResult)
+async def run_gateway_speed_test(gateway_ip: str):
+    """
+    Run an ISP speed test for a specific gateway.
+    Results are stored and associated with the gateway.
+    """
+    return await health_checker.run_speed_test(gateway_ip)
+
+
+@router.get("/gateway/{gateway_ip}/speedtest", response_model=Optional[SpeedTestResult])
+async def get_gateway_speed_test(gateway_ip: str):
+    """
+    Get the last speed test result for a gateway.
+    """
+    result = health_checker.get_last_speed_test(gateway_ip)
+    if not result:
+        raise HTTPException(status_code=404, detail="No speed test results for this gateway")
+    return result
+
+
+@router.get("/speedtest/all")
+async def get_all_speed_tests():
+    """
+    Get all stored speed test results.
+    Returns a dict mapping gateway_ip -> SpeedTestResult
+    """
+    results = health_checker.get_all_speed_tests()
+    return {
+        gateway_ip: result.model_dump(mode="json")
+        for gateway_ip, result in results.items()
+    }
 

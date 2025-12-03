@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 # Data persistence directory
 DATA_DIR = Path(os.environ.get("HEALTH_DATA_DIR", "/app/data"))
 GATEWAY_TEST_IPS_FILE = DATA_DIR / "gateway_test_ips.json"
+SPEED_TEST_RESULTS_FILE = DATA_DIR / "speed_test_results.json"
 
 # Common ports to check for different services
 COMMON_PORTS = {
@@ -72,8 +73,12 @@ class HealthChecker:
         self._test_ip_metrics_cache: Dict[str, Dict[str, GatewayTestIPMetrics]] = {}  # gateway_ip -> {test_ip -> metrics}
         self._test_ip_history: Dict[str, deque] = {}  # "gateway_ip:test_ip" -> deque of (timestamp, success, latency)
         
-        # Load persisted test IP configurations
+        # Speed test results storage
+        self._speed_test_results: Dict[str, SpeedTestResult] = {}  # gateway_ip -> last result
+        
+        # Load persisted data
         self._load_gateway_test_ips()
+        self._load_speed_test_results()
     
     def _save_gateway_test_ips(self) -> None:
         """Save gateway test IP configurations to disk"""
@@ -123,6 +128,50 @@ class HealthChecker:
             logger.info(f"Loaded {len(self._gateway_test_ips)} gateway test IP configurations from {GATEWAY_TEST_IPS_FILE}")
         except Exception as e:
             logger.error(f"Failed to load gateway test IPs: {e}")
+    
+    def _save_speed_test_results(self) -> None:
+        """Save speed test results to disk"""
+        try:
+            DATA_DIR.mkdir(parents=True, exist_ok=True)
+            
+            data = {}
+            for gateway_ip, result in self._speed_test_results.items():
+                data[gateway_ip] = result.model_dump(mode="json")
+            
+            with open(SPEED_TEST_RESULTS_FILE, 'w') as f:
+                json.dump(data, f, indent=2, default=str)
+            
+            logger.debug(f"Saved {len(data)} speed test results to {SPEED_TEST_RESULTS_FILE}")
+        except Exception as e:
+            logger.error(f"Failed to save speed test results: {e}")
+    
+    def _load_speed_test_results(self) -> None:
+        """Load speed test results from disk"""
+        try:
+            if not SPEED_TEST_RESULTS_FILE.exists():
+                logger.debug(f"No speed test results file found at {SPEED_TEST_RESULTS_FILE}")
+                return
+            
+            with open(SPEED_TEST_RESULTS_FILE, 'r') as f:
+                data = json.load(f)
+            
+            for gateway_ip, result_data in data.items():
+                # Parse timestamp if string
+                if isinstance(result_data.get("timestamp"), str):
+                    result_data["timestamp"] = datetime.fromisoformat(result_data["timestamp"].replace("Z", "+00:00"))
+                self._speed_test_results[gateway_ip] = SpeedTestResult(**result_data)
+            
+            logger.info(f"Loaded {len(self._speed_test_results)} speed test results from {SPEED_TEST_RESULTS_FILE}")
+        except Exception as e:
+            logger.error(f"Failed to load speed test results: {e}")
+    
+    def get_last_speed_test(self, gateway_ip: str) -> Optional[SpeedTestResult]:
+        """Get the last speed test result for a gateway"""
+        return self._speed_test_results.get(gateway_ip)
+    
+    def get_all_speed_tests(self) -> Dict[str, SpeedTestResult]:
+        """Get all stored speed test results"""
+        return self._speed_test_results.copy()
     
     def _record_check(self, ip: str, success: bool, latency_ms: Optional[float]):
         """Record a health check result for historical tracking"""
@@ -645,10 +694,13 @@ class HealthChecker:
     
     # ==================== Speed Test ====================
     
-    async def run_speed_test(self) -> SpeedTestResult:
+    async def run_speed_test(self, gateway_ip: Optional[str] = None) -> SpeedTestResult:
         """
         Run an ISP speed test using speedtest-cli.
         This is a blocking operation that can take 30-60 seconds.
+        
+        Args:
+            gateway_ip: Optional gateway IP to associate this test with
         """
         start_time = time.time()
         
@@ -682,7 +734,7 @@ class HealthChecker:
             
             logger.info(f"Speed test completed: {download_mbps:.2f} Mbps down, {upload_mbps:.2f} Mbps up")
             
-            return SpeedTestResult(
+            result = SpeedTestResult(
                 success=True,
                 timestamp=datetime.utcnow(),
                 download_mbps=round(download_mbps, 2),
@@ -695,6 +747,13 @@ class HealthChecker:
                 client_isp=client.get('isp'),
                 duration_seconds=round(duration, 1)
             )
+            
+            # Store result if gateway_ip provided
+            if gateway_ip:
+                self._speed_test_results[gateway_ip] = result
+                self._save_speed_test_results()
+            
+            return result
             
         except ImportError:
             logger.error("speedtest-cli not installed")

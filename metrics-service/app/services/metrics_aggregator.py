@@ -29,6 +29,7 @@ from ..models import (
     GatewayISPInfo,
     TestIPMetrics,
     SpeedTestMetrics,
+    SpeedTestMetrics,
 )
 from .redis_publisher import redis_publisher
 
@@ -144,6 +145,21 @@ class MetricsAggregator:
             return {}
         except Exception as e:
             logger.error(f"Failed to fetch gateway test IPs: {e}")
+            return {}
+    
+    async def _fetch_speed_test_results(self) -> Dict[str, Any]:
+        """Fetch all stored speed test results from health service."""
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(f"{HEALTH_SERVICE_URL}/api/health/speedtest/all")
+                if response.status_code == 200:
+                    return response.json()
+                return {}
+        except httpx.ConnectError:
+            logger.warning("Health service unavailable - cannot fetch speed test results")
+            return {}
+        except Exception as e:
+            logger.error(f"Failed to fetch speed test results: {e}")
             return {}
     
     async def _fetch_monitoring_status(self) -> Optional[Dict[str, Any]]:
@@ -286,6 +302,7 @@ class MetricsAggregator:
         node_data: Dict,
         health_metrics: Dict[str, Any],
         gateway_test_ips: Dict[str, Any],
+        speed_test_results: Dict[str, Any],
         depth: int = 0,
         parent_id: Optional[str] = None,
     ) -> tuple[NodeMetrics, List[NodeConnection], List[Dict]]:
@@ -342,7 +359,36 @@ class MetricsAggregator:
                     for tip in gateway_data.get("test_ips", [])
                 ]
                 
-                last_speed_test = self._last_speed_test.get(ip)
+                # Get speed test from fetched results or in-memory cache
+                last_speed_test = None
+                speed_data = speed_test_results.get(ip)
+                if speed_data:
+                    # Convert dict to SpeedTestMetrics if needed
+                    if isinstance(speed_data, dict):
+                        try:
+                            last_speed_test = SpeedTestMetrics(
+                                success=speed_data.get("success", False),
+                                timestamp=datetime.fromisoformat(speed_data["timestamp"].replace("Z", "+00:00")) if isinstance(speed_data.get("timestamp"), str) else speed_data.get("timestamp"),
+                                download_mbps=speed_data.get("download_mbps"),
+                                upload_mbps=speed_data.get("upload_mbps"),
+                                ping_ms=speed_data.get("ping_ms"),
+                                server_name=speed_data.get("server_name"),
+                                server_location=speed_data.get("server_location"),
+                                server_sponsor=speed_data.get("server_sponsor"),
+                                client_ip=speed_data.get("client_ip"),
+                                client_isp=speed_data.get("client_isp"),
+                                error_message=speed_data.get("error_message"),
+                                duration_seconds=speed_data.get("duration_seconds"),
+                            )
+                        except Exception as e:
+                            logger.warning(f"Failed to parse speed test for {ip}: {e}")
+                    else:
+                        last_speed_test = speed_data
+                
+                # Fallback to in-memory cache
+                if not last_speed_test:
+                    last_speed_test = self._last_speed_test.get(ip)
+                
                 last_speed_timestamp = None
                 if last_speed_test:
                     last_speed_timestamp = last_speed_test.timestamp
@@ -396,6 +442,7 @@ class MetricsAggregator:
         root_data: Dict,
         health_metrics: Dict[str, Any],
         gateway_test_ips: Dict[str, Any],
+        speed_test_results: Dict[str, Any],
     ) -> tuple[Dict[str, NodeMetrics], List[NodeConnection], str]:
         """
         Process the entire node tree recursively.
@@ -412,7 +459,7 @@ class MetricsAggregator:
             node_data, depth, parent_id = queue.pop(0)
             
             node_metrics, node_connections, children = self._process_node(
-                node_data, health_metrics, gateway_test_ips, depth, parent_id
+                node_data, health_metrics, gateway_test_ips, speed_test_results, depth, parent_id
             )
             
             # Check if node already exists - if so, preserve notes from whichever has them
@@ -448,9 +495,10 @@ class MetricsAggregator:
         layout_task = self._fetch_network_layout()
         health_task = self._fetch_health_metrics()
         test_ips_task = self._fetch_gateway_test_ips()
+        speed_test_task = self._fetch_speed_test_results()
         
-        layout, health_metrics, gateway_test_ips = await asyncio.gather(
-            layout_task, health_task, test_ips_task
+        layout, health_metrics, gateway_test_ips, speed_test_results = await asyncio.gather(
+            layout_task, health_task, test_ips_task, speed_test_task
         )
         
         if not layout or not layout.get("root"):
@@ -462,6 +510,7 @@ class MetricsAggregator:
             layout["root"],
             health_metrics,
             gateway_test_ips,
+            speed_test_results,
         )
         
         # Count node statuses
