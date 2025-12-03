@@ -3,6 +3,7 @@ Service for fetching and formatting network context from the metrics service.
 """
 
 import os
+import asyncio
 import logging
 from typing import Optional, Dict, Any
 from datetime import datetime
@@ -24,9 +25,17 @@ class MetricsContextService:
         self._cached_summary: Optional[Dict[str, Any]] = None
         self._cache_timestamp: Optional[datetime] = None
         self._cache_ttl_seconds = 30  # Cache for 30 seconds
+        
+        # Loading state tracking
+        self._snapshot_available = False
+        self._last_check_time: Optional[datetime] = None
+        self._check_interval_seconds = 5  # Recheck every 5 seconds when no snapshot
+        self._max_wait_attempts = 6  # Max attempts when waiting for snapshot (30 seconds total)
     
     async def fetch_network_snapshot(self) -> Optional[Dict[str, Any]]:
         """Fetch the current network topology snapshot"""
+        self._last_check_time = datetime.utcnow()
+        
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.get(f"{METRICS_SERVICE_URL}/api/metrics/snapshot")
@@ -34,17 +43,62 @@ class MetricsContextService:
                 if response.status_code == 200:
                     data = response.json()
                     if data.get("success") and data.get("snapshot"):
+                        self._snapshot_available = True
                         return data["snapshot"]
                 
-                logger.warning(f"Failed to fetch snapshot: {response.status_code}")
+                # Snapshot not yet available (service may be starting up)
+                self._snapshot_available = False
+                logger.info(f"Snapshot not yet available: {response.status_code}")
                 return None
                 
         except httpx.ConnectError:
+            self._snapshot_available = False
             logger.warning(f"Cannot connect to metrics service at {METRICS_SERVICE_URL}")
             return None
         except Exception as e:
+            self._snapshot_available = False
             logger.error(f"Error fetching network snapshot: {e}")
             return None
+    
+    async def wait_for_snapshot(self, max_attempts: Optional[int] = None) -> Optional[Dict[str, Any]]:
+        """
+        Wait for a snapshot to become available, retrying periodically.
+        
+        Args:
+            max_attempts: Maximum number of attempts (defaults to self._max_wait_attempts)
+            
+        Returns:
+            The snapshot if available, None if max attempts exceeded
+        """
+        attempts = max_attempts or self._max_wait_attempts
+        
+        for attempt in range(attempts):
+            snapshot = await self.fetch_network_snapshot()
+            if snapshot:
+                logger.info(f"Snapshot available after {attempt + 1} attempt(s)")
+                return snapshot
+            
+            if attempt < attempts - 1:
+                logger.debug(f"Waiting for snapshot (attempt {attempt + 1}/{attempts})...")
+                await asyncio.sleep(self._check_interval_seconds)
+        
+        logger.warning(f"Snapshot not available after {attempts} attempts")
+        return None
+    
+    def is_snapshot_available(self) -> bool:
+        """Check if a snapshot has ever been successfully fetched"""
+        return self._snapshot_available
+    
+    def should_recheck(self) -> bool:
+        """Check if we should try fetching the snapshot again"""
+        if self._snapshot_available:
+            return False
+        
+        if not self._last_check_time:
+            return True
+        
+        elapsed = (datetime.utcnow() - self._last_check_time).total_seconds()
+        return elapsed >= self._check_interval_seconds
     
     async def fetch_network_summary(self) -> Optional[Dict[str, Any]]:
         """Fetch network summary (lighter weight than full snapshot)"""
@@ -191,10 +245,13 @@ class MetricsContextService:
         
         return "\n".join(lines)
     
-    async def build_context_string(self) -> tuple[str, Dict[str, Any]]:
+    async def build_context_string(self, wait_for_data: bool = True) -> tuple[str, Dict[str, Any]]:
         """
         Build a context string for the AI assistant with network information.
         Returns (context_string, summary_dict)
+        
+        Args:
+            wait_for_data: If True and no snapshot available, wait and retry
         """
         # Check cache
         now = datetime.utcnow()
@@ -205,10 +262,16 @@ class MetricsContextService:
         ):
             return self._cached_context, self._cached_summary or {}
         
+        # Try to fetch snapshot
         snapshot = await self.fetch_network_snapshot()
         
+        # If no snapshot and we should wait, try waiting for it
+        if not snapshot and wait_for_data and not self._snapshot_available:
+            logger.info("No snapshot available yet, waiting for metrics service...")
+            snapshot = await self.wait_for_snapshot(max_attempts=3)  # Wait up to 15 seconds
+        
         if not snapshot:
-            return self._build_fallback_context()
+            return self._build_loading_context() if not self._snapshot_available else self._build_fallback_context()
         
         lines = []
         lines.append("=" * 60)
@@ -356,6 +419,33 @@ class MetricsContextService:
         
         return context, summary
     
+    def _build_loading_context(self) -> tuple[str, Dict[str, Any]]:
+        """Build context when waiting for initial snapshot"""
+        context = """
+========================================
+NETWORK TOPOLOGY INFORMATION
+========================================
+
+⏳ Network data is loading...
+
+The network monitoring system is starting up and collecting initial data.
+This typically takes 30-60 seconds after first launch.
+
+I can still help answer general networking questions while we wait.
+Once the network scan completes, I'll have full visibility into your topology.
+========================================
+"""
+        summary = {
+            "total_nodes": 0,
+            "healthy_nodes": 0,
+            "unhealthy_nodes": 0,
+            "gateway_count": 0,
+            "snapshot_timestamp": None,
+            "context_tokens_estimate": len(context) // 4,
+            "loading": True,
+        }
+        return context.strip(), summary
+    
     def _build_fallback_context(self) -> tuple[str, Dict[str, Any]]:
         """Build fallback context when metrics service is unavailable"""
         context = """
@@ -363,8 +453,10 @@ class MetricsContextService:
 NETWORK TOPOLOGY INFORMATION
 ========================================
 
-⚠️ Network data is currently unavailable.
-The metrics service may be starting up or temporarily unreachable.
+⚠️ Network data is temporarily unavailable.
+
+The metrics service may be restarting or experiencing issues.
+Previous network data should be restored shortly.
 
 I can still help answer general networking questions or provide guidance
 based on the information you provide directly.
@@ -377,6 +469,7 @@ based on the information you provide directly.
             "gateway_count": 0,
             "snapshot_timestamp": None,
             "context_tokens_estimate": len(context) // 4,
+            "unavailable": True,
         }
         return context.strip(), summary
     
@@ -385,6 +478,24 @@ based on the information you provide directly.
         self._cached_context = None
         self._cached_summary = None
         self._cache_timestamp = None
+    
+    def reset_state(self):
+        """Reset all state including snapshot availability"""
+        self.clear_cache()
+        self._snapshot_available = False
+        self._last_check_time = None
+    
+    def get_status(self) -> Dict[str, Any]:
+        """Get current service status"""
+        return {
+            "snapshot_available": self._snapshot_available,
+            "cached": self._cached_context is not None,
+            "last_check": self._last_check_time.isoformat() if self._last_check_time else None,
+            "cache_age_seconds": (
+                (datetime.utcnow() - self._cache_timestamp).total_seconds()
+                if self._cache_timestamp else None
+            ),
+        }
 
 
 # Singleton instance

@@ -99,6 +99,12 @@ async def get_context_raw(user: AuthenticatedUser = Depends(require_auth)):
     return await proxy_request("GET", "/context/raw")
 
 
+@router.get("/context/status")
+async def get_context_status(user: AuthenticatedUser = Depends(require_auth)):
+    """Get context service status (loading/ready state). Requires authentication."""
+    return await proxy_request("GET", "/context/status")
+
+
 # ==================== Chat Endpoints ====================
 
 @router.post("/chat")

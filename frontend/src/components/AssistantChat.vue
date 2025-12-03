@@ -145,15 +145,33 @@
 		</div>
 
 		<!-- Context indicator -->
-		<div v-if="contextSummary" class="px-4 py-2 bg-slate-800/50 border-t border-slate-700 flex items-center gap-2 text-xs text-slate-400">
-			<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-				<path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-			</svg>
-			<span>Network context: {{ contextSummary.total_nodes }} devices ({{ contextSummary.healthy_nodes }} healthy)</span>
+		<div class="px-4 py-2 bg-slate-800/50 border-t border-slate-700 flex items-center gap-2 text-xs text-slate-400">
+			<!-- Loading state -->
+			<template v-if="contextLoading">
+				<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-amber-400 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+				</svg>
+				<span class="text-amber-400">Loading network context...</span>
+			</template>
+			<!-- Ready state -->
+			<template v-else-if="contextSummary && contextSummary.total_nodes > 0">
+				<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+				</svg>
+				<span>Network context: {{ contextSummary.total_nodes }} devices ({{ contextSummary.healthy_nodes }} healthy)</span>
+			</template>
+			<!-- Unavailable state -->
+			<template v-else>
+				<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+				</svg>
+				<span class="text-slate-500">Network context unavailable</span>
+			</template>
 			<button 
 				@click="includeContext = !includeContext"
 				class="ml-auto text-xs"
 				:class="includeContext ? 'text-emerald-400' : 'text-slate-500'"
+				:disabled="contextLoading"
 			>
 				{{ includeContext ? 'Context ON' : 'Context OFF' }}
 			</button>
@@ -188,7 +206,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, computed, onMounted, nextTick, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import axios from 'axios';
 
 const emit = defineEmits(['close']);
@@ -210,6 +228,14 @@ interface ContextSummary {
 	healthy_nodes: number;
 	unhealthy_nodes: number;
 	gateway_count: number;
+	loading?: boolean;
+	unavailable?: boolean;
+}
+
+interface ContextStatus {
+	snapshot_available: boolean;
+	loading: boolean;
+	ready: boolean;
 }
 
 const messages = ref<ChatMessage[]>([]);
@@ -224,6 +250,8 @@ const selectedModel = ref('');
 const availableProviders = ref<Provider[]>([]);
 const includeContext = ref(true);
 const contextSummary = ref<ContextSummary | null>(null);
+const contextLoading = ref(true);
+const contextStatusPollInterval = ref<number | null>(null);
 
 // Computed property for current provider's models
 const currentProviderModels = computed(() => {
@@ -265,6 +293,11 @@ const suggestions = [
 onMounted(async () => {
 	await fetchProviders();
 	await fetchContext();
+});
+
+// Cleanup polling on unmount
+onUnmounted(() => {
+	stopContextStatusPolling();
 });
 
 async function fetchProviders() {
@@ -318,8 +351,51 @@ async function fetchContext() {
 	try {
 		const response = await axios.get('/api/assistant/context');
 		contextSummary.value = response.data;
+		
+		// Check if context is actually available or loading
+		if (response.data.loading || response.data.total_nodes === 0) {
+			contextLoading.value = true;
+			// Start polling for context status
+			startContextStatusPolling();
+		} else {
+			contextLoading.value = false;
+			stopContextStatusPolling();
+		}
 	} catch (err) {
 		console.error('Failed to fetch context:', err);
+		contextLoading.value = true;
+		startContextStatusPolling();
+	}
+}
+
+async function fetchContextStatus() {
+	try {
+		const response = await axios.get('/api/assistant/context/status');
+		const status: ContextStatus = response.data;
+		
+		if (status.ready && status.snapshot_available) {
+			contextLoading.value = false;
+			stopContextStatusPolling();
+			// Refresh the full context
+			await fetchContext();
+		}
+	} catch (err) {
+		console.error('Failed to fetch context status:', err);
+	}
+}
+
+function startContextStatusPolling() {
+	if (contextStatusPollInterval.value) return; // Already polling
+	
+	contextStatusPollInterval.value = window.setInterval(() => {
+		fetchContextStatus();
+	}, 5000); // Poll every 5 seconds
+}
+
+function stopContextStatusPolling() {
+	if (contextStatusPollInterval.value) {
+		clearInterval(contextStatusPollInterval.value);
+		contextStatusPollInterval.value = null;
 	}
 }
 

@@ -312,6 +312,18 @@ async def refresh_context():
     }
 
 
+@router.get("/context/status")
+async def get_context_status():
+    """Get the current status of the context service"""
+    status = metrics_context_service.get_status()
+    
+    # Add additional info
+    status["loading"] = not status["snapshot_available"]
+    status["ready"] = status["snapshot_available"]
+    
+    return status
+
+
 @router.get("/context/debug")
 async def get_context_debug():
     """Debug endpoint to see the full context string being sent to AI"""
