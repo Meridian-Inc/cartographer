@@ -254,49 +254,33 @@
 				</h3>
 				
 				<form @submit.prevent="onSubmitUser" class="space-y-4">
-					<div v-if="!editingUser">
-						<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-							Username
+					<!-- Send Invitation Toggle (only for new users) -->
+					<div v-if="!editingUser" class="p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
+						<label class="flex items-center justify-between cursor-pointer">
+							<div class="flex items-center gap-2">
+								<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-cyan-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+								</svg>
+								<span class="text-sm font-medium text-slate-700 dark:text-slate-300">Send invitation email</span>
+							</div>
+							<button 
+								type="button"
+								@click="userForm.sendInvite = !userForm.sendInvite"
+								class="relative w-10 h-6 rounded-full transition-colors"
+								:class="userForm.sendInvite ? 'bg-cyan-500' : 'bg-slate-300 dark:bg-slate-600'"
+							>
+								<span class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform" :class="userForm.sendInvite ? 'translate-x-4' : ''"></span>
+							</button>
 						</label>
-						<input
-							v-model="userForm.username"
-							type="text"
-							required
-							pattern="^[a-zA-Z][a-zA-Z0-9_-]*$"
-							class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-							placeholder="username"
-						/>
+						<p class="text-xs text-slate-500 mt-2">
+							{{ userForm.sendInvite 
+								? 'User will receive an email to set up their account' 
+								: 'You will set the password for this user' 
+							}}
+						</p>
 					</div>
-					
-					<!-- First Name / Last Name -->
-					<div class="grid grid-cols-2 gap-3">
-						<div>
-							<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-								First Name
-							</label>
-							<input
-								v-model="userForm.firstName"
-								type="text"
-								required
-								class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-								placeholder="John"
-							/>
-						</div>
-						<div>
-							<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-								Last Name
-							</label>
-							<input
-								v-model="userForm.lastName"
-								type="text"
-								required
-								class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-								placeholder="Doe"
-							/>
-						</div>
-					</div>
-					
-					<!-- Email -->
+
+					<!-- Email (always required) -->
 					<div>
 						<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
 							Email
@@ -309,7 +293,8 @@
 							placeholder="user@example.com"
 						/>
 					</div>
-					
+
+					<!-- Role (always required) -->
 					<div>
 						<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
 							Role
@@ -322,34 +307,79 @@
 							<option value="readwrite">Read/Write - Can view and modify the network map</option>
 						</select>
 					</div>
-					
-					<div v-if="!editingUser">
-						<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-							Password
-						</label>
-						<input
-							v-model="userForm.password"
-							type="password"
-							:required="!editingUser"
-							minlength="8"
-							class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-							placeholder="••••••••"
-						/>
-						<p class="mt-1 text-xs text-slate-500">Minimum 8 characters</p>
-					</div>
 
-					<div v-if="editingUser">
-						<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-							New Password <span class="text-slate-400">(leave blank to keep current)</span>
-						</label>
-						<input
-							v-model="userForm.password"
-							type="password"
-							minlength="8"
-							class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-							placeholder="••••••••"
-						/>
-					</div>
+					<!-- Fields only shown when NOT sending invite (creating user directly) -->
+					<template v-if="!userForm.sendInvite || editingUser">
+						<div v-if="!editingUser">
+							<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+								Username
+							</label>
+							<input
+								v-model="userForm.username"
+								type="text"
+								required
+								pattern="^[a-zA-Z][a-zA-Z0-9_-]*$"
+								class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+								placeholder="username"
+							/>
+						</div>
+						
+						<!-- First Name / Last Name -->
+						<div class="grid grid-cols-2 gap-3">
+							<div>
+								<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+									First Name
+								</label>
+								<input
+									v-model="userForm.firstName"
+									type="text"
+									required
+									class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+									placeholder="John"
+								/>
+							</div>
+							<div>
+								<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+									Last Name
+								</label>
+								<input
+									v-model="userForm.lastName"
+									type="text"
+									required
+									class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+									placeholder="Doe"
+								/>
+							</div>
+						</div>
+						
+						<div v-if="!editingUser">
+							<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+								Password
+							</label>
+							<input
+								v-model="userForm.password"
+								type="password"
+								required
+								minlength="8"
+								class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+								placeholder="••••••••"
+							/>
+							<p class="mt-1 text-xs text-slate-500">Minimum 8 characters</p>
+						</div>
+
+						<div v-if="editingUser">
+							<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+								New Password <span class="text-slate-400">(leave blank to keep current)</span>
+							</label>
+							<input
+								v-model="userForm.password"
+								type="password"
+								minlength="8"
+								class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+								placeholder="••••••••"
+							/>
+						</div>
+					</template>
 
 					<div v-if="formError" class="p-3 bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-500/50 rounded-lg">
 						<p class="text-sm text-red-600 dark:text-red-400">{{ formError }}</p>
@@ -368,7 +398,10 @@
 							:disabled="isSubmitting"
 							class="flex-1 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 disabled:opacity-50"
 						>
-							{{ isSubmitting ? 'Saving...' : (editingUser ? 'Update User' : 'Create User') }}
+							<template v-if="isSubmitting">Saving...</template>
+							<template v-else-if="editingUser">Update User</template>
+							<template v-else-if="userForm.sendInvite">Send Invitation</template>
+							<template v-else>Create User</template>
 						</button>
 					</div>
 				</form>
@@ -525,6 +558,7 @@ const userForm = ref({
 	email: "",
 	role: "readonly" as UserRole,
 	password: "",
+	sendInvite: true, // Default to sending invitation
 });
 
 // Invites state
@@ -591,6 +625,7 @@ function editUser(user: User) {
 		email: user.email,
 		role: user.role,
 		password: "",
+		sendInvite: false,
 	};
 	formError.value = null;
 }
@@ -609,6 +644,7 @@ function closeUserForm() {
 		email: "",
 		role: "readonly",
 		password: "",
+		sendInvite: true,
 	};
 	formError.value = null;
 }
@@ -627,8 +663,20 @@ async function onSubmitUser() {
 				role: userForm.value.role,
 				password: userForm.value.password || undefined,
 			});
+			closeUserForm();
+			await loadUsers();
+		} else if (userForm.value.sendInvite) {
+			// Send invitation instead of creating user directly
+			await createInvite({
+				email: userForm.value.email,
+				role: userForm.value.role,
+			});
+			closeUserForm();
+			// Refresh invites list and switch to invites tab
+			await loadInvites();
+			activeTab.value = "invites";
 		} else {
-			// Create new user
+			// Create new user directly (with password)
 			await createUser({
 				username: userForm.value.username,
 				first_name: userForm.value.firstName,
@@ -637,10 +685,9 @@ async function onSubmitUser() {
 				password: userForm.value.password,
 				role: userForm.value.role,
 			});
+			closeUserForm();
+			await loadUsers();
 		}
-		
-		closeUserForm();
-		await loadUsers();
 	} catch (e: any) {
 		formError.value = e.message || "Failed to save user";
 	} finally {
