@@ -6,6 +6,23 @@
 version: "3.8"
 
 services:
+  # Redis for metrics pub/sub
+  redis:
+    image: redis:7-alpine
+    container_name: cartographer-redis
+    # Use host network for consistency with other services
+    network_mode: host
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
   # Main application (Backend + Frontend)
   app:
     build:
@@ -22,6 +39,8 @@ services:
       - HEALTH_SERVICE_URL=http://localhost:8001
       # Auth service is on localhost when using host network
       - AUTH_SERVICE_URL=http://localhost:8002
+      # Metrics service is on localhost when using host network
+      - METRICS_SERVICE_URL=http://localhost:8003
     # Network scanning requires elevated privileges
     cap_add:
       - NET_ADMIN
@@ -31,6 +50,8 @@ services:
       health:
         condition: service_healthy
       auth:
+        condition: service_healthy
+      metrics:
         condition: service_healthy
 
   # Health Monitoring Microservice
@@ -86,10 +107,43 @@ services:
       retries: 3
       start_period: 10s
 
+  # Metrics Publishing Microservice
+  metrics:
+    build:
+      context: ./metrics-service
+      dockerfile: Dockerfile
+    container_name: cartographer-metrics
+    # Use host network for consistent localhost access
+    network_mode: host
+    environment:
+      - CORS_ORIGINS=*
+      # Redis on localhost when using host network
+      - REDIS_URL=redis://localhost:6379
+      - REDIS_DB=0
+      # Other services on localhost when using host network
+      - HEALTH_SERVICE_URL=http://localhost:8001
+      - BACKEND_SERVICE_URL=http://localhost:8000
+      # Publishing configuration
+      - METRICS_PUBLISH_INTERVAL=${METRICS_PUBLISH_INTERVAL:-30}
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+      health:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
 volumes:
   cartographer-data:
     driver: local
   health-data:
     driver: local
   auth-data:
+    driver: local
+  redis-data:
     driver: local
