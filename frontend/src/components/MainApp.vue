@@ -51,10 +51,10 @@
 				<!-- Unified top toolbar -->
 				<div class="absolute top-3 left-3 right-3 z-10 flex items-center justify-between pointer-events-none">
 					<!-- Left: Navigation controls (horizontal) -->
-					<div class="flex items-center gap-1 bg-white/95 dark:bg-slate-800/95 backdrop-blur border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm p-1 pointer-events-auto">
+					<div class="flex items-center h-8 bg-white/95 dark:bg-slate-800/95 backdrop-blur border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm px-1 pointer-events-auto">
 						<button
 							@click="networkMapRef?.zoomIn()"
-							class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors text-slate-600 dark:text-slate-400"
+							class="h-6 w-6 flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors text-slate-600 dark:text-slate-400"
 							title="Zoom in"
 						>
 							<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -63,7 +63,7 @@
 						</button>
 						<button
 							@click="networkMapRef?.zoomOut()"
-							class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors text-slate-600 dark:text-slate-400"
+							class="h-6 w-6 flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors text-slate-600 dark:text-slate-400"
 							title="Zoom out"
 						>
 							<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -73,7 +73,7 @@
 						<div class="w-px h-4 bg-slate-200 dark:bg-slate-600 mx-0.5"></div>
 						<button
 							@click="networkMapRef?.fitToView()"
-							class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors text-slate-600 dark:text-slate-400"
+							class="h-6 w-6 flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors text-slate-600 dark:text-slate-400"
 							title="Fit all nodes in view"
 						>
 							<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -82,7 +82,7 @@
 						</button>
 						<button
 							@click="networkMapRef?.resetView()"
-							class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors text-slate-600 dark:text-slate-400"
+							class="h-6 w-6 flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors text-slate-600 dark:text-slate-400"
 							title="Reset view to origin"
 						>
 							<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -92,12 +92,12 @@
 					</div>
 
 					<!-- Right: Mode toggle + Actions -->
-					<div class="flex items-center gap-2 pointer-events-auto">
+					<div class="flex items-center gap-1.5 pointer-events-auto">
 						<!-- Add Node button (edit mode only) -->
 						<button
 							v-if="mode === 'edit'"
 							@click="onAddNode"
-							class="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm transition-colors"
+							class="flex items-center gap-1.5 px-2.5 h-8 text-xs font-medium rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm transition-colors"
 							title="Add a new node to the network map"
 						>
 							<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
@@ -107,24 +107,22 @@
 						</button>
 
 						<!-- Mode toggle -->
-						<div class="flex items-center bg-white/95 dark:bg-slate-800/95 backdrop-blur border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm p-0.5">
+						<div class="flex items-center h-8 bg-white/95 dark:bg-slate-800/95 backdrop-blur border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm px-0.5">
 							<button
-								class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors"
+								class="px-2.5 h-6 text-xs font-medium rounded-md transition-colors flex items-center gap-1.5"
 								:class="mode === 'pan' 
 									? 'bg-cyan-500 text-white shadow-sm' 
 									: 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'"
 								@click="mode = 'pan'"
 								title="Pan mode - drag to navigate"
 							>
-								<span class="flex items-center gap-1.5">
-									<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-										<path stroke-linecap="round" stroke-linejoin="round" d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11" />
-									</svg>
-									Pan
-								</span>
+								<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11" />
+								</svg>
+								Pan
 							</button>
 							<button
-								class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors"
+								class="px-2.5 h-6 text-xs font-medium rounded-md transition-colors flex items-center gap-1.5"
 								:class="[
 									mode === 'edit' 
 										? 'bg-cyan-500 text-white shadow-sm' 
@@ -135,19 +133,17 @@
 								:disabled="!canWrite"
 								:title="canWrite ? 'Edit mode - drag nodes to reposition' : 'Edit mode requires write permissions'"
 							>
-								<span class="flex items-center gap-1.5">
-									<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-										<path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-									</svg>
-									Edit
-								</span>
+								<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+								</svg>
+								Edit
 							</button>
 						</div>
 
 						<!-- History button -->
 						<button
 							@click="toggleHistoryPanel"
-							class="p-1.5 rounded-lg border transition-colors"
+							class="h-8 w-8 flex items-center justify-center rounded-lg border transition-colors"
 							:class="showHistoryPanel 
 								? 'bg-amber-500 text-white border-amber-500 shadow-sm' 
 								: 'bg-white/95 dark:bg-slate-800/95 backdrop-blur border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:border-amber-300 dark:hover:border-amber-600'"
