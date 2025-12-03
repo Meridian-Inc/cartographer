@@ -1,19 +1,32 @@
 <template>
 	<div class="flex flex-col h-full bg-slate-900 rounded-lg border border-slate-700 overflow-hidden">
 		<!-- Header -->
-		<div class="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-violet-900/50 to-fuchsia-900/50 border-b border-slate-700">
-			<div class="flex items-center gap-3">
-				<div class="p-2 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-lg">
-					<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-						<path stroke-linecap="round" stroke-linejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611l-2.845.474m-13.09.8l1.402-1.402c1.232-1.232.65-3.318-1.067-3.611L5.29 15.89" />
+		<div class="flex flex-col bg-gradient-to-r from-violet-900/50 to-fuchsia-900/50 border-b border-slate-700">
+			<!-- Title row -->
+			<div class="flex items-center justify-between px-4 py-2">
+				<div class="flex items-center gap-3">
+					<div class="p-2 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-lg">
+						<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+						</svg>
+					</div>
+					<div>
+						<h2 class="font-semibold text-white text-sm">Network Assistant</h2>
+					</div>
+				</div>
+				<!-- Close button -->
+				<button 
+					@click="$emit('close')"
+					class="p-1.5 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+					title="Close assistant"
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
 					</svg>
-				</div>
-				<div>
-					<h2 class="font-semibold text-white">Network Assistant</h2>
-					<p class="text-xs text-slate-400">AI-powered network insights</p>
-				</div>
+				</button>
 			</div>
-			<div class="flex items-center gap-2">
+			<!-- Model selection row -->
+			<div class="flex items-center gap-2 px-4 pb-2">
 				<!-- Provider selector -->
 				<select 
 					v-model="selectedProvider" 
@@ -28,7 +41,7 @@
 				<!-- Model selector -->
 				<select 
 					v-model="selectedModel" 
-					class="text-xs bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-slate-200 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 outline-none max-w-[180px]"
+					class="text-xs bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-slate-200 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 outline-none flex-1 min-w-0"
 					:disabled="isStreaming || !currentProviderModels.length"
 					:title="selectedModel"
 				>
@@ -36,16 +49,6 @@
 						{{ formatModelName(model) }}
 					</option>
 				</select>
-				<!-- Close button -->
-				<button 
-					@click="$emit('close')"
-					class="p-1.5 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
-					title="Close assistant"
-				>
-					<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-						<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-					</svg>
-				</button>
 			</div>
 		</div>
 
@@ -235,6 +238,22 @@ const providerLabels: Record<string, string> = {
 	ollama: 'Ollama',
 };
 
+// Helper to get auth token from storage
+function getAuthToken(): string | null {
+	try {
+		const stored = localStorage.getItem('cartographer_auth');
+		if (stored) {
+			const state = JSON.parse(stored);
+			if (state.token && state.expiresAt > Date.now()) {
+				return state.token;
+			}
+		}
+	} catch (e) {
+		console.error('Failed to get auth token:', e);
+	}
+	return null;
+}
+
 const suggestions = [
 	"What's the health of my network?",
 	"Are there any unhealthy devices?",
@@ -349,11 +368,16 @@ async function handleSubmit() {
 			content: m.content,
 		}));
 
+		const authToken = getAuthToken();
+		if (!authToken) {
+			throw new Error('Not authenticated. Please log in again.');
+		}
+
 		const response = await fetch('/api/assistant/chat/stream', {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
-				'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+				'Authorization': `Bearer ${authToken}`,
 			},
 			body: JSON.stringify({
 				message,
