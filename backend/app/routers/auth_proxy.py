@@ -180,3 +180,51 @@ async def change_password(request: Request):
     """Change current user's password"""
     body = await request.json()
     return await proxy_request("POST", "/api/auth/me/change-password", request, body)
+
+
+# ==================== Invitation Endpoints ====================
+
+@router.get("/auth/invites")
+async def list_invites(request: Request):
+    """List all invitations"""
+    return await proxy_request("GET", "/api/auth/invites", request)
+
+
+@router.post("/auth/invites")
+async def create_invite(request: Request):
+    """Create a new invitation"""
+    body = await request.json()
+    return await proxy_request("POST", "/api/auth/invites", request, body)
+
+
+@router.get("/auth/invites/{invite_id}")
+async def get_invite(invite_id: str, request: Request):
+    """Get invitation by ID"""
+    return await proxy_request("GET", f"/api/auth/invites/{invite_id}", request)
+
+
+@router.delete("/auth/invites/{invite_id}")
+async def revoke_invite(invite_id: str, request: Request):
+    """Revoke an invitation"""
+    return await proxy_request("DELETE", f"/api/auth/invites/{invite_id}", request)
+
+
+@router.post("/auth/invites/{invite_id}/resend")
+async def resend_invite(invite_id: str, request: Request):
+    """Resend an invitation email"""
+    return await proxy_request("POST", f"/api/auth/invites/{invite_id}/resend", request)
+
+
+# ==================== Public Invitation Endpoints ====================
+
+@router.get("/auth/invite/verify/{token}")
+async def verify_invite_token(token: str, request: Request):
+    """Verify an invitation token"""
+    return await proxy_request("GET", f"/api/auth/invite/verify/{token}", request)
+
+
+@router.post("/auth/invite/accept")
+async def accept_invite(request: Request):
+    """Accept an invitation and create account"""
+    body = await request.json()
+    return await proxy_request("POST", "/api/auth/invite/accept", request, body)
