@@ -30,8 +30,19 @@
 				</div>
 
 				<template v-else>
-					<!-- Create New Embed Section -->
-					<div v-if="!selectedEmbed" class="mb-6">
+					<!-- Readonly notice -->
+					<div v-if="!canWrite && !selectedEmbed" class="mb-4 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700">
+						<div class="flex items-center gap-2 text-amber-700 dark:text-amber-300">
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+							</svg>
+							<span class="text-sm font-medium">Read-only access</span>
+						</div>
+						<p class="text-xs text-amber-600 dark:text-amber-400 mt-1 ml-7">You can view existing embeds but cannot create new ones.</p>
+					</div>
+
+					<!-- Create New Embed Section (write access required) -->
+					<div v-if="!selectedEmbed && canWrite" class="mb-6">
 						<button 
 							@click="showCreateForm = !showCreateForm"
 							class="w-full px-4 py-3 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-500 transition-colors flex items-center justify-center gap-2"
@@ -245,11 +256,13 @@
 						<!-- Actions -->
 						<div class="flex items-center justify-between">
 							<button 
+								v-if="isOwner"
 								@click="confirmDelete = true"
 								class="px-3 py-1.5 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
 							>
 								Delete Embed
 							</button>
+							<div v-else></div>
 							<a 
 								:href="getEmbedUrl(selectedEmbed.id)"
 								target="_blank"
@@ -308,7 +321,7 @@ const emit = defineEmits<{
 	(e: 'close'): void;
 }>();
 
-const { user } = useAuth();
+const { user, canWrite, isOwner } = useAuth();
 const currentUser = computed(() => user.value);
 
 const loading = ref(true);
