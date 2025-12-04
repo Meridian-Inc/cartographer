@@ -45,24 +45,32 @@ async def proxy_request(
             else:
                 raise HTTPException(status_code=405, detail="Method not allowed")
             
+            # Try to parse JSON response
+            try:
+                content = response.json()
+            except Exception:
+                content = {"detail": response.text or "Unknown error"}
+            
             return JSONResponse(
-                content=response.json(),
+                content=content,
                 status_code=response.status_code
             )
         except httpx.ConnectError:
             raise HTTPException(
                 status_code=503,
-                detail="Notification service unavailable"
+                detail="Notification service unavailable. Make sure the notification-service is running."
             )
         except httpx.TimeoutException:
             raise HTTPException(
                 status_code=504,
                 detail="Notification service timeout"
             )
+        except HTTPException:
+            raise
         except Exception as e:
             raise HTTPException(
-                status_code=500,
-                detail=f"Notification service error: {str(e)}"
+                status_code=503,
+                detail=f"Notification service unavailable: {str(e)}"
             )
 
 
@@ -74,7 +82,7 @@ async def get_preferences(user: AuthenticatedUser = Depends(require_auth)):
     return await proxy_request(
         "GET",
         "/preferences",
-        headers={"X-User-Id": user.id}
+        headers={"X-User-Id": user.user_id}
     )
 
 
@@ -86,7 +94,7 @@ async def update_preferences(request: Request, user: AuthenticatedUser = Depends
         "PUT",
         "/preferences",
         json_body=body,
-        headers={"X-User-Id": user.id}
+        headers={"X-User-Id": user.user_id}
     )
 
 
@@ -96,7 +104,7 @@ async def delete_preferences(user: AuthenticatedUser = Depends(require_auth)):
     return await proxy_request(
         "DELETE",
         "/preferences",
-        headers={"X-User-Id": user.id}
+        headers={"X-User-Id": user.user_id}
     )
 
 
@@ -144,7 +152,7 @@ async def send_test_notification(request: Request, user: AuthenticatedUser = Dep
         "POST",
         "/test",
         json_body=body,
-        headers={"X-User-Id": user.id}
+        headers={"X-User-Id": user.user_id}
     )
 
 
@@ -161,7 +169,7 @@ async def get_notification_history(
         "GET",
         "/history",
         params={"page": page, "per_page": per_page},
-        headers={"X-User-Id": user.id}
+        headers={"X-User-Id": user.user_id}
     )
 
 
@@ -171,7 +179,7 @@ async def get_notification_stats(user: AuthenticatedUser = Depends(require_auth)
     return await proxy_request(
         "GET",
         "/stats",
-        headers={"X-User-Id": user.id}
+        headers={"X-User-Id": user.user_id}
     )
 
 
