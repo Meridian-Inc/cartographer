@@ -295,7 +295,7 @@
 												<!-- RJ45 clip tab (sticks out at bottom) -->
 												<div 
 													v-if="defaultPortType === 'rj45'"
-													class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1 bg-amber-300 dark:bg-amber-700 border border-amber-400 dark:border-amber-600 rounded-b-sm"
+													class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1/2 h-1 bg-amber-300 dark:bg-amber-700 border border-amber-400 dark:border-amber-600 rounded-b-sm"
 												></div>
 												<!-- SFP pull tab -->
 												<div 
@@ -397,7 +397,7 @@
 											<!-- RJ45 clip tab (sticks out at bottom) -->
 											<div 
 												v-if="port.type === 'rj45' && port.status !== 'blocked'"
-												class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2.5 h-1.5 border-2 rounded-b-sm"
+												class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1/2 h-1.5 border-2 rounded-b-sm"
 												:class="port.status === 'active' 
 													? 'bg-amber-300 dark:bg-amber-700 border-amber-400 dark:border-amber-600' 
 													: 'bg-slate-400 dark:bg-slate-600 border-slate-500 dark:border-slate-500'"
@@ -442,7 +442,7 @@
 							<div class="flex flex-wrap gap-3 text-[10px] text-slate-500 dark:text-slate-400">
 								<div class="flex items-center gap-1">
 									<div class="w-3 h-3 rounded-sm bg-amber-200 dark:bg-amber-800 border border-amber-400 dark:border-amber-600 relative mb-1">
-										<div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1 bg-amber-300 dark:bg-amber-700 border border-amber-400 dark:border-amber-600 rounded-b-sm"></div>
+										<div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1/2 h-1 bg-amber-300 dark:bg-amber-700 border border-amber-400 dark:border-amber-600 rounded-b-sm"></div>
 									</div>
 									<span>RJ45</span>
 								</div>
@@ -1498,7 +1498,7 @@
 									<!-- RJ45 clip tab (sticks out at bottom) -->
 									<div 
 										v-if="port.type === 'rj45' && port.status !== 'blocked'"
-										class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1 border rounded-b-sm"
+										class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1/2 h-1 border rounded-b-sm"
 										:class="port.status === 'active' 
 											? 'bg-amber-300 dark:bg-amber-700 border-amber-400 dark:border-amber-600' 
 											: 'bg-slate-400 dark:bg-slate-600 border-slate-500 dark:border-slate-500'"
