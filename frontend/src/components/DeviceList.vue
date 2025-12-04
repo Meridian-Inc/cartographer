@@ -93,7 +93,7 @@ function flatten(root: TreeNode): TreeNode[] {
 			const key = n.ip || n.id;
 			if (!seen.has(key)) {
 				seen.add(key);
-				res.push(n);
+			res.push(n);
 			}
 		}
 		for (const c of n.children || []) walk(c);

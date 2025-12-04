@@ -690,11 +690,13 @@ const { silenceDevice, unsilenceDevice, setSilencedDevices } = useNotifications(
 // Track if we've done initial registration
 let hasRegisteredDevices = false;
 
-// Helper to get IPs of devices that have monitoring enabled
+// Helper to get IPs of ALL devices for health monitoring
+// ALL devices are tracked by the health service for ML anomaly detection
+// The notification service's silenced devices list controls which devices can trigger notifications
 function getMonitoredDeviceIPs(root: TreeNode): string[] {
 	const devices = flattenDevices(root);
 	return devices
-		.filter(d => d.ip && d.monitoringEnabled !== false) // Only include nodes with monitoring enabled (default: true)
+		.filter(d => d.ip) // Include ALL devices with IPs
 		.map(d => d.ip!)
 		.filter((ip): ip is string => !!ip);
 }
@@ -815,8 +817,8 @@ function flattenDevices(root: TreeNode): TreeNode[] {
 			const key = n.ip || n.id;
 			if (!seen.has(key)) {
 				seen.add(key);
-				res.push(n);
-			}
+			res.push(n);
+		}
 		}
 		for (const c of n.children || []) walk(c);
 	};
@@ -1093,13 +1095,13 @@ async function onToggleNodeMonitoring(nodeId: string, enabled: boolean) {
 		node.updatedAt = now;
 		node.version = (node.version || 0) + 1;
 		
-		// Re-register devices with updated list (excludes disabled nodes)
+		// Register all devices with health service (ML tracks all devices)
 		const ips = getMonitoredDeviceIPs(parsed.value.root);
-		console.log(`[Health] ${enabled ? 'Enabling' : 'Disabling'} monitoring for ${node.name || nodeId} (IP: ${node.ip})`);
-		console.log(`[Health] Updating monitored devices list: ${ips.length} devices`, ips);
+		console.log(`[Health] ${enabled ? 'Enabling' : 'Disabling'} notifications for ${node.name || nodeId} (IP: ${node.ip})`);
+		console.log(`[Health] Total devices tracked by ML: ${ips.length}`, ips);
 		
-		// Send updated list to backend - this REPLACES the entire list
-		await registerDevices(ips, false); // Don't trigger immediate check when disabling
+		// Send full device list to backend - ML anomaly detection tracks ALL devices
+		await registerDevices(ips, false);
 		
 		// Update notification service silenced devices list
 		// This ensures the device is also excluded from notification tracking
