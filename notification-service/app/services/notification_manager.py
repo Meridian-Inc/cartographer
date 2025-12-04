@@ -142,17 +142,29 @@ class NotificationManager:
         """Update notification preferences for a user"""
         prefs = self.get_preferences(user_id)
         
+        # Get current preferences as dict
+        current_data = prefs.model_dump()
+        
+        # Get update data (only fields that were set)
         update_data = update.model_dump(exclude_unset=True)
         
+        # Merge update into current data (handles nested models properly)
         for key, value in update_data.items():
             if value is not None:
-                setattr(prefs, key, value)
+                if key in current_data and isinstance(current_data[key], dict) and isinstance(value, dict):
+                    # Merge nested dicts (like email and discord configs)
+                    current_data[key].update(value)
+                else:
+                    current_data[key] = value
         
-        prefs.updated_at = datetime.utcnow()
-        self._preferences[user_id] = prefs
+        # Update timestamp
+        current_data['updated_at'] = datetime.utcnow()
+        
+        # Recreate the preferences model with validated data
+        self._preferences[user_id] = NotificationPreferences(**current_data)
         self._save_preferences()
         
-        return prefs
+        return self._preferences[user_id]
     
     def delete_preferences(self, user_id: str) -> bool:
         """Delete preferences for a user"""
