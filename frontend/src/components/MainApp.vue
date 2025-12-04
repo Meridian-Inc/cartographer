@@ -1115,6 +1115,16 @@ async function onToggleNodeMonitoring(nodeId: string, enabled: boolean) {
 			}
 		}
 		
+		// Also do a full sync of silenced devices to ensure consistency
+		// This catches any edge cases where individual silence/unsilence might fail
+		try {
+			const silencedIps = getSilencedDeviceIPs(parsed.value.root);
+			await setSilencedDevices(silencedIps);
+			console.log(`[Notifications] Full sync: ${silencedIps.length} silenced devices`);
+		} catch (e) {
+			console.error('[Notifications] Failed to sync silenced devices:', e);
+		}
+		
 		// Trigger Vue reactivity by creating a new reference
 		parsed.value = { ...parsed.value };
 		
