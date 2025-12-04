@@ -421,9 +421,11 @@
 				v-if="showNodeInfoPanel && selectedNode"
 				:node="selectedNode"
 				:canEdit="canWrite"
+				:allDevices="allNetworkDevices"
 				@close="closeNodeInfoPanel"
 				@toggleMonitoring="onToggleNodeMonitoring"
 				@updateNotes="onUpdateNodeNotes"
+				@updateLanPorts="onUpdateLanPorts"
 			/>
 		</div>
 		<!-- Terminal / Logs Panel -->
@@ -509,7 +511,7 @@ import UserMenu from "./UserMenu.vue";
 import UserManagement from "./UserManagement.vue";
 import AssistantChat from "./AssistantChat.vue";
 import NotificationSettings from "./NotificationSettings.vue";
-import type { ParsedNetworkMap, TreeNode, NodeVersion } from "../types/network";
+import type { ParsedNetworkMap, TreeNode, NodeVersion, LanPortsConfig } from "../types/network";
 import { useMapLayout } from "../composables/useMapLayout";
 import { useNetworkData } from "../composables/useNetworkData";
 import { useHealthMonitoring } from "../composables/useHealthMonitoring";
@@ -1158,6 +1160,49 @@ function onUpdateNodeNotes(nodeId: string, notes: string) {
 		}
 	}
 }
+
+function onUpdateLanPorts(nodeId: string, lanPorts: LanPortsConfig | null) {
+	if (!canWrite.value) return; // Permission check
+	if (!parsed.value?.root) return;
+	
+	const node = findNodeById(parsed.value.root, nodeId);
+	if (node) {
+		const hadPorts = !!node.lanPorts;
+		node.lanPorts = lanPorts || undefined;
+		
+		// Track version change
+		if (lanPorts) {
+			if (hadPorts) {
+				updateNodeVersion(node, ['LAN ports configuration updated']);
+			} else {
+				updateNodeVersion(node, [`LAN ports configured (${lanPorts.cols}×${lanPorts.rows} grid)`]);
+			}
+		} else if (hadPorts) {
+			updateNodeVersion(node, ['LAN ports configuration cleared']);
+		}
+		
+		// Trigger reactivity and auto-save
+		parsed.value = { ...parsed.value };
+		triggerAutoSave();
+	}
+}
+
+// Get all devices in the network (for LAN port connection selection)
+const allNetworkDevices = computed((): TreeNode[] => {
+	if (!parsed.value?.root) return [];
+	
+	const devices: TreeNode[] = [];
+	const walk = (n: TreeNode) => {
+		if (n.role !== 'group') {
+			devices.push(n);
+		}
+		for (const child of (n.children || [])) {
+			walk(child);
+		}
+	};
+	walk(parsed.value.root);
+	return devices;
+});
 
 function getNodeRoleColor(role?: string): string {
 	switch (role) {

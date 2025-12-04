@@ -352,6 +352,407 @@
 					</div>
 				</section>
 
+				<!-- LAN Ports Section (for switches, routers, servers) -->
+				<section v-if="showLanPortsSection">
+					<div class="flex items-center justify-between mb-2">
+						<h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+							</svg>
+							LAN Ports
+						</h3>
+						<button
+							@click="lanPortsExpanded = !lanPortsExpanded"
+							class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400"
+						>
+							<svg 
+								xmlns="http://www.w3.org/2000/svg" 
+								class="h-4 w-4 transition-transform duration-200"
+								:class="{ 'rotate-180': !lanPortsExpanded }"
+								fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
+							>
+								<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+							</svg>
+						</button>
+					</div>
+
+					<div v-show="lanPortsExpanded" class="space-y-3">
+						<!-- Grid Configuration (if no ports configured) -->
+						<div v-if="!lanPortsConfig || lanPortsConfig.ports.length === 0" class="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-4">
+							<div v-if="hasWritePermission && !showPortGridSetup" class="text-center">
+								<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 mx-auto mb-2 text-slate-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+								</svg>
+								<p class="text-xs text-slate-500 dark:text-slate-400 mb-3">
+									Configure physical LAN ports for this device
+								</p>
+								<button
+									@click="showPortGridSetup = true"
+									class="px-3 py-1.5 text-xs rounded bg-cyan-500 hover:bg-cyan-600 text-white transition-colors"
+								>
+									Configure Ports
+								</button>
+							</div>
+
+							<!-- Port Grid Setup Form -->
+							<div v-else-if="hasWritePermission && showPortGridSetup" class="space-y-3">
+								<p class="text-xs text-slate-600 dark:text-slate-400 font-medium">Port Grid Layout</p>
+								<div class="grid grid-cols-2 gap-3">
+									<div>
+										<label class="text-xs text-slate-500 dark:text-slate-400 mb-1 block">Columns (X)</label>
+										<input 
+											type="number" 
+											v-model.number="portGridCols"
+											min="1" 
+											max="48"
+											class="w-full px-2 py-1.5 text-xs border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+										/>
+									</div>
+									<div>
+										<label class="text-xs text-slate-500 dark:text-slate-400 mb-1 block">Rows (Y)</label>
+										<input 
+											type="number" 
+											v-model.number="portGridRows"
+											min="1" 
+											max="8"
+											class="w-full px-2 py-1.5 text-xs border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+										/>
+									</div>
+								</div>
+								<div>
+									<label class="text-xs text-slate-500 dark:text-slate-400 mb-1 block">Default Port Type</label>
+									<select 
+										v-model="defaultPortType"
+										class="w-full px-2 py-1.5 text-xs border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+									>
+										<option value="rj45">RJ45 (Copper)</option>
+										<option value="sfp">SFP (1G Fiber)</option>
+										<option value="sfp+">SFP+ (10G Fiber)</option>
+									</select>
+								</div>
+								<!-- Preview grid -->
+								<div v-if="portGridCols > 0 && portGridRows > 0" class="mt-3">
+									<p class="text-xs text-slate-500 dark:text-slate-400 mb-2">Preview ({{ portGridCols }} × {{ portGridRows }} = {{ portGridCols * portGridRows }} ports)</p>
+									<div class="bg-slate-200 dark:bg-slate-700 rounded p-2 overflow-x-auto">
+										<div 
+											class="grid gap-1"
+											:style="{ gridTemplateColumns: `repeat(${portGridCols}, minmax(20px, 1fr))` }"
+										>
+											<div 
+												v-for="n in portGridCols * portGridRows"
+												:key="n"
+												class="h-5 rounded text-[9px] flex items-center justify-center font-mono"
+												:class="defaultPortType === 'rj45' ? 'bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200' : 'bg-cyan-200 dark:bg-cyan-800 text-cyan-800 dark:text-cyan-200'"
+											>
+												{{ n }}
+											</div>
+										</div>
+									</div>
+								</div>
+								<div class="flex justify-end gap-2 pt-2">
+									<button
+										@click="showPortGridSetup = false"
+										class="px-3 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+									>
+										Cancel
+									</button>
+									<button
+										@click="createPortGrid"
+										:disabled="portGridCols < 1 || portGridRows < 1"
+										class="px-3 py-1 text-xs rounded bg-cyan-500 hover:bg-cyan-600 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+									>
+										Create Grid
+									</button>
+								</div>
+							</div>
+
+							<!-- No write permission -->
+							<div v-else class="text-center text-xs text-slate-500 dark:text-slate-400 italic">
+								No ports configured
+							</div>
+						</div>
+
+						<!-- Port Grid Display -->
+						<div v-else class="space-y-3">
+							<!-- Grid Actions -->
+							<div v-if="hasWritePermission" class="flex items-center justify-between">
+								<span class="text-xs text-slate-500 dark:text-slate-400">
+									{{ lanPortsConfig.cols }} × {{ lanPortsConfig.rows }} grid ({{ lanPortsConfig.ports.length }} ports)
+								</span>
+								<button
+									@click="showPortGridSetup = true; portGridCols = lanPortsConfig.cols; portGridRows = lanPortsConfig.rows"
+									class="text-xs text-cyan-600 dark:text-cyan-400 hover:underline"
+								>
+									Resize Grid
+								</button>
+							</div>
+
+							<!-- Visual Port Grid -->
+							<div class="bg-slate-100 dark:bg-slate-900 rounded-lg p-3 overflow-x-auto">
+								<div 
+									class="grid gap-1.5 min-w-fit"
+									:style="{ gridTemplateColumns: `repeat(${lanPortsConfig.cols}, minmax(32px, 1fr))` }"
+								>
+									<div 
+										v-for="port in sortedPorts"
+										:key="`${port.row}-${port.col}`"
+										@click="hasWritePermission && openPortEditor(port)"
+										class="relative group cursor-pointer"
+									>
+										<!-- Port Visual -->
+										<div 
+											class="h-8 rounded flex items-center justify-center text-[10px] font-mono font-medium border-2 transition-all"
+											:class="getPortClasses(port)"
+											:title="getPortTooltip(port)"
+										>
+											<!-- Port Number/Label -->
+											<span v-if="port.status !== 'blocked'">
+												{{ getPortLabel(port) }}
+											</span>
+											<span v-else class="text-slate-400 dark:text-slate-600">✕</span>
+										</div>
+										<!-- Speed indicator (small badge) -->
+										<div 
+											v-if="port.status === 'active' && (port.speed || port.negotiatedSpeed)"
+											class="absolute -top-1 -right-1 px-1 py-0.5 text-[8px] font-bold rounded bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-800 leading-none"
+										>
+											{{ formatSpeedShort(port.negotiatedSpeed || port.speed) }}
+										</div>
+										<!-- Connection indicator (dot if connected) -->
+										<div 
+											v-if="port.connectedDeviceId && port.status === 'active'"
+											class="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-emerald-500 border border-white dark:border-slate-900"
+											:title="port.connectedDeviceName || 'Connected'"
+										></div>
+									</div>
+								</div>
+							</div>
+
+							<!-- Legend -->
+							<div class="flex flex-wrap gap-3 text-[10px] text-slate-500 dark:text-slate-400">
+								<div class="flex items-center gap-1">
+									<div class="w-3 h-3 rounded bg-amber-200 dark:bg-amber-800 border border-amber-400 dark:border-amber-600"></div>
+									<span>RJ45</span>
+								</div>
+								<div class="flex items-center gap-1">
+									<div class="w-3 h-3 rounded bg-cyan-200 dark:bg-cyan-800 border border-cyan-400 dark:border-cyan-600"></div>
+									<span>SFP/SFP+</span>
+								</div>
+								<div class="flex items-center gap-1">
+									<div class="w-3 h-3 rounded bg-slate-300 dark:bg-slate-700 border border-slate-400 dark:border-slate-600"></div>
+									<span>Unused</span>
+								</div>
+								<div class="flex items-center gap-1">
+									<div class="w-3 h-3 rounded bg-slate-200 dark:bg-slate-800 border border-dashed border-slate-400 dark:border-slate-600"></div>
+									<span>Blocked</span>
+								</div>
+								<div class="flex items-center gap-1">
+									<div class="w-2 h-2 rounded-full bg-emerald-500"></div>
+									<span>Connected</span>
+								</div>
+							</div>
+
+							<!-- Active Connections List -->
+							<div v-if="activeConnections.length > 0" class="space-y-1.5">
+								<p class="text-xs text-slate-500 dark:text-slate-400 font-medium">Active Connections</p>
+								<div 
+									v-for="conn in activeConnections" 
+									:key="`${conn.row}-${conn.col}`"
+									class="flex items-center justify-between bg-slate-50 dark:bg-slate-800/50 rounded px-2 py-1.5 text-xs"
+								>
+									<div class="flex items-center gap-2">
+										<span class="font-mono font-medium text-slate-700 dark:text-slate-300">
+											Port {{ getPortLabel(conn) }}
+										</span>
+										<span class="text-slate-400">→</span>
+										<span class="text-slate-600 dark:text-slate-400">
+											{{ conn.connectedDeviceName || conn.connectionLabel || 'Unknown device' }}
+										</span>
+									</div>
+									<div class="flex items-center gap-2">
+										<span 
+											v-if="conn.speed || conn.negotiatedSpeed"
+											class="px-1.5 py-0.5 rounded text-[10px] font-medium"
+											:class="getSpeedBadgeClass(conn.negotiatedSpeed || conn.speed)"
+										>
+											{{ conn.negotiatedSpeed || conn.speed }}
+										</span>
+										<span 
+											class="px-1.5 py-0.5 rounded text-[10px]"
+											:class="conn.type === 'rj45' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' : 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400'"
+										>
+											{{ conn.type.toUpperCase() }}
+										</span>
+									</div>
+								</div>
+							</div>
+
+							<!-- Clear All Button -->
+							<button
+								v-if="hasWritePermission"
+								@click="confirmClearPorts"
+								class="w-full px-3 py-1.5 text-xs rounded border border-red-300 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+							>
+								Clear All Ports
+							</button>
+						</div>
+					</div>
+				</section>
+
+				<!-- Port Editor Modal -->
+				<Teleport to="body">
+					<div 
+						v-if="editingPort" 
+						class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+						@click.self="closePortEditor"
+					>
+						<div class="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-80 max-h-[80vh] overflow-auto">
+							<div class="px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+								<h4 class="font-semibold text-slate-800 dark:text-slate-100">
+									Edit Port {{ getPortLabel(editingPort) }}
+								</h4>
+								<button @click="closePortEditor" class="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700">
+									<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+									</svg>
+								</button>
+							</div>
+							<div class="p-4 space-y-4">
+								<!-- Port Status -->
+								<div>
+									<label class="text-xs text-slate-500 dark:text-slate-400 mb-1.5 block font-medium">Status</label>
+									<div class="grid grid-cols-3 gap-1">
+										<button
+											@click="editingPort.status = 'active'"
+											class="px-2 py-1.5 text-xs rounded transition-colors"
+											:class="editingPort.status === 'active' ? 'bg-emerald-500 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'"
+										>
+											Active
+										</button>
+										<button
+											@click="editingPort.status = 'unused'"
+											class="px-2 py-1.5 text-xs rounded transition-colors"
+											:class="editingPort.status === 'unused' ? 'bg-slate-500 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'"
+										>
+											Unused
+										</button>
+										<button
+											@click="editingPort.status = 'blocked'"
+											class="px-2 py-1.5 text-xs rounded transition-colors"
+											:class="editingPort.status === 'blocked' ? 'bg-red-500 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'"
+										>
+											Blocked
+										</button>
+									</div>
+								</div>
+
+								<!-- Port Type -->
+								<div v-if="editingPort.status !== 'blocked'">
+									<label class="text-xs text-slate-500 dark:text-slate-400 mb-1.5 block font-medium">Port Type</label>
+									<select 
+										v-model="editingPort.type"
+										class="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+									>
+										<option value="rj45">RJ45 (Copper)</option>
+										<option value="sfp">SFP (1G Fiber)</option>
+										<option value="sfp+">SFP+ (10G Fiber)</option>
+									</select>
+								</div>
+
+								<!-- Port Speed -->
+								<div v-if="editingPort.status === 'active'">
+									<label class="text-xs text-slate-500 dark:text-slate-400 mb-1.5 block font-medium">Configured Speed</label>
+									<select 
+										v-model="editingPort.speed"
+										class="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+									>
+										<option value="">Auto-negotiate</option>
+										<option value="10M">10 Mbps</option>
+										<option value="100M">100 Mbps</option>
+										<option value="1G">1 Gbps</option>
+										<option value="2.5G">2.5 Gbps</option>
+										<option value="5G">5 Gbps</option>
+										<option value="10G">10 Gbps</option>
+										<option value="25G">25 Gbps</option>
+										<option value="40G">40 Gbps</option>
+										<option value="100G">100 Gbps</option>
+									</select>
+								</div>
+
+								<!-- Negotiated Speed (optional override) -->
+								<div v-if="editingPort.status === 'active'">
+									<label class="text-xs text-slate-500 dark:text-slate-400 mb-1.5 block font-medium">
+										Negotiated Speed 
+										<span class="font-normal text-slate-400">(actual link speed)</span>
+									</label>
+									<select 
+										v-model="editingPort.negotiatedSpeed"
+										class="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+									>
+										<option value="">Same as configured</option>
+										<option value="10M">10 Mbps</option>
+										<option value="100M">100 Mbps</option>
+										<option value="1G">1 Gbps</option>
+										<option value="2.5G">2.5 Gbps</option>
+										<option value="5G">5 Gbps</option>
+										<option value="10G">10 Gbps</option>
+										<option value="25G">25 Gbps</option>
+										<option value="40G">40 Gbps</option>
+										<option value="100G">100 Gbps</option>
+									</select>
+								</div>
+
+								<!-- Connected Device -->
+								<div v-if="editingPort.status === 'active'">
+									<label class="text-xs text-slate-500 dark:text-slate-400 mb-1.5 block font-medium">Connected Device</label>
+									<select 
+										v-model="editingPort.connectedDeviceId"
+										@change="onConnectedDeviceChange"
+										class="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+									>
+										<option value="">Not connected / Unknown</option>
+										<option 
+											v-for="device in availableDevices" 
+											:key="device.id"
+											:value="device.id"
+										>
+											{{ device.name }} {{ device.ip ? `(${device.ip})` : '' }}
+										</option>
+									</select>
+								</div>
+
+								<!-- Connection Label (custom) -->
+								<div v-if="editingPort.status === 'active'">
+									<label class="text-xs text-slate-500 dark:text-slate-400 mb-1.5 block font-medium">
+										Connection Label 
+										<span class="font-normal text-slate-400">(optional)</span>
+									</label>
+									<input 
+										type="text"
+										v-model="editingPort.connectionLabel"
+										placeholder="e.g., Uplink to Core Switch"
+										class="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+									/>
+								</div>
+							</div>
+							<div class="px-4 py-3 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-2">
+								<button
+									@click="closePortEditor"
+									class="px-3 py-1.5 text-sm rounded border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+								>
+									Cancel
+								</button>
+								<button
+									@click="savePortChanges"
+									class="px-3 py-1.5 text-sm rounded bg-cyan-500 hover:bg-cyan-600 text-white transition-colors"
+								>
+									Save
+								</button>
+							</div>
+						</div>
+					</div>
+				</Teleport>
+
 				<!-- Gateway Test IPs Section (only for gateway/router devices) -->
 				<section v-if="isGateway && node?.ip">
 					<div class="flex items-center justify-between mb-2">
@@ -834,6 +1235,56 @@
 					</div>
 				</section>
 
+				<!-- LAN Ports Section (shown even when device monitoring disabled) -->
+				<section v-if="showLanPortsSection">
+					<div class="flex items-center justify-between mb-2">
+						<h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+							</svg>
+							LAN Ports
+						</h3>
+						<button
+							@click="lanPortsExpanded = !lanPortsExpanded"
+							class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400"
+						>
+							<svg 
+								xmlns="http://www.w3.org/2000/svg" 
+								class="h-4 w-4 transition-transform duration-200"
+								:class="{ 'rotate-180': !lanPortsExpanded }"
+								fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
+							>
+								<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+							</svg>
+						</button>
+					</div>
+					<div v-show="lanPortsExpanded">
+						<!-- Simple view showing configured ports or setup prompt -->
+						<div v-if="!lanPortsConfig || lanPortsConfig.ports.length === 0" class="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-3 text-center">
+							<p class="text-xs text-slate-500 dark:text-slate-400">
+								{{ hasWritePermission ? 'Enable monitoring to configure LAN ports' : 'No ports configured' }}
+							</p>
+						</div>
+						<div v-else class="bg-slate-100 dark:bg-slate-900 rounded-lg p-2 overflow-x-auto">
+							<div 
+								class="grid gap-1 min-w-fit"
+								:style="{ gridTemplateColumns: `repeat(${lanPortsConfig.cols}, minmax(24px, 1fr))` }"
+							>
+								<div 
+									v-for="port in sortedPorts"
+									:key="`disabled-${port.row}-${port.col}`"
+									class="h-6 rounded text-[9px] flex items-center justify-center font-mono border"
+									:class="getPortClasses(port)"
+									:title="getPortTooltip(port)"
+								>
+									<span v-if="port.status !== 'blocked'">{{ getPortLabel(port) }}</span>
+									<span v-else class="text-slate-400 dark:text-slate-600">✕</span>
+								</div>
+							</div>
+						</div>
+					</div>
+				</section>
+
 				<!-- Gateway Test IPs Section (shown even when device monitoring disabled) -->
 				<section v-if="isGateway">
 					<div class="flex items-center justify-between mb-2">
@@ -1246,19 +1697,21 @@
 <script lang="ts" setup>
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
 import axios from 'axios';
-import type { TreeNode, DeviceMetrics, HealthStatus, GatewayTestIP, GatewayTestIPMetrics, GatewayTestIPsResponse, SpeedTestResult } from '../types/network';
+import type { TreeNode, DeviceMetrics, HealthStatus, GatewayTestIP, GatewayTestIPMetrics, GatewayTestIPsResponse, SpeedTestResult, LanPortsConfig, LanPort, PortType, PortStatus, PortSpeed } from '../types/network';
 import MetricCard from './MetricCard.vue';
 import { useHealthMonitoring } from '../composables/useHealthMonitoring';
 
 const props = defineProps<{
 	node?: TreeNode;
 	canEdit?: boolean;
+	allDevices?: TreeNode[]; // All devices in the network for connection selection
 }>();
 
 const emit = defineEmits<{
 	(e: 'close'): void;
 	(e: 'toggleMonitoring', nodeId: string, enabled: boolean): void;
 	(e: 'updateNotes', nodeId: string, notes: string): void;
+	(e: 'updateLanPorts', nodeId: string, lanPorts: LanPortsConfig): void;
 }>();
 
 // Check if user has write permission
@@ -1842,6 +2295,249 @@ function formatSpeed(mbps?: number): string {
 		return `${(mbps / 1000).toFixed(2)} Gbps`;
 	}
 	return `${mbps.toFixed(2)} Mbps`;
+}
+
+// ==================== LAN Ports Functions ====================
+
+// Show LAN ports section for switches, routers, servers, firewalls
+const showLanPortsSection = computed(() => {
+	const role = props.node?.role;
+	return role === 'switch/ap' || role === 'gateway/router' || role === 'server' || role === 'firewall' || role === 'nas';
+});
+
+// State
+const lanPortsExpanded = ref(true);
+const showPortGridSetup = ref(false);
+const portGridCols = ref(8);
+const portGridRows = ref(2);
+const defaultPortType = ref<PortType>('rj45');
+const editingPort = ref<LanPort | null>(null);
+const originalEditingPort = ref<LanPort | null>(null);
+
+// Local copy of lanPorts config that we can modify
+const lanPortsConfig = ref<LanPortsConfig | null>(null);
+
+// Initialize from node
+watch(() => props.node?.lanPorts, (newConfig) => {
+	if (newConfig) {
+		lanPortsConfig.value = JSON.parse(JSON.stringify(newConfig)); // Deep copy
+	} else {
+		lanPortsConfig.value = null;
+	}
+	showPortGridSetup.value = false;
+}, { immediate: true, deep: true });
+
+// Reset state when node changes
+watch(() => props.node?.id, () => {
+	showPortGridSetup.value = false;
+	editingPort.value = null;
+	lanPortsExpanded.value = true;
+});
+
+// Get sorted ports (row by row, column by column)
+const sortedPorts = computed(() => {
+	if (!lanPortsConfig.value?.ports) return [];
+	return [...lanPortsConfig.value.ports].sort((a, b) => {
+		if (a.row !== b.row) return a.row - b.row;
+		return a.col - b.col;
+	});
+});
+
+// Get active connections (ports with connected devices)
+const activeConnections = computed(() => {
+	return sortedPorts.value.filter(p => p.status === 'active' && (p.connectedDeviceId || p.connectionLabel));
+});
+
+// Available devices for connection dropdown (exclude current device)
+const availableDevices = computed(() => {
+	if (!props.allDevices) return [];
+	return props.allDevices
+		.filter(d => d.id !== props.node?.id && d.role !== 'group')
+		.map(d => ({
+			id: d.id,
+			name: d.hostname || d.name || d.ip || 'Unknown',
+			ip: d.ip
+		}));
+});
+
+function createPortGrid() {
+	if (!hasWritePermission.value || !props.node) return;
+	
+	const ports: LanPort[] = [];
+	let portNum = 1;
+	
+	for (let row = 1; row <= portGridRows.value; row++) {
+		for (let col = 1; col <= portGridCols.value; col++) {
+			ports.push({
+				row,
+				col,
+				portNumber: portNum++,
+				type: defaultPortType.value,
+				status: 'unused'
+			});
+		}
+	}
+	
+	const config: LanPortsConfig = {
+		rows: portGridRows.value,
+		cols: portGridCols.value,
+		ports,
+		labelFormat: 'numeric',
+		startNumber: 1
+	};
+	
+	lanPortsConfig.value = config;
+	showPortGridSetup.value = false;
+	
+	// Emit to parent
+	emit('updateLanPorts', props.node.id, config);
+}
+
+function getPortLabel(port: LanPort): string {
+	if (port.portNumber != null) return String(port.portNumber);
+	// Calculate from position
+	const config = lanPortsConfig.value;
+	if (!config) return '?';
+	return String((port.row - 1) * config.cols + port.col);
+}
+
+function getPortClasses(port: LanPort): string {
+	const classes: string[] = [];
+	
+	if (port.status === 'blocked') {
+		classes.push('bg-slate-200 dark:bg-slate-800 border-dashed border-slate-400 dark:border-slate-600 opacity-50');
+	} else if (port.status === 'unused') {
+		classes.push('bg-slate-300 dark:bg-slate-700 border-slate-400 dark:border-slate-600');
+	} else {
+		// Active port
+		if (port.type === 'rj45') {
+			classes.push('bg-amber-200 dark:bg-amber-900/50 border-amber-400 dark:border-amber-600 text-amber-800 dark:text-amber-200');
+		} else {
+			// SFP or SFP+
+			classes.push('bg-cyan-200 dark:bg-cyan-900/50 border-cyan-400 dark:border-cyan-600 text-cyan-800 dark:text-cyan-200');
+		}
+		
+		if (port.connectedDeviceId) {
+			classes.push('ring-2 ring-emerald-400/50');
+		}
+	}
+	
+	if (hasWritePermission.value) {
+		classes.push('hover:ring-2 hover:ring-cyan-400');
+	}
+	
+	return classes.join(' ');
+}
+
+function getPortTooltip(port: LanPort): string {
+	const parts: string[] = [`Port ${getPortLabel(port)}`];
+	
+	if (port.status === 'blocked') {
+		parts.push('(Blocked/Unused)');
+	} else {
+		parts.push(`Type: ${port.type.toUpperCase()}`);
+		if (port.status === 'active') {
+			if (port.negotiatedSpeed || port.speed) {
+				parts.push(`Speed: ${port.negotiatedSpeed || port.speed}`);
+			}
+			if (port.connectedDeviceName) {
+				parts.push(`Connected to: ${port.connectedDeviceName}`);
+			} else if (port.connectionLabel) {
+				parts.push(`Connection: ${port.connectionLabel}`);
+			}
+		} else {
+			parts.push('(Unused)');
+		}
+	}
+	
+	return parts.join('\n');
+}
+
+function formatSpeedShort(speed?: PortSpeed): string {
+	if (!speed) return '';
+	// Already short format
+	return speed;
+}
+
+function getSpeedBadgeClass(speed?: PortSpeed): string {
+	if (!speed) return 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400';
+	
+	// Color code by speed tier
+	if (speed.includes('100G') || speed.includes('40G')) {
+		return 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400';
+	}
+	if (speed.includes('25G') || speed.includes('10G')) {
+		return 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400';
+	}
+	if (speed.includes('5G') || speed.includes('2.5G') || speed.includes('1G')) {
+		return 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400';
+	}
+	if (speed.includes('100M')) {
+		return 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400';
+	}
+	return 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400';
+}
+
+function openPortEditor(port: LanPort) {
+	if (!hasWritePermission.value) return;
+	// Create a deep copy for editing
+	editingPort.value = JSON.parse(JSON.stringify(port));
+	originalEditingPort.value = port;
+}
+
+function closePortEditor() {
+	editingPort.value = null;
+	originalEditingPort.value = null;
+}
+
+function onConnectedDeviceChange() {
+	if (!editingPort.value) return;
+	
+	// Update the cached device name
+	if (editingPort.value.connectedDeviceId) {
+		const device = availableDevices.value.find(d => d.id === editingPort.value!.connectedDeviceId);
+		if (device) {
+			editingPort.value.connectedDeviceName = device.name;
+		}
+	} else {
+		editingPort.value.connectedDeviceName = undefined;
+	}
+}
+
+function savePortChanges() {
+	if (!editingPort.value || !originalEditingPort.value || !lanPortsConfig.value || !props.node) return;
+	
+	// Find and update the port in the config
+	const portIndex = lanPortsConfig.value.ports.findIndex(
+		p => p.row === originalEditingPort.value!.row && p.col === originalEditingPort.value!.col
+	);
+	
+	if (portIndex >= 0) {
+		// Clear connection data if not active
+		if (editingPort.value.status !== 'active') {
+			editingPort.value.connectedDeviceId = undefined;
+			editingPort.value.connectedDeviceName = undefined;
+			editingPort.value.connectionLabel = undefined;
+			editingPort.value.speed = undefined;
+			editingPort.value.negotiatedSpeed = undefined;
+		}
+		
+		lanPortsConfig.value.ports[portIndex] = { ...editingPort.value };
+		
+		// Emit to parent
+		emit('updateLanPorts', props.node.id, lanPortsConfig.value);
+	}
+	
+	closePortEditor();
+}
+
+function confirmClearPorts() {
+	if (!hasWritePermission.value || !props.node) return;
+	
+	if (confirm('Are you sure you want to clear all port configuration? This cannot be undone.')) {
+		lanPortsConfig.value = null;
+		emit('updateLanPorts', props.node.id, null as any);
+	}
 }
 </script>
 

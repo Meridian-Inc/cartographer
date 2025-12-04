@@ -50,6 +50,8 @@ export interface TreeNode {
 	monitoringEnabled?: boolean; // Whether to include this node in health monitoring (default: true)
 	// User notes
 	notes?: string; // Custom notes attached to this node
+	// LAN port configuration (for switches, routers, servers with multiple ports)
+	lanPorts?: LanPortsConfig;
 }
 
 export interface ParsedNetworkMap {
@@ -184,6 +186,46 @@ export interface SpeedTestResult {
 	
 	// Duration of the test
 	duration_seconds?: number;
+}
+
+// LAN Port Configuration types
+export type PortType = "rj45" | "sfp" | "sfp+";
+
+export type PortStatus = "active" | "unused" | "blocked"; // blocked = does not exist or permanently disabled
+
+export type PortSpeed = "10M" | "100M" | "1G" | "2.5G" | "5G" | "10G" | "25G" | "40G" | "100G" | "auto" | string;
+
+export interface LanPort {
+	// Position in the grid (1-indexed)
+	row: number;
+	col: number;
+	
+	// Port configuration
+	portNumber?: number; // Optional port label/number
+	type: PortType;
+	status: PortStatus;
+	
+	// Speed configuration
+	speed?: PortSpeed; // Configured speed
+	negotiatedSpeed?: PortSpeed; // Actual negotiated speed (if different)
+	
+	// Connection info
+	connectedDeviceId?: string; // ID of the connected TreeNode
+	connectedDeviceName?: string; // Cached name for display
+	connectionLabel?: string; // Optional custom label for the connection
+}
+
+export interface LanPortsConfig {
+	// Grid dimensions
+	rows: number; // Number of rows (Y axis)
+	cols: number; // Number of columns (X axis)
+	
+	// Port definitions
+	ports: LanPort[];
+	
+	// Display options
+	labelFormat?: "numeric" | "alpha" | "custom"; // How to auto-label ports (1,2,3 or A,B,C)
+	startNumber?: number; // Starting number for numeric labels (default: 1)
 }
 
 
