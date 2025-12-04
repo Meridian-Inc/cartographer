@@ -107,6 +107,8 @@ case $COMMAND in
         docker build -t cartographer-metrics:$TAG ./metrics-service
         echo "Building cartographer-assistant..."
         docker build -t cartographer-assistant:$TAG ./assistant-service
+        echo "Building cartographer-notifications..."
+        docker build -t cartographer-notifications:$TAG ./notification-service
         echo -e "${GREEN}✓ Build complete${NC}"
         ;;
     
@@ -138,6 +140,10 @@ case $COMMAND in
         docker tag cartographer-assistant:$TAG $REGISTRY/cartographer-assistant:$TAG
         docker push $REGISTRY/cartographer-assistant:$TAG
         
+        # Tag and push notification service
+        docker tag cartographer-notifications:$TAG $REGISTRY/cartographer-notifications:$TAG
+        docker push $REGISTRY/cartographer-notifications:$TAG
+        
         echo -e "${GREEN}✓ Push complete${NC}"
         ;;
     
@@ -152,11 +158,12 @@ case $COMMAND in
         echo -e "${GREEN}✓ Services started${NC}"
         echo ""
         echo "Access the application:"
-        echo "  Main App:           http://localhost:8000"
-        echo "  Health Service:     http://localhost:8001"
-        echo "  Auth Service:       http://localhost:8002"
-        echo "  Metrics Service:    http://localhost:8003"
-        echo "  Assistant Service:  http://localhost:8004"
+        echo "  Main App:              http://localhost:8000"
+        echo "  Health Service:        http://localhost:8001"
+        echo "  Auth Service:          http://localhost:8002"
+        echo "  Metrics Service:       http://localhost:8003"
+        echo "  Assistant Service:     http://localhost:8004"
+        echo "  Notification Service:  http://localhost:8005"
         ;;
     
     down)
