@@ -59,6 +59,7 @@ class AuthenticatedUser(HttpUser):
     
     def _login(self):
         """Authenticate and store the access token"""
+        logger.info(f"Attempting login with username: {AUTH_USERNAME}")
         with self.client.post(
             "/api/auth/login",
             json={
@@ -72,10 +73,16 @@ class AuthenticatedUser(HttpUser):
                 self.access_token = data.get("access_token")
                 user_data = data.get("user", {})
                 self.user_id = user_data.get("id", str(uuid.uuid4()))
+                logger.info(f"Login successful for user: {user_data.get('username')}")
                 response.success()
             else:
                 # Log warning but don't crash - continue without auth
-                logger.warning(f"Login failed with status {response.status_code}")
+                logger.warning(f"Login failed with status {response.status_code} for user '{AUTH_USERNAME}' (password length: {len(AUTH_PASSWORD)})")
+                try:
+                    error_detail = response.json()
+                    logger.warning(f"Error response: {error_detail}")
+                except:
+                    logger.warning(f"Error response text: {response.text[:200]}")
                 response.success()  # Mark as success to not count as failure
     
     def _auth_headers(self):
@@ -370,6 +377,7 @@ def on_test_start(environment, **kwargs):
     print(f"\n{'='*60}")
     print(f"  Cartographer Load Test")
     print(f"  Auth User: {AUTH_USERNAME}")
+    print(f"  Password length: {len(AUTH_PASSWORD)} chars")
     print(f"  Target: {environment.host}")
     print(f"{'='*60}\n")
 
