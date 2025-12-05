@@ -526,7 +526,8 @@ class NotificationManager:
         if event.event_type not in prefs.enabled_notification_types:
             return False, f"Event type {event.event_type.value} not in enabled types"
         
-        # Check priority threshold
+        # Check priority threshold using user's effective priority for this notification type
+        # This allows users to customize the priority of specific notification types
         priority_order = [
             NotificationPriority.LOW,
             NotificationPriority.MEDIUM,
@@ -534,8 +535,11 @@ class NotificationManager:
             NotificationPriority.CRITICAL,
         ]
         
-        if priority_order.index(event.priority) < priority_order.index(prefs.minimum_priority):
-            return False, f"Event priority {event.priority.value} below minimum {prefs.minimum_priority.value}"
+        # Get the effective priority for this notification type (user override or default)
+        effective_priority = prefs.get_effective_priority(event.event_type)
+        
+        if priority_order.index(effective_priority) < priority_order.index(prefs.minimum_priority):
+            return False, f"Event type priority {effective_priority.value} below minimum {prefs.minimum_priority.value}"
         
         # Check quiet hours
         if self._is_quiet_hours(prefs):

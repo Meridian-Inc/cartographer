@@ -329,24 +329,50 @@
 									Notification Types
 								</h3>
 
-								<div class="grid grid-cols-2 gap-2">
-									<button
+								<p class="text-xs text-slate-500 dark:text-slate-400">
+									Enable/disable notification types and customize their priority. Click the priority badge to change it.
+								</p>
+
+								<div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+									<div
 										v-for="(info, type) in NOTIFICATION_TYPE_INFO"
 										:key="type"
-										@click="toggleNotificationType(type)"
 										:class="[
 											'p-3 rounded-lg border text-left transition-colors',
 											preferences.enabled_notification_types.includes(type)
 												? 'border-violet-500 bg-violet-50 dark:bg-violet-900/20'
-												: 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+												: 'border-slate-200 dark:border-slate-700'
 										]"
 									>
-										<div class="flex items-center gap-2">
-											<span class="text-lg">{{ info.icon }}</span>
-											<span class="font-medium text-slate-900 dark:text-white text-sm">{{ info.label }}</span>
+										<div class="flex items-center justify-between gap-2">
+											<button
+												@click="toggleNotificationType(type)"
+												class="flex items-center gap-2 flex-1 text-left hover:opacity-80 transition-opacity"
+											>
+												<span class="text-lg">{{ info.icon }}</span>
+												<span class="font-medium text-slate-900 dark:text-white text-sm">{{ info.label }}</span>
+											</button>
+											<!-- Priority Badge (clickable to cycle through priorities) -->
+											<button
+												@click.stop="cycleTypePriority(type)"
+												class="px-2 py-0.5 rounded text-xs font-medium transition-colors"
+												:class="getPriorityBadgeClasses(getEffectivePriority(type))"
+												:title="`Priority: ${getEffectivePriority(type)}${isDefaultPriority(type) ? ' (default)' : ' (custom)'} - Click to change`"
+											>
+												{{ PRIORITY_INFO[getEffectivePriority(type)].label }}
+												<span v-if="!isDefaultPriority(type)" class="ml-0.5 opacity-70">*</span>
+											</button>
 										</div>
 										<p class="text-xs text-slate-500 dark:text-slate-400 mt-1">{{ info.description }}</p>
-									</button>
+										<!-- Reset to default priority option -->
+										<button
+											v-if="!isDefaultPriority(type)"
+											@click.stop="resetTypePriority(type)"
+											class="text-xs text-violet-600 dark:text-violet-400 hover:underline mt-1"
+										>
+											Reset to default ({{ info.defaultPriority }})
+										</button>
+									</div>
 								</div>
 							</div>
 
@@ -891,6 +917,65 @@ async function setPriority(priority: NotificationPriority) {
 	if (!preferences.value) return;
 	preferences.value.minimum_priority = priority;
 	await savePreferences();
+}
+
+// Priority for notification types
+const PRIORITY_ORDER: NotificationPriority[] = ['low', 'medium', 'high', 'critical'];
+
+function getEffectivePriority(type: NotificationType): NotificationPriority {
+	if (!preferences.value) return NOTIFICATION_TYPE_INFO[type].defaultPriority;
+	return preferences.value.notification_type_priorities?.[type] ?? NOTIFICATION_TYPE_INFO[type].defaultPriority;
+}
+
+function isDefaultPriority(type: NotificationType): boolean {
+	if (!preferences.value?.notification_type_priorities) return true;
+	return preferences.value.notification_type_priorities[type] === undefined;
+}
+
+async function cycleTypePriority(type: NotificationType) {
+	if (!preferences.value) return;
+	
+	// Initialize notification_type_priorities if not present
+	if (!preferences.value.notification_type_priorities) {
+		preferences.value.notification_type_priorities = {};
+	}
+	
+	const currentPriority = getEffectivePriority(type);
+	const currentIndex = PRIORITY_ORDER.indexOf(currentPriority);
+	const nextIndex = (currentIndex + 1) % PRIORITY_ORDER.length;
+	const nextPriority = PRIORITY_ORDER[nextIndex];
+	
+	// If the next priority is the default, remove the override
+	if (nextPriority === NOTIFICATION_TYPE_INFO[type].defaultPriority) {
+		delete preferences.value.notification_type_priorities[type];
+	} else {
+		preferences.value.notification_type_priorities[type] = nextPriority;
+	}
+	
+	await savePreferences();
+}
+
+async function resetTypePriority(type: NotificationType) {
+	if (!preferences.value?.notification_type_priorities) return;
+	
+	delete preferences.value.notification_type_priorities[type];
+	await savePreferences();
+}
+
+function getPriorityBadgeClasses(priority: NotificationPriority): string {
+	const baseClasses = 'cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-opacity-50';
+	switch (priority) {
+		case 'low':
+			return `${baseClasses} bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:ring-slate-400`;
+		case 'medium':
+			return `${baseClasses} bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 hover:ring-amber-400`;
+		case 'high':
+			return `${baseClasses} bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 hover:ring-orange-400`;
+		case 'critical':
+			return `${baseClasses} bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:ring-red-400`;
+		default:
+			return baseClasses;
+	}
 }
 
 async function setDeliveryMethod(method: 'channel' | 'dm') {

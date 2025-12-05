@@ -81,6 +81,31 @@ class DiscordConfig(BaseModel):
     channel_config: Optional[DiscordChannelConfig] = None  # For channel delivery
     
 
+# ==================== Default Notification Type Priorities ====================
+
+# These are the default priorities for each notification type
+# Users can override these per notification type
+DEFAULT_NOTIFICATION_TYPE_PRIORITIES: Dict[NotificationType, NotificationPriority] = {
+    NotificationType.DEVICE_OFFLINE: NotificationPriority.HIGH,
+    NotificationType.DEVICE_ONLINE: NotificationPriority.LOW,
+    NotificationType.DEVICE_DEGRADED: NotificationPriority.MEDIUM,
+    NotificationType.ANOMALY_DETECTED: NotificationPriority.HIGH,
+    NotificationType.HIGH_LATENCY: NotificationPriority.MEDIUM,
+    NotificationType.PACKET_LOSS: NotificationPriority.MEDIUM,
+    NotificationType.ISP_ISSUE: NotificationPriority.HIGH,
+    NotificationType.SECURITY_ALERT: NotificationPriority.CRITICAL,
+    NotificationType.SCHEDULED_MAINTENANCE: NotificationPriority.LOW,
+    NotificationType.SYSTEM_STATUS: NotificationPriority.LOW,
+    NotificationType.CARTOGRAPHER_DOWN: NotificationPriority.CRITICAL,
+    NotificationType.CARTOGRAPHER_UP: NotificationPriority.LOW,
+}
+
+
+def get_default_priority_for_type(notification_type: NotificationType) -> NotificationPriority:
+    """Get the default priority for a notification type"""
+    return DEFAULT_NOTIFICATION_TYPE_PRIORITIES.get(notification_type, NotificationPriority.MEDIUM)
+
+
 # ==================== User Notification Preferences ====================
 
 class NotificationPreferences(BaseModel):
@@ -114,6 +139,13 @@ class NotificationPreferences(BaseModel):
     # Minimum priority level to notify (ignore lower priority)
     minimum_priority: NotificationPriority = NotificationPriority.MEDIUM
     
+    # Per-notification-type priority overrides
+    # Users can customize the priority of specific notification types
+    # If not set for a type, the default priority will be used
+    notification_type_priorities: Dict[NotificationType, NotificationPriority] = Field(
+        default_factory=dict
+    )
+    
     # Quiet hours (don't send notifications during these times)
     quiet_hours_enabled: bool = False
     quiet_hours_start: Optional[str] = None  # HH:MM format
@@ -125,6 +157,15 @@ class NotificationPreferences(BaseModel):
     # Timestamps
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    def get_effective_priority(self, notification_type: NotificationType) -> NotificationPriority:
+        """
+        Get the effective priority for a notification type.
+        Returns user's custom priority if set, otherwise the default.
+        """
+        if notification_type in self.notification_type_priorities:
+            return self.notification_type_priorities[notification_type]
+        return get_default_priority_for_type(notification_type)
 
 
 class NotificationPreferencesUpdate(BaseModel):
@@ -134,6 +175,7 @@ class NotificationPreferencesUpdate(BaseModel):
     discord: Optional[DiscordConfig] = None
     enabled_notification_types: Optional[List[NotificationType]] = None
     minimum_priority: Optional[NotificationPriority] = None
+    notification_type_priorities: Optional[Dict[NotificationType, NotificationPriority]] = None
     quiet_hours_enabled: Optional[bool] = None
     quiet_hours_start: Optional[str] = None
     quiet_hours_end: Optional[str] = None

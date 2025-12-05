@@ -41,6 +41,9 @@ export type NotificationType =
 
 export type NotificationPriority = 'low' | 'medium' | 'high' | 'critical';
 
+// Priority overrides for specific notification types (user customization)
+export type NotificationTypePriorityOverrides = Partial<Record<NotificationType, NotificationPriority>>;
+
 export interface NotificationPreferences {
   user_id: string;
   enabled: boolean;
@@ -48,6 +51,7 @@ export interface NotificationPreferences {
   discord: DiscordConfig;
   enabled_notification_types: NotificationType[];
   minimum_priority: NotificationPriority;
+  notification_type_priorities?: NotificationTypePriorityOverrides; // User-defined priority overrides
   quiet_hours_enabled: boolean;
   quiet_hours_start?: string;
   quiet_hours_end?: string;
@@ -327,67 +331,79 @@ export function useNotifications() {
   };
 }
 
-// Notification type labels and icons
-export const NOTIFICATION_TYPE_INFO: Record<NotificationType, { label: string; icon: string; description: string }> = {
+// Notification type labels, icons, and default priorities
+export const NOTIFICATION_TYPE_INFO: Record<NotificationType, { label: string; icon: string; description: string; defaultPriority: NotificationPriority }> = {
   device_offline: { 
     label: 'Device Offline', 
     icon: '🔴', 
-    description: 'When a device stops responding' 
+    description: 'When a device stops responding',
+    defaultPriority: 'high'
   },
   device_online: { 
     label: 'Device Online', 
     icon: '🟢', 
-    description: 'When a device comes back online' 
+    description: 'When a device comes back online',
+    defaultPriority: 'low'
   },
   device_degraded: { 
     label: 'Device Degraded', 
     icon: '🟡', 
-    description: 'When a device has degraded performance' 
+    description: 'When a device has degraded performance',
+    defaultPriority: 'medium'
   },
   anomaly_detected: { 
     label: 'Anomaly Detected', 
     icon: '⚠️', 
-    description: 'ML-detected unusual behavior' 
+    description: 'ML-detected unusual behavior',
+    defaultPriority: 'high'
   },
   high_latency: { 
     label: 'High Latency', 
     icon: '🐌', 
-    description: 'Unusual latency spikes' 
+    description: 'Unusual latency spikes',
+    defaultPriority: 'medium'
   },
   packet_loss: { 
     label: 'Packet Loss', 
     icon: '📉', 
-    description: 'Significant packet loss' 
+    description: 'Significant packet loss',
+    defaultPriority: 'medium'
   },
   isp_issue: { 
     label: 'ISP Issue', 
     icon: '🌐', 
-    description: 'Internet connectivity problems' 
+    description: 'Internet connectivity problems',
+    defaultPriority: 'high'
   },
   security_alert: { 
     label: 'Security Alert', 
     icon: '🔒', 
-    description: 'Security-related notifications' 
+    description: 'Security-related notifications',
+    defaultPriority: 'critical'
   },
   scheduled_maintenance: { 
     label: 'Maintenance', 
     icon: '🔧', 
-    description: 'Planned maintenance notices' 
+    description: 'Planned maintenance notices',
+    defaultPriority: 'low'
   },
   system_status: { 
     label: 'System Status', 
     icon: 'ℹ️', 
-    description: 'General system updates' 
+    description: 'General system updates',
+    defaultPriority: 'low'
   },
   cartographer_down: { 
     label: 'Cartographer Down', 
     icon: '🚨', 
-    description: 'When Cartographer service goes offline' 
+    description: 'When Cartographer service goes offline',
+    defaultPriority: 'critical'
   },
   cartographer_up: { 
     label: 'Cartographer Up', 
     icon: '✅', 
-    description: 'When Cartographer service comes back online' 
+    description: 'When Cartographer service comes back online',
+    defaultPriority: 'low'
   },
 };
 
