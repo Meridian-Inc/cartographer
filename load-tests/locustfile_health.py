@@ -45,22 +45,21 @@ class AuthenticatedHealthUser(HttpUser):
     def on_start(self):
         """Authenticate before running tests"""
         # Health service is accessed via backend proxy, so login through auth endpoint
-        response = self.client.post(
+        with self.client.post(
             "/api/auth/login",
             json={
                 "username": AUTH_USERNAME,
                 "password": AUTH_PASSWORD
             },
             catch_response=True
-        )
-        
-        if response.status_code == 200:
-            data = response.json()
-            self.access_token = data.get("access_token")
-            response.success()
-        else:
-            # Try direct health service (no auth needed for direct access)
-            response.success()
+        ) as response:
+            if response.status_code == 200:
+                data = response.json()
+                self.access_token = data.get("access_token")
+                response.success()
+            else:
+                # Continue without auth - some endpoints might work directly
+                response.success()
     
     def _auth_headers(self):
         """Get headers with authorization token"""

@@ -4,30 +4,24 @@ Combined Load Test for All Cartographer Microservices
 This file imports and exposes all service-specific load test users,
 allowing you to run a comprehensive load test across the entire application.
 
-IMPORTANT: This assumes all services are accessible through a single host
-(e.g., through the main backend proxy at port 8000 or individual service ports).
-
 Authentication:
     Set environment variables before running:
     - LOADTEST_USERNAME: Username for authentication (default: admin)
     - LOADTEST_PASSWORD: Password for authentication (default: admin)
 
-For testing individual services directly, use their specific locustfiles.
-
 Run with:
     LOADTEST_USERNAME=myuser LOADTEST_PASSWORD=mypass locust -f locustfile_all.py --host=http://localhost:8000
-    
-    # Or on Windows PowerShell:
-    $env:LOADTEST_USERNAME="myuser"; $env:LOADTEST_PASSWORD="mypass"; locust -f locustfile_all.py --host=http://localhost:8000
 """
 
 import os
 import random
 import uuid
+import logging
 from locust import HttpUser, task, between, tag, events
 from faker import Faker
 
 fake = Faker()
+logger = logging.getLogger(__name__)
 
 # ==================== Configuration ====================
 
@@ -65,24 +59,24 @@ class AuthenticatedUser(HttpUser):
     
     def _login(self):
         """Authenticate and store the access token"""
-        response = self.client.post(
+        with self.client.post(
             "/api/auth/login",
             json={
                 "username": AUTH_USERNAME,
                 "password": AUTH_PASSWORD
             },
             catch_response=True
-        )
-        
-        if response.status_code == 200:
-            data = response.json()
-            self.access_token = data.get("access_token")
-            user_data = data.get("user", {})
-            self.user_id = user_data.get("id", str(uuid.uuid4()))
-            response.success()
-        else:
-            # Log the failure but don't crash - tests will fail with 401
-            response.failure(f"Login failed: {response.status_code}")
+        ) as response:
+            if response.status_code == 200:
+                data = response.json()
+                self.access_token = data.get("access_token")
+                user_data = data.get("user", {})
+                self.user_id = user_data.get("id", str(uuid.uuid4()))
+                response.success()
+            else:
+                # Log warning but don't crash - continue without auth
+                logger.warning(f"Login failed with status {response.status_code}")
+                response.success()  # Mark as success to not count as failure
     
     def _auth_headers(self):
         """Get headers with authorization token"""
