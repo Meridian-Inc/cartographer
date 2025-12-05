@@ -600,26 +600,48 @@ class AnomalyDetector:
         if effective_previous_state is None and stats:
             # The stats.last_state was updated by train() above to the current state,
             # but we can infer the previous state from consecutive counters
-            # If we just had consecutive successes > 1, previous was online
-            # If we just had consecutive failures > 1, previous was offline  
-            # If this is the first check (both are 0 or 1), we don't know
+            # 
+            # IMPORTANT: We require multiple consecutive checks (>1) to infer state
+            # to avoid false positives from fluke/transient network results.
+            # A single success among failures (or vice versa) is not enough evidence.
             if stats.consecutive_successes > 1:
                 effective_previous_state = "online"
             elif stats.consecutive_failures > 1:
                 effective_previous_state = "offline"
-            # Also check: if device just transitioned (consecutive count is 1)
-            # and we have history, infer from current state
-            elif stats.consecutive_successes == 1 and stats.failed_checks > 0:
-                effective_previous_state = "offline"  # Was offline/degraded, now online
-            elif stats.consecutive_failures == 1 and stats.successful_checks > 0:
-                effective_previous_state = "online"  # Was online, now offline
+            # For single-check transitions, we need stronger evidence:
+            # - The device must have significant history in the opposite state
+            # - AND not be a "stable" device (which would indicate fluky behavior)
+            elif stats.consecutive_successes == 1 and stats.failed_checks >= 3:
+                # First success after multiple failures - likely a real recovery
+                # But only if device isn't "stable offline" (which would mean this is a fluke)
+                if not stats.is_stable_offline():
+                    effective_previous_state = "offline"
+            elif stats.consecutive_failures == 1 and stats.successful_checks >= 3:
+                # First failure after multiple successes - likely a real outage
+                # But only if device isn't "stable online" with occasional fluky failures
+                if not stats.is_stable_online():
+                    effective_previous_state = "online"
         
         # Check if device was in a non-online state (offline or degraded)
         # We only consider it "was not online" if we have explicit evidence
         device_was_not_online = effective_previous_state in ("offline", "degraded")
         
+        # Check if device was online before (for offline detection)
+        device_was_online = effective_previous_state == "online"
+        
         # Check for state change
         state_changed = effective_previous_state and effective_previous_state != current_state
+        
+        # Check if this is a genuine transition to offline (not a fluke failure)
+        # Requires: first failure after MULTIPLE successes, and device isn't "stable online"
+        # (stable online devices with occasional failures shouldn't trigger notifications)
+        just_went_offline = (
+            not success and 
+            stats and 
+            stats.consecutive_failures == 1 and 
+            stats.successful_checks >= 3 and  # Require history of being online
+            not stats.is_stable_online()  # Don't notify for stable devices with fluky failures
+        )
         
         # Check if device is in a stable offline state (this is its normal behavior)
         is_stable_offline_device = stats and stats.is_stable_offline()
@@ -633,19 +655,29 @@ class AnomalyDetector:
                     f"(availability: {stats.availability:.1f}%)"
                 )
                 should_notify = False
-            elif result.is_anomaly:
-                should_notify = True
-                event_type = NotificationType.ANOMALY_DETECTED
-                priority = NotificationPriority.HIGH
-                title = f"Anomaly: {device_name or device_ip} went offline unexpectedly"
-                message = f"The device at {device_ip} has gone offline unexpectedly. {result.reason}"
-            elif state_changed:
-                # Standard offline notification
+            elif state_changed or just_went_offline or device_was_online:
+                # Device went offline - send DEVICE_OFFLINE notification
+                # This triggers when:
+                # - state_changed: explicit state change detected
+                # - just_went_offline: first failure after successes (internal detection)
+                # - device_was_online: we know it was online before
                 should_notify = True
                 event_type = NotificationType.DEVICE_OFFLINE
-                priority = NotificationPriority.MEDIUM
-                title = f"Device Offline: {device_name or device_ip}"
-                message = f"The device at {device_ip} is no longer responding."
+                priority = NotificationPriority.HIGH if result.is_anomaly else NotificationPriority.MEDIUM
+                
+                if result.is_anomaly:
+                    title = f"Device Offline: {device_name or device_ip} (Unexpected)"
+                    message = f"The device at {device_ip} has gone offline unexpectedly. {result.reason}"
+                else:
+                    title = f"Device Offline: {device_name or device_ip}"
+                    message = f"The device at {device_ip} is no longer responding."
+                
+                logger.info(
+                    f"Device {device_ip} went offline - creating DEVICE_OFFLINE notification "
+                    f"(previous_state={previous_state}, effective_previous_state={effective_previous_state}, "
+                    f"state_changed={state_changed}, just_went_offline={just_went_offline}, "
+                    f"is_anomaly={result.is_anomaly})"
+                )
                 
                 # Increase priority if multiple failures
                 if stats and stats.consecutive_failures >= 3:
@@ -653,10 +685,14 @@ class AnomalyDetector:
                     message += f" ({stats.consecutive_failures} consecutive failures)"
         
         elif success and (
-            # Device came back online from any non-online state (offline, degraded, or unknown)
+            # Device came back online from any non-online state (offline, degraded)
             device_was_not_online or
-            # Or this is the first success after having failures (recovery)
-            (stats and stats.consecutive_successes == 1 and stats.failed_checks > 0)
+            # Or this is a genuine recovery: first success after MULTIPLE failures
+            # AND device isn't "stable offline" (which would indicate a fluke success)
+            (stats and 
+             stats.consecutive_successes == 1 and 
+             stats.failed_checks >= 3 and  # Require history of being offline
+             not stats.is_stable_offline())  # Don't notify for stable offline devices with fluky successes
         ):
             # Device came back online from offline/degraded state
             should_notify = True
