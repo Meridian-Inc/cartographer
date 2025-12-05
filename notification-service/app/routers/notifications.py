@@ -338,3 +338,75 @@ async def check_device_silenced(device_ip: str):
     is_silenced = notification_manager.is_device_silenced(device_ip)
     return {"device_ip": device_ip, "silenced": is_silenced}
 
+
+# ==================== Cartographer Service Status Notifications ====================
+
+@router.post("/service-status/up")
+async def notify_cartographer_up(
+    message: Optional[str] = None,
+    downtime_minutes: Optional[int] = None,
+):
+    """
+    Send a notification that Cartographer is back online.
+    
+    This can be called by external monitoring systems when they detect
+    the service has recovered from downtime.
+    """
+    downtime_str = ""
+    if downtime_minutes:
+        downtime_str = f"Service was down for approximately {downtime_minutes} minutes. "
+    
+    event = NetworkEvent(
+        event_type=NotificationType.CARTOGRAPHER_UP,
+        priority=NotificationPriority.HIGH,
+        title="Cartographer is Back Online",
+        message=message or f"{downtime_str}The Cartographer monitoring service is now operational.",
+        details={
+            "service": "cartographer",
+            "downtime_minutes": downtime_minutes,
+            "reported_at": datetime.utcnow().isoformat(),
+        },
+    )
+    
+    results = await notification_manager.broadcast_notification(event)
+    return {
+        "success": True,
+        "users_notified": len(results),
+    }
+
+
+@router.post("/service-status/down")
+async def notify_cartographer_down(
+    message: Optional[str] = None,
+    affected_services: Optional[List[str]] = None,
+):
+    """
+    Send a notification that Cartographer is going down or has gone down.
+    
+    This can be called by:
+    - External monitoring systems when they detect the service is unreachable
+    - Administrators before planned maintenance
+    - The service itself before a graceful shutdown
+    """
+    services_str = ""
+    if affected_services:
+        services_str = f"Affected services: {', '.join(affected_services)}. "
+    
+    event = NetworkEvent(
+        event_type=NotificationType.CARTOGRAPHER_DOWN,
+        priority=NotificationPriority.CRITICAL,
+        title="Cartographer Service Alert",
+        message=message or f"{services_str}The Cartographer monitoring service may be unavailable.",
+        details={
+            "service": "cartographer",
+            "affected_services": affected_services or [],
+            "reported_at": datetime.utcnow().isoformat(),
+        },
+    )
+    
+    results = await notification_manager.broadcast_notification(event)
+    return {
+        "success": True,
+        "users_notified": len(results),
+    }
+

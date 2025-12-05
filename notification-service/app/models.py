@@ -38,6 +38,8 @@ class NotificationType(str, Enum):
     SECURITY_ALERT = "security_alert"
     SCHEDULED_MAINTENANCE = "scheduled_maintenance"
     SYSTEM_STATUS = "system_status"
+    CARTOGRAPHER_DOWN = "cartographer_down"
+    CARTOGRAPHER_UP = "cartographer_up"
 
 
 # ==================== Email Configuration ====================
@@ -91,12 +93,21 @@ class NotificationPreferences(BaseModel):
     discord: DiscordConfig = Field(default_factory=DiscordConfig)
     
     # Event type filters (which types of notifications to receive)
+    # Default includes most notification types - users can disable specific ones
     enabled_notification_types: List[NotificationType] = Field(
         default_factory=lambda: [
             NotificationType.DEVICE_OFFLINE,
+            NotificationType.DEVICE_ONLINE,
+            NotificationType.DEVICE_DEGRADED,
             NotificationType.ANOMALY_DETECTED,
-            NotificationType.SECURITY_ALERT,
+            NotificationType.HIGH_LATENCY,
+            NotificationType.PACKET_LOSS,
             NotificationType.ISP_ISSUE,
+            NotificationType.SECURITY_ALERT,
+            NotificationType.SCHEDULED_MAINTENANCE,
+            NotificationType.SYSTEM_STATUS,
+            NotificationType.CARTOGRAPHER_DOWN,
+            NotificationType.CARTOGRAPHER_UP,
         ]
     )
     

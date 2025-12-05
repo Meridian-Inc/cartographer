@@ -373,3 +373,52 @@ async def process_health_check(
         }
     )
 
+
+# ==================== Cartographer Service Status Notifications ====================
+
+@router.post("/service-status/up")
+async def notify_service_up(
+    request: Request,
+    user: AuthenticatedUser = Depends(require_owner),
+):
+    """
+    Send a notification that Cartographer is back online. Owner only.
+    
+    Can be used by administrators or external monitoring systems.
+    """
+    body = await request.json() if request.headers.get("content-type") == "application/json" else {}
+    
+    return await proxy_request(
+        "POST",
+        "/service-status/up",
+        params={
+            "message": body.get("message"),
+            "downtime_minutes": body.get("downtime_minutes"),
+        }
+    )
+
+
+@router.post("/service-status/down")
+async def notify_service_down(
+    request: Request,
+    user: AuthenticatedUser = Depends(require_owner),
+):
+    """
+    Send a notification that Cartographer is going/has gone down. Owner only.
+    
+    Can be used:
+    - Before planned maintenance
+    - By external monitoring systems
+    - For alerting about service degradation
+    """
+    body = await request.json() if request.headers.get("content-type") == "application/json" else {}
+    
+    return await proxy_request(
+        "POST",
+        "/service-status/down",
+        json_body={
+            "message": body.get("message"),
+            "affected_services": body.get("affected_services"),
+        }
+    )
+

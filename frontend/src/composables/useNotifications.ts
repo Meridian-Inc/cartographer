@@ -35,7 +35,9 @@ export type NotificationType =
   | 'isp_issue'
   | 'security_alert'
   | 'scheduled_maintenance'
-  | 'system_status';
+  | 'system_status'
+  | 'cartographer_down'
+  | 'cartographer_up';
 
 export type NotificationPriority = 'low' | 'medium' | 'high' | 'critical';
 
@@ -376,6 +378,16 @@ export const NOTIFICATION_TYPE_INFO: Record<NotificationType, { label: string; i
     label: 'System Status', 
     icon: 'ℹ️', 
     description: 'General system updates' 
+  },
+  cartographer_down: { 
+    label: 'Cartographer Down', 
+    icon: '🚨', 
+    description: 'When Cartographer service goes offline' 
+  },
+  cartographer_up: { 
+    label: 'Cartographer Up', 
+    icon: '✅', 
+    description: 'When Cartographer service comes back online' 
   },
 };
 

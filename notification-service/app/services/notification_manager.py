@@ -96,6 +96,8 @@ class NotificationManager:
             with open(PREFERENCES_FILE, 'r') as f:
                 data = json.load(f)
             
+            needs_save = False
+            
             for user_id, prefs_data in data.items():
                 # Parse datetime strings
                 if "created_at" in prefs_data and isinstance(prefs_data["created_at"], str):
@@ -103,9 +105,30 @@ class NotificationManager:
                 if "updated_at" in prefs_data and isinstance(prefs_data["updated_at"], str):
                     prefs_data["updated_at"] = datetime.fromisoformat(prefs_data["updated_at"].replace("Z", "+00:00"))
                 
+                # Migrate old preferences - add any new notification types that were added
+                # This ensures existing users get new notification types enabled by default
+                if "enabled_notification_types" in prefs_data:
+                    existing_types = set(prefs_data["enabled_notification_types"])
+                    # Get default types from a fresh preferences object
+                    default_prefs = NotificationPreferences(user_id="temp")
+                    default_types = set(t.value if hasattr(t, 'value') else t for t in default_prefs.enabled_notification_types)
+                    
+                    # Add any new types that weren't in the user's list
+                    new_types = default_types - existing_types
+                    if new_types:
+                        prefs_data["enabled_notification_types"].extend(list(new_types))
+                        needs_save = True
+                        logger.info(f"Added {len(new_types)} new notification types for user {user_id}: {new_types}")
+                
                 self._preferences[user_id] = NotificationPreferences(**prefs_data)
             
             logger.info(f"Loaded {len(self._preferences)} notification preferences")
+            
+            # Save if we migrated any preferences
+            if needs_save:
+                self._save_preferences()
+                logger.info("Saved migrated notification preferences")
+                
         except Exception as e:
             logger.error(f"Failed to load notification preferences: {e}")
     

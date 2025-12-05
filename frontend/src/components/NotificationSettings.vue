@@ -481,16 +481,18 @@
 										<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
 											Notification Type
 										</label>
-										<select
-											v-model="broadcastType"
-											class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-										>
-											<option value="scheduled_maintenance">🔧 Scheduled Maintenance</option>
-											<option value="system_status">ℹ️ System Status</option>
-											<option value="security_alert">🔒 Security Alert</option>
-											<option value="isp_issue">🌐 ISP Issue</option>
-											<option value="anomaly_detected">⚠️ Anomaly Detected</option>
-										</select>
+									<select
+										v-model="broadcastType"
+										class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+									>
+										<option value="scheduled_maintenance">🔧 Scheduled Maintenance</option>
+										<option value="system_status">ℹ️ System Status</option>
+										<option value="security_alert">🔒 Security Alert</option>
+										<option value="isp_issue">🌐 ISP Issue</option>
+										<option value="anomaly_detected">⚠️ Anomaly Detected</option>
+										<option value="cartographer_down">🚨 Cartographer Down</option>
+										<option value="cartographer_up">✅ Cartographer Up</option>
+									</select>
 									</div>
 
 									<!-- Priority -->
