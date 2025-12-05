@@ -3,13 +3,27 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from .routers.mapper import router as mapper_router
 from .routers.health_proxy import router as health_proxy_router
 from .routers.auth_proxy import router as auth_proxy_router
 from .routers.metrics_proxy import router as metrics_proxy_router
 from .routers.assistant_proxy import router as assistant_proxy_router
 from .routers.notification_proxy import router as notification_proxy_router
+
+
+class SPAStaticFiles(StaticFiles):
+	"""StaticFiles subclass that serves index.html for missing files (SPA support)."""
+	
+	async def get_response(self, path: str, scope) -> Response:
+		try:
+			return await super().get_response(path, scope)
+		except StarletteHTTPException as ex:
+			if ex.status_code == 404:
+				# For 404s, serve index.html (SPA routing)
+				return await super().get_response("index.html", scope)
+			raise
 
 
 def create_app() -> FastAPI:
@@ -36,49 +50,11 @@ def create_app() -> FastAPI:
 	default_dist = Path(__file__).resolve().parents[3] / "frontend" / "dist"
 	dist_path = Path(os.environ.get("FRONTEND_DIST", str(default_dist)))
 	if dist_path.exists():
-		assets_dir = dist_path / "assets"
-		if assets_dir.exists():
-			app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
-
 		index_file = dist_path / "index.html"
-
 		if index_file.exists():
-			@app.get("/", include_in_schema=False)
-			def index():
-				return FileResponse(str(index_file))
-
-			# SPA fallback - serve static files if they exist, otherwise index.html
-			@app.get("/{full_path:path}", include_in_schema=False)
-			def spa_fallback(full_path: str):
-				# Avoid catching API explicitly (redundant due to route order, but defensive)
-				if full_path.startswith("api"):
-					return {"detail": "Not Found"}
-				
-				# Check if the requested path is a static file in dist
-				static_file = dist_path / full_path
-				if static_file.exists() and static_file.is_file():
-					# Determine media type based on extension
-					suffix = static_file.suffix.lower()
-					media_types = {
-						".png": "image/png",
-						".jpg": "image/jpeg",
-						".jpeg": "image/jpeg",
-						".gif": "image/gif",
-						".svg": "image/svg+xml",
-						".ico": "image/x-icon",
-						".webp": "image/webp",
-						".js": "application/javascript",
-						".css": "text/css",
-						".json": "application/json",
-						".woff": "font/woff",
-						".woff2": "font/woff2",
-						".ttf": "font/ttf",
-					}
-					media_type = media_types.get(suffix)
-					return FileResponse(str(static_file), media_type=media_type)
-				
-				# Otherwise serve index.html for SPA routing
-				return FileResponse(str(index_file))
+			# Mount entire dist directory with SPA support
+			# This serves static files AND falls back to index.html for missing paths
+			app.mount("/", SPAStaticFiles(directory=str(dist_path), html=True), name="spa")
 
 	return app
 
