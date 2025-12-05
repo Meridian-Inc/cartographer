@@ -35,7 +35,7 @@
 		>
 			<!-- User Menu Slot -->
 			<template #user-menu>
-				<UserMenu @logout="onLogout" @manageUsers="showUserManagement = true" @notifications="showNotificationSettings = true" />
+				<UserMenu @logout="onLogout" @manageUsers="showUserManagement = true" @notifications="showNotificationSettings = true" @updates="showUpdateSettings = true" />
 			</template>
 		</MapControls>
 		<div class="flex flex-1 min-h-0">
@@ -469,6 +469,7 @@
 		<!-- User Management Modal -->
 		<UserManagement v-if="showUserManagement" @close="showUserManagement = false" />
 		<NotificationSettings v-if="showNotificationSettings" @close="showNotificationSettings = false" />
+		<UpdateSettings :isOpen="showUpdateSettings" @close="showUpdateSettings = false" />
 
 		<!-- Assistant Panel (Slide-in from right) -->
 		<Transition
@@ -515,6 +516,7 @@ import UserManagement from "./UserManagement.vue";
 import AssistantChat from "./AssistantChat.vue";
 import NotificationSettings from "./NotificationSettings.vue";
 import VersionBanner from "./VersionBanner.vue";
+import UpdateSettings from "./UpdateSettings.vue";
 import type { ParsedNetworkMap, TreeNode, NodeVersion, LanPortsConfig } from "../types/network";
 import { useMapLayout } from "../composables/useMapLayout";
 import { useNetworkData } from "../composables/useNetworkData";
@@ -529,6 +531,7 @@ const needsSetup = ref(false);
 const showUserManagement = ref(false);
 const showAssistant = ref(false);
 const showNotificationSettings = ref(false);
+const showUpdateSettings = ref(false);
 
 // Check auth status on mount
 async function initAuth() {

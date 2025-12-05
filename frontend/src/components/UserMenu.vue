@@ -96,6 +96,22 @@
 						</div>
 					</button>
 
+					<!-- Updates -->
+					<button
+						@click="onUpdates"
+						class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors"
+					>
+						<div class="w-8 h-8 rounded-lg bg-cyan-100 dark:bg-cyan-900/30 flex items-center justify-center">
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-cyan-600 dark:text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+							</svg>
+						</div>
+						<div class="flex flex-col items-start">
+							<span class="font-medium">Updates</span>
+							<span class="text-xs text-slate-500 dark:text-slate-400">Check for new versions</span>
+						</div>
+					</button>
+
 					<!-- Change Password -->
 					<button
 						@click="onChangePassword"
@@ -269,6 +285,7 @@ const emit = defineEmits<{
 	(e: "logout"): void;
 	(e: "manageUsers"): void;
 	(e: "notifications"): void;
+	(e: "updates"): void;
 }>();
 
 const { user, isOwner, logout, changePassword } = useAuth();
@@ -335,6 +352,11 @@ function onManageUsers() {
 function onNotifications() {
 	isOpen.value = false;
 	emit("notifications");
+}
+
+function onUpdates() {
+	isOpen.value = false;
+	emit("updates");
 }
 
 function onChangePassword() {
