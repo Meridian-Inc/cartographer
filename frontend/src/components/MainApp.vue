@@ -18,6 +18,9 @@
 
 	<!-- Main Application -->
 	<div v-else class="h-screen flex flex-col bg-slate-50 dark:bg-slate-900">
+		<!-- Version Update Banner -->
+		<VersionBanner />
+		
 		<MapControls
 			:root="parsed?.root || emptyRoot"
 			:hasUnsavedChanges="hasUnsavedChanges"
@@ -511,6 +514,7 @@ import UserMenu from "./UserMenu.vue";
 import UserManagement from "./UserManagement.vue";
 import AssistantChat from "./AssistantChat.vue";
 import NotificationSettings from "./NotificationSettings.vue";
+import VersionBanner from "./VersionBanner.vue";
 import type { ParsedNetworkMap, TreeNode, NodeVersion, LanPortsConfig } from "../types/network";
 import { useMapLayout } from "../composables/useMapLayout";
 import { useNetworkData } from "../composables/useNetworkData";
