@@ -42,16 +42,18 @@ def create_app() -> FastAPI:
 
 		index_file = dist_path / "index.html"
 		favicon_file = dist_path / "favicon.png"
+
+		# Serve favicon from dist root (always define route, check file at request time)
+		@app.get("/favicon.png", include_in_schema=False)
+		def favicon():
+			if favicon_file.exists():
+				return FileResponse(str(favicon_file), media_type="image/png")
+			return {"detail": "Not Found"}
+
 		if index_file.exists():
 			@app.get("/", include_in_schema=False)
 			def index():
 				return FileResponse(str(index_file))
-
-			# Serve favicon from dist root
-			if favicon_file.exists():
-				@app.get("/favicon.png", include_in_schema=False)
-				def favicon():
-					return FileResponse(str(favicon_file), media_type="image/png")
 
 			# SPA fallback - keep /api routes working, everything else serves index.html
 			@app.get("/{full_path:path}", include_in_schema=False)
