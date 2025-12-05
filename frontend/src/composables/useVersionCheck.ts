@@ -18,9 +18,10 @@ export interface VersionInfo {
 }
 
 const VERSION_PREFS_KEY = "cartographer_version_prefs";
-// Use GitHub API instead of raw.githubusercontent.com to avoid CDN caching (up to 5 min cache)
-const GITHUB_API_URL = "https://api.github.com/repos/DevArtech/cartographer/contents/VERSION";
-const CHANGELOG_URL = "https://github.com/DevArtech/cartographer/blob/main/CHANGELOG.md";
+const GITHUB_REPO = "DevArtech/cartographer";
+const GITHUB_COMMITS_API = `https://api.github.com/repos/${GITHUB_REPO}/commits/main`;
+const GITHUB_CONTENTS_API = `https://api.github.com/repos/${GITHUB_REPO}/contents/VERSION`;
+const CHANGELOG_URL = `https://github.com/${GITHUB_REPO}/blob/main/CHANGELOG.md`;
 const CHECK_INTERVAL = 1000 * 60 * 60; // Check every hour
 
 // Current app version (injected at build time via vite.config.ts)
@@ -101,7 +102,10 @@ function savePreferences(): void {
 	}
 }
 
-// Fetch latest version from GitHub API (avoids CDN caching issues)
+// Fetch latest version from GitHub API
+// Two-step process to guarantee fresh data:
+// 1. Get the latest commit SHA (this endpoint is never cached)
+// 2. Fetch VERSION file at that exact SHA
 async function checkForUpdates(): Promise<void> {
 	if (isChecking.value) return;
 
@@ -109,32 +113,46 @@ async function checkForUpdates(): Promise<void> {
 	lastError.value = null;
 
 	try {
-		// Use GitHub API with cache-busting ref parameter
-		// The ref parameter forces GitHub to fetch the latest commit
-		const cacheBuster = Date.now();
-		const url = `${GITHUB_API_URL}?ref=main&t=${cacheBuster}`;
-		
-		const response = await fetch(url, {
+		// Step 1: Get the latest commit SHA on main branch
+		// The commits endpoint returns the current state, not cached
+		const commitResponse = await fetch(GITHUB_COMMITS_API, {
 			cache: "no-store",
 			headers: {
 				Accept: "application/vnd.github.v3+json",
-				"Cache-Control": "no-cache, no-store, must-revalidate",
 			},
 		});
 
-		if (!response.ok) {
-			throw new Error(`HTTP ${response.status}`);
+		if (!commitResponse.ok) {
+			throw new Error(`Failed to fetch latest commit: HTTP ${commitResponse.status}`);
 		}
 
-		const data = await response.json();
+		const commitData = await commitResponse.json();
+		const latestSha = commitData.sha;
+		
+		console.log("[VersionCheck] Latest commit SHA:", latestSha.substring(0, 7));
+
+		// Step 2: Fetch VERSION file at this specific SHA
+		// Using the exact SHA guarantees we get the file from that commit
+		const versionResponse = await fetch(`${GITHUB_CONTENTS_API}?ref=${latestSha}`, {
+			cache: "no-store",
+			headers: {
+				Accept: "application/vnd.github.v3+json",
+			},
+		});
+
+		if (!versionResponse.ok) {
+			throw new Error(`Failed to fetch VERSION file: HTTP ${versionResponse.status}`);
+		}
+
+		const versionData = await versionResponse.json();
 		
 		// GitHub API returns base64 encoded content
-		const versionText = atob(data.content).trim();
+		const versionText = atob(versionData.content).trim();
 		latestVersion.value = versionText;
 		preferences.value.lastChecked = Date.now();
 		savePreferences();
 
-		console.log("[VersionCheck] Latest version:", latestVersion.value, "(fetched from GitHub API)");
+		console.log("[VersionCheck] Latest version:", latestVersion.value, `(from commit ${latestSha.substring(0, 7)})`);
 	} catch (e: any) {
 		lastError.value = e.message || "Failed to check for updates";
 		console.warn("[VersionCheck] Failed to fetch version:", e);
