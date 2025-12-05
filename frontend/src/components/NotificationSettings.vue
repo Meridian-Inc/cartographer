@@ -399,7 +399,7 @@
 												:class="[
 													'flex-1 px-3 py-2 rounded-lg border text-sm font-medium transition-colors',
 													preferences.minimum_priority === priority
-														? `border-${info.color}-500 bg-${info.color}-50 dark:bg-${info.color}-900/20 text-${info.color}-700 dark:text-${info.color}-400`
+														? getBypassPriorityActiveClasses(priority)
 														: 'border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-500'
 												]"
 											>
@@ -489,7 +489,7 @@
 													:class="[
 														'px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors',
 														preferences.quiet_hours_bypass_priority === priority
-															? `border-${info.color}-500 bg-${info.color}-50 dark:bg-${info.color}-900/20 text-${info.color}-700 dark:text-${info.color}-400`
+															? getBypassPriorityActiveClasses(priority)
 															: 'border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-500'
 													]"
 												>
@@ -951,6 +951,21 @@ async function setBypassPriority(priority: NotificationPriority | null) {
 	if (!preferences.value) return;
 	preferences.value.quiet_hours_bypass_priority = priority;
 	await savePreferences();
+}
+
+function getBypassPriorityActiveClasses(priority: NotificationPriority): string {
+	switch (priority) {
+		case 'low':
+			return 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400';
+		case 'medium':
+			return 'border-amber-500 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400';
+		case 'high':
+			return 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400';
+		case 'critical':
+			return 'border-red-500 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400';
+		default:
+			return '';
+	}
 }
 
 async function toggleNotificationType(type: NotificationType) {
