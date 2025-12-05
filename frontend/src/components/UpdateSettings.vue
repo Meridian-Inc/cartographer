@@ -228,21 +228,6 @@
 									</label>
 								</div>
 							</div>
-
-							<!-- Info Box -->
-							<div class="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700/30">
-								<div class="flex gap-3">
-									<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-										<path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-									</svg>
-									<div class="text-sm text-blue-700 dark:text-blue-400">
-										<p class="font-medium">How updates work</p>
-										<p class="mt-1 text-blue-600 dark:text-blue-500">
-											Cartographer automatically checks for updates hourly. When a new version matching your preferences is available, you'll see a banner at the top of the app.
-										</p>
-									</div>
-								</div>
-							</div>
 						</div>
 
 						<!-- Footer -->
