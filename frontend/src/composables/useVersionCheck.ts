@@ -18,7 +18,8 @@ export interface VersionInfo {
 }
 
 const VERSION_PREFS_KEY = "cartographer_version_prefs";
-const GITHUB_RAW_URL = "https://raw.githubusercontent.com/DevArtech/cartographer/main/VERSION";
+// Use GitHub API instead of raw.githubusercontent.com to avoid CDN caching (up to 5 min cache)
+const GITHUB_API_URL = "https://api.github.com/repos/DevArtech/cartographer/contents/VERSION";
 const CHANGELOG_URL = "https://github.com/DevArtech/cartographer/blob/main/CHANGELOG.md";
 const CHECK_INTERVAL = 1000 * 60 * 60; // Check every hour
 
@@ -100,7 +101,7 @@ function savePreferences(): void {
 	}
 }
 
-// Fetch latest version from GitHub
+// Fetch latest version from GitHub API (avoids CDN caching issues)
 async function checkForUpdates(): Promise<void> {
 	if (isChecking.value) return;
 
@@ -108,16 +109,16 @@ async function checkForUpdates(): Promise<void> {
 	lastError.value = null;
 
 	try {
-		// Add cache-busting timestamp to bypass GitHub's CDN cache
+		// Use GitHub API with cache-busting ref parameter
+		// The ref parameter forces GitHub to fetch the latest commit
 		const cacheBuster = Date.now();
-		const url = `${GITHUB_RAW_URL}?t=${cacheBuster}`;
+		const url = `${GITHUB_API_URL}?ref=main&t=${cacheBuster}`;
 		
 		const response = await fetch(url, {
-			cache: "no-store", // Most aggressive - never use cache
+			cache: "no-store",
 			headers: {
-				Accept: "text/plain",
+				Accept: "application/vnd.github.v3+json",
 				"Cache-Control": "no-cache, no-store, must-revalidate",
-				Pragma: "no-cache",
 			},
 		});
 
@@ -125,12 +126,15 @@ async function checkForUpdates(): Promise<void> {
 			throw new Error(`HTTP ${response.status}`);
 		}
 
-		const versionText = await response.text();
-		latestVersion.value = versionText.trim();
+		const data = await response.json();
+		
+		// GitHub API returns base64 encoded content
+		const versionText = atob(data.content).trim();
+		latestVersion.value = versionText;
 		preferences.value.lastChecked = Date.now();
 		savePreferences();
 
-		console.log("[VersionCheck] Latest version:", latestVersion.value, "(fetched fresh)");
+		console.log("[VersionCheck] Latest version:", latestVersion.value, "(fetched from GitHub API)");
 	} catch (e: any) {
 		lastError.value = e.message || "Failed to check for updates";
 		console.warn("[VersionCheck] Failed to fetch version:", e);
