@@ -422,3 +422,38 @@ async def notify_service_down(
         }
     )
 
+
+# ==================== Version Update Notifications ====================
+
+@router.get("/version")
+async def get_version_status(user: AuthenticatedUser = Depends(require_auth)):
+    """
+    Get current version status and last check info.
+    
+    Returns information about the current version, latest available version,
+    and whether an update is available.
+    """
+    return await proxy_request("GET", "/version")
+
+
+@router.post("/version/check")
+async def check_for_updates(user: AuthenticatedUser = Depends(require_auth)):
+    """
+    Manually trigger a version check and get results.
+    
+    This will check GitHub for the latest version and return whether
+    an update is available.
+    """
+    return await proxy_request("POST", "/version/check")
+
+
+@router.post("/version/notify")
+async def send_version_notification(user: AuthenticatedUser = Depends(require_auth)):
+    """
+    Send a version update notification to all subscribed users.
+    
+    This will check for updates and send SYSTEM_STATUS notifications
+    to all users who have that notification type enabled.
+    """
+    return await proxy_request("POST", "/version/notify")
+

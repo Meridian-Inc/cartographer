@@ -1,4 +1,5 @@
 import { ref, computed, readonly, onMounted, onUnmounted } from "vue";
+import axios from "axios";
 
 // Version notification preferences
 export type VersionType = "major" | "minor" | "patch";
@@ -232,24 +233,14 @@ function forceShowBanner(): void {
 // Trigger backend notification for version update
 async function triggerBackendNotification(): Promise<{ success: boolean; users_notified?: number; error?: string }> {
 	try {
-		const response = await fetch("/api/notifications/version/notify", {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-			},
-		});
-		
-		if (!response.ok) {
-			const errorData = await response.json().catch(() => ({}));
-			throw new Error(errorData.detail || `HTTP ${response.status}`);
-		}
-		
-		const result = await response.json();
-		console.log("[VersionCheck] Backend notification triggered:", result);
-		return result;
+		// Use axios which has the auth token configured
+		const response = await axios.post("/api/notifications/version/notify");
+		console.log("[VersionCheck] Backend notification triggered:", response.data);
+		return response.data;
 	} catch (e: any) {
-		console.error("[VersionCheck] Failed to trigger backend notification:", e);
-		return { success: false, error: e.message || "Failed to send notification" };
+		const errorMessage = e.response?.data?.detail || e.message || "Failed to send notification";
+		console.error("[VersionCheck] Failed to trigger backend notification:", errorMessage);
+		return { success: false, error: errorMessage };
 	}
 }
 
