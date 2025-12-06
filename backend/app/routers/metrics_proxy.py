@@ -35,7 +35,7 @@ async def proxy_request(method: str, path: str, params: dict = None, json_body: 
         params=params,
         json_body=json_body,
         timeout=timeout
-    )
+            )
 
 
 # ==================== Snapshot Endpoints ====================

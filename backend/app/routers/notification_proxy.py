@@ -40,7 +40,7 @@ async def proxy_request(
         json_body=json_body,
         headers=headers,
         timeout=timeout
-    )
+            )
 
 
 # ==================== Preferences Endpoints ====================

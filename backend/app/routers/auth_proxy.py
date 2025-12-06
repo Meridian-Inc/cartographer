@@ -41,7 +41,7 @@ async def proxy_request(
         path=path,
         json_body=body,
         headers=headers
-    )
+        )
 
 
 # ==================== Setup Endpoints ====================
