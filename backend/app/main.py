@@ -1,5 +1,7 @@
 import os
+import logging
 from pathlib import Path
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -10,15 +12,43 @@ from .routers.auth_proxy import router as auth_proxy_router
 from .routers.metrics_proxy import router as metrics_proxy_router
 from .routers.assistant_proxy import router as assistant_proxy_router
 from .routers.notification_proxy import router as notification_proxy_router
+from .services.http_client import http_pool
 
+logger = logging.getLogger(__name__)
 
 # Resolve dist path at module level so it's available for route definitions
 _default_dist = Path(__file__).resolve().parents[3] / "frontend" / "dist"
 DIST_PATH = Path(os.environ.get("FRONTEND_DIST", str(_default_dist)))
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Application lifespan manager.
+    Handles startup and shutdown tasks including HTTP client pool warm-up.
+    """
+    # Startup: Initialize and warm up HTTP client pool
+    logger.info("Starting application - initializing HTTP client pool...")
+    await http_pool.initialize_all()
+    
+    # Warm up connections to reduce cold start latency
+    warm_up_results = await http_pool.warm_up_all()
+    ready_count = sum(1 for v in warm_up_results.values() if v)
+    logger.info(f"Warm-up complete: {ready_count}/{len(warm_up_results)} services ready")
+    
+    yield
+    
+    # Shutdown: Close HTTP client pool gracefully
+    logger.info("Shutting down - closing HTTP client pool...")
+    await http_pool.close_all()
+
+
 def create_app() -> FastAPI:
-	app = FastAPI(title="Cartographer Backend", version="0.1.0")
+	app = FastAPI(
+		title="Cartographer Backend",
+		version="0.1.0",
+		lifespan=lifespan
+	)
 
 	# Allow local dev UIs
 	app.add_middleware(
@@ -36,6 +66,25 @@ def create_app() -> FastAPI:
 	app.include_router(metrics_proxy_router, prefix="/api")
 	app.include_router(assistant_proxy_router, prefix="/api")
 	app.include_router(notification_proxy_router, prefix="/api")
+
+	# Internal health check endpoint for load balancers and warm-up
+	@app.get("/healthz", tags=["internal"])
+	async def healthz():
+		"""
+		Health check endpoint for load balancers.
+		Returns service status and HTTP pool state.
+		"""
+		services_status = {}
+		for name, service in http_pool._services.items():
+			services_status[name] = {
+				"circuit_state": service.circuit_breaker.state.value,
+				"failure_count": service.circuit_breaker.failure_count,
+			}
+		
+		return {
+			"status": "healthy",
+			"services": services_status
+		}
 
 	# Serve built frontend if present (for production)
 	if DIST_PATH.exists():

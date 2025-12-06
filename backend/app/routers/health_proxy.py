@@ -1,9 +1,12 @@
 """
 Proxy router for health service requests.
 Forwards /api/health/* requests to the health microservice.
+
+Performance optimizations:
+- Uses shared HTTP client pool with connection reuse
+- Circuit breaker prevents cascade failures
+- Connections are pre-warmed on startup
 """
-import os
-import httpx
 from fastapi import APIRouter, HTTPException, Request, Query, Depends
 from fastapi.responses import JSONResponse
 from typing import Optional
@@ -13,47 +16,21 @@ from ..dependencies import (
     require_auth,
     require_write_access
 )
+from ..services.http_client import http_pool
 
 router = APIRouter(prefix="/health", tags=["health"])
 
-# Health service URL - defaults to localhost:8001 for host network mode
-HEALTH_SERVICE_URL = os.environ.get("HEALTH_SERVICE_URL", "http://localhost:8001")
-
 
 async def proxy_request(method: str, path: str, params: dict = None, json_body: dict = None, timeout: float = 30.0):
-    """Forward a request to the health service"""
-    url = f"{HEALTH_SERVICE_URL}/api/health{path}"
-    
-    async with httpx.AsyncClient(timeout=timeout) as client:
-        try:
-            if method == "GET":
-                response = await client.get(url, params=params)
-            elif method == "POST":
-                response = await client.post(url, params=params, json=json_body)
-            elif method == "DELETE":
-                response = await client.delete(url, params=params)
-            else:
-                raise HTTPException(status_code=405, detail="Method not allowed")
-            
-            return JSONResponse(
-                content=response.json(),
-                status_code=response.status_code
-            )
-        except httpx.ConnectError:
-            raise HTTPException(
-                status_code=503,
-                detail="Health service unavailable"
-            )
-        except httpx.TimeoutException:
-            raise HTTPException(
-                status_code=504,
-                detail="Health service timeout"
-            )
-        except Exception as e:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Health service error: {str(e)}"
-            )
+    """Forward a request to the health service using the shared client pool"""
+    return await http_pool.request(
+        service_name="health",
+        method=method,
+        path=f"/api/health{path}",
+        params=params,
+        json_body=json_body,
+        timeout=timeout
+    )
 
 
 @router.get("/check/{ip}")

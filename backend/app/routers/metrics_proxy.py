@@ -1,6 +1,11 @@
 """
 Proxy router for metrics service requests.
 Forwards /api/metrics/* requests to the metrics microservice.
+
+Performance optimizations:
+- Uses shared HTTP client pool with connection reuse
+- Circuit breaker prevents cascade failures
+- Connections are pre-warmed on startup
 """
 import os
 import httpx
@@ -13,47 +18,24 @@ from ..dependencies import (
     require_auth,
     require_write_access
 )
+from ..services.http_client import http_pool
 
 router = APIRouter(prefix="/metrics", tags=["metrics"])
 
-# Metrics service URL - defaults to localhost:8003 for host network mode
+# Metrics service URL - still needed for WebSocket proxy (different protocol)
 METRICS_SERVICE_URL = os.environ.get("METRICS_SERVICE_URL", "http://localhost:8003")
 
 
 async def proxy_request(method: str, path: str, params: dict = None, json_body: dict = None, timeout: float = 30.0):
-    """Forward a request to the metrics service"""
-    url = f"{METRICS_SERVICE_URL}/api/metrics{path}"
-    
-    async with httpx.AsyncClient(timeout=timeout) as client:
-        try:
-            if method == "GET":
-                response = await client.get(url, params=params)
-            elif method == "POST":
-                response = await client.post(url, params=params, json=json_body)
-            elif method == "DELETE":
-                response = await client.delete(url, params=params)
-            else:
-                raise HTTPException(status_code=405, detail="Method not allowed")
-            
-            return JSONResponse(
-                content=response.json(),
-                status_code=response.status_code
-            )
-        except httpx.ConnectError:
-            raise HTTPException(
-                status_code=503,
-                detail="Metrics service unavailable"
-            )
-        except httpx.TimeoutException:
-            raise HTTPException(
-                status_code=504,
-                detail="Metrics service timeout"
-            )
-        except Exception as e:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Metrics service error: {str(e)}"
-            )
+    """Forward a request to the metrics service using the shared client pool"""
+    return await http_pool.request(
+        service_name="metrics",
+        method=method,
+        path=f"/api/metrics{path}",
+        params=params,
+        json_body=json_body,
+        timeout=timeout
+    )
 
 
 # ==================== Snapshot Endpoints ====================

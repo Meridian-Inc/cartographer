@@ -3,6 +3,8 @@ import json
 import uuid
 import secrets
 import logging
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional, List
@@ -17,8 +19,39 @@ from ..models import (
 
 logger = logging.getLogger(__name__)
 
-# Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Password hashing - configured for better performance under load
+# Using bcrypt with explicit rounds (default is 12, we use 10 for faster hashing)
+pwd_context = CryptContext(
+    schemes=["bcrypt"],
+    deprecated="auto",
+    bcrypt__rounds=10  # Reduce rounds from default 12 for better performance
+)
+
+# Thread pool for CPU-bound password hashing operations
+# This prevents blocking the event loop during password verification/hashing
+_password_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="pwd_hash_")
+
+
+async def hash_password_async(password: str) -> str:
+    """
+    Hash a password asynchronously using a thread pool.
+    
+    Bcrypt is CPU-bound and blocks the event loop when run synchronously.
+    This runs the hashing in a thread pool to keep the server responsive.
+    """
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(_password_executor, pwd_context.hash, password)
+
+
+async def verify_password_async(password: str, hash: str) -> bool:
+    """
+    Verify a password asynchronously using a thread pool.
+    
+    Bcrypt verification is CPU-bound and blocks the event loop.
+    This runs the verification in a thread pool to keep the server responsive.
+    """
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(_password_executor, pwd_context.verify, password, hash)
 
 # JWT Configuration
 JWT_SECRET = os.environ.get("JWT_SECRET", "cartographer-dev-secret-change-in-production")
@@ -94,7 +127,7 @@ class AuthService:
             "total_users": len(self._users)
         }
     
-    def setup_owner(self, request: OwnerSetupRequest) -> UserResponse:
+    async def setup_owner(self, request: OwnerSetupRequest) -> UserResponse:
         """Create the initial owner account (only works if no owner exists)"""
         if self.is_setup_complete():
             raise ValueError("Setup already complete - owner account exists")
@@ -111,6 +144,9 @@ class AuthService:
         now = datetime.now(timezone.utc)
         user_id = str(uuid.uuid4())
         
+        # Hash password asynchronously to avoid blocking event loop
+        password_hash = await hash_password_async(request.password)
+        
         user = UserInDB(
             id=user_id,
             username=request.username.lower(),
@@ -118,7 +154,7 @@ class AuthService:
             last_name=request.last_name,
             email=request.email.lower(),
             role=UserRole.OWNER,
-            password_hash=pwd_context.hash(request.password),
+            password_hash=password_hash,
             created_at=now,
             updated_at=now,
             is_active=True
@@ -132,7 +168,7 @@ class AuthService:
     
     # ==================== User CRUD ====================
     
-    def create_user(self, request: UserCreate, created_by: UserInDB) -> UserResponse:
+    async def create_user(self, request: UserCreate, created_by: UserInDB) -> UserResponse:
         """Create a new user (only owners can create users)"""
         if created_by.role != UserRole.OWNER:
             raise PermissionError("Only owners can create new users")
@@ -152,6 +188,9 @@ class AuthService:
         now = datetime.now(timezone.utc)
         user_id = str(uuid.uuid4())
         
+        # Hash password asynchronously to avoid blocking event loop
+        password_hash = await hash_password_async(request.password)
+        
         user = UserInDB(
             id=user_id,
             username=request.username.lower(),
@@ -159,7 +198,7 @@ class AuthService:
             last_name=request.last_name,
             email=request.email.lower(),
             role=request.role,
-            password_hash=pwd_context.hash(request.password),
+            password_hash=password_hash,
             created_at=now,
             updated_at=now,
             is_active=True
@@ -201,7 +240,7 @@ class AuthService:
         
         return [self._to_response(u) for u in self._users.values() if u.is_active]
     
-    def update_user(self, user_id: str, request: UserUpdate, updated_by: UserInDB) -> UserResponse:
+    async def update_user(self, user_id: str, request: UserUpdate, updated_by: UserInDB) -> UserResponse:
         """Update a user"""
         user = self.get_user(user_id)
         if not user:
@@ -240,7 +279,8 @@ class AuthService:
             user.role = request.role
         
         if request.password is not None:
-            user.password_hash = pwd_context.hash(request.password)
+            # Hash password asynchronously to avoid blocking event loop
+            user.password_hash = await hash_password_async(request.password)
         
         user.updated_at = datetime.now(timezone.utc)
         
@@ -278,8 +318,8 @@ class AuthService:
     
     # ==================== Authentication ====================
     
-    def authenticate(self, username: str, password: str) -> Optional[UserInDB]:
-        """Authenticate user with username and password"""
+    async def authenticate(self, username: str, password: str) -> Optional[UserInDB]:
+        """Authenticate user with username and password (async for non-blocking password verification)"""
         user = self.get_user_by_username(username, include_inactive=True)
         if not user:
             logger.debug(f"Authentication failed: user not found ({username})")
@@ -289,7 +329,9 @@ class AuthService:
             logger.debug(f"Authentication failed: user inactive ({username})")
             return None
         
-        if not pwd_context.verify(password, user.password_hash):
+        # Verify password asynchronously to avoid blocking event loop
+        # This is the slowest operation (~7 seconds avg in load test)
+        if not await verify_password_async(password, user.password_hash):
             logger.debug(f"Authentication failed: invalid password ({username})")
             return None
         
@@ -347,16 +389,18 @@ class AuthService:
         except jwt.InvalidTokenError:
             return None
     
-    def change_password(self, user_id: str, current_password: str, new_password: str) -> bool:
-        """Change user's password"""
+    async def change_password(self, user_id: str, current_password: str, new_password: str) -> bool:
+        """Change user's password (async for non-blocking password operations)"""
         user = self.get_user(user_id)
         if not user:
             raise ValueError("User not found")
         
-        if not pwd_context.verify(current_password, user.password_hash):
+        # Verify current password asynchronously
+        if not await verify_password_async(current_password, user.password_hash):
             raise ValueError("Current password is incorrect")
         
-        user.password_hash = pwd_context.hash(new_password)
+        # Hash new password asynchronously
+        user.password_hash = await hash_password_async(new_password)
         user.updated_at = datetime.now(timezone.utc)
         self._users[user_id] = user
         self._save_users()
@@ -531,7 +575,7 @@ class AuthService:
             is_valid=is_valid
         )
     
-    def accept_invite(
+    async def accept_invite(
         self, 
         token: str, 
         username: str, 
@@ -539,7 +583,7 @@ class AuthService:
         last_name: str, 
         password: str
     ) -> UserResponse:
-        """Accept an invitation and create the user account"""
+        """Accept an invitation and create the user account (async for password hashing)"""
         invite = self.get_invite_by_token(token)
         if not invite:
             raise ValueError("Invalid invitation token")
@@ -564,6 +608,9 @@ class AuthService:
         if existing and existing.is_active:
             raise ValueError("A user with this email already exists")
         
+        # Hash password asynchronously to avoid blocking event loop
+        password_hash = await hash_password_async(password)
+        
         # Create the user
         user_id = str(uuid.uuid4())
         user = UserInDB(
@@ -573,7 +620,7 @@ class AuthService:
             last_name=last_name,
             email=invite.email,
             role=invite.role,
-            password_hash=pwd_context.hash(password),
+            password_hash=password_hash,
             created_at=now,
             updated_at=now,
             is_active=True

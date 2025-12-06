@@ -1,10 +1,13 @@
 """
 Proxy router for notification service requests.
 Forwards /api/notifications/* requests to the notification microservice.
+
+Performance optimizations:
+- Uses shared HTTP client pool with connection reuse
+- Circuit breaker prevents cascade failures
+- Connections are pre-warmed on startup
 """
 
-import os
-import httpx
 from fastapi import APIRouter, HTTPException, Request, Depends, Query
 from fastapi.responses import JSONResponse
 from typing import Optional
@@ -15,11 +18,9 @@ from ..dependencies import (
     require_write_access,
     require_owner,
 )
+from ..services.http_client import http_pool
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
-
-# Notification service URL - defaults to localhost:8005 for host network mode
-NOTIFICATION_SERVICE_URL = os.environ.get("NOTIFICATION_SERVICE_URL", "http://localhost:8005")
 
 
 async def proxy_request(
@@ -30,49 +31,16 @@ async def proxy_request(
     headers: dict = None,
     timeout: float = 30.0,
 ):
-    """Forward a request to the notification service"""
-    url = f"{NOTIFICATION_SERVICE_URL}/api/notifications{path}"
-    
-    async with httpx.AsyncClient(timeout=timeout) as client:
-        try:
-            if method == "GET":
-                response = await client.get(url, params=params, headers=headers)
-            elif method == "POST":
-                response = await client.post(url, params=params, json=json_body, headers=headers)
-            elif method == "PUT":
-                response = await client.put(url, params=params, json=json_body, headers=headers)
-            elif method == "DELETE":
-                response = await client.delete(url, params=params, headers=headers)
-            else:
-                raise HTTPException(status_code=405, detail="Method not allowed")
-            
-            # Try to parse JSON response
-            try:
-                content = response.json()
-            except Exception:
-                content = {"detail": response.text or "Unknown error"}
-            
-            return JSONResponse(
-                content=content,
-                status_code=response.status_code
-            )
-        except httpx.ConnectError:
-            raise HTTPException(
-                status_code=503,
-                detail="Notification service unavailable. Make sure the notification-service is running."
-            )
-        except httpx.TimeoutException:
-            raise HTTPException(
-                status_code=504,
-                detail="Notification service timeout"
-            )
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise HTTPException(
-                status_code=503,
-                detail=f"Notification service unavailable: {str(e)}"
-            )
+    """Forward a request to the notification service using the shared client pool"""
+    return await http_pool.request(
+        service_name="notification",
+        method=method,
+        path=f"/api/notifications{path}",
+        params=params,
+        json_body=json_body,
+        headers=headers,
+        timeout=timeout
+    )
 
 
 # ==================== Preferences Endpoints ====================

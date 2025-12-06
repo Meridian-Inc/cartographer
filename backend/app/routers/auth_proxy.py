@@ -1,20 +1,23 @@
 """
 Auth Proxy Router
 Proxies authentication requests to the Auth microservice
+
+Performance optimizations:
+- Uses shared HTTP client pool with connection reuse
+- Circuit breaker prevents cascade failures
+- Connections are pre-warmed on startup
 """
-import os
 import logging
 from typing import Optional, Any
 
-import httpx
 from fastapi import APIRouter, HTTPException, Request, Response, Depends, Header
 from fastapi.responses import JSONResponse
+
+from ..services.http_client import http_pool
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["auth"])
-
-AUTH_SERVICE_URL = os.environ.get("AUTH_SERVICE_URL", "http://localhost:8002")
 
 
 async def proxy_request(
@@ -23,9 +26,7 @@ async def proxy_request(
     request: Request,
     body: Optional[dict] = None
 ) -> Any:
-    """Proxy a request to the auth service"""
-    url = f"{AUTH_SERVICE_URL}{path}"
-    
+    """Proxy a request to the auth service using the shared client pool"""
     # Forward authorization header if present
     headers = {}
     auth_header = request.headers.get("Authorization")
@@ -34,54 +35,13 @@ async def proxy_request(
     
     headers["Content-Type"] = "application/json"
     
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            if method == "GET":
-                response = await client.get(url, headers=headers)
-            elif method == "POST":
-                response = await client.post(url, headers=headers, json=body)
-            elif method == "PATCH":
-                response = await client.patch(url, headers=headers, json=body)
-            elif method == "DELETE":
-                response = await client.delete(url, headers=headers)
-            else:
-                raise HTTPException(status_code=405, detail="Method not allowed")
-            
-            # Parse response content safely
-            content = None
-            if response.content:
-                try:
-                    content = response.json()
-                except Exception as json_err:
-                    logger.warning(f"Failed to parse JSON from auth service: {json_err}")
-                    # If it's an error status, try to return raw text as error detail
-                    if response.status_code >= 400:
-                        content = {"detail": response.text or "Unknown error from auth service"}
-            
-            return JSONResponse(
-                content=content,
-                status_code=response.status_code
-            )
-    except httpx.ConnectError:
-        logger.error(f"Failed to connect to auth service at {url}")
-        raise HTTPException(
-            status_code=503,
-            detail="Auth service unavailable"
-        )
-    except httpx.TimeoutException:
-        logger.error(f"Timeout connecting to auth service at {url}")
-        raise HTTPException(
-            status_code=504,
-            detail="Auth service timeout"
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error proxying to auth service: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Auth proxy error: {str(e)}"
-        )
+    return await http_pool.request(
+        service_name="auth",
+        method=method,
+        path=path,
+        json_body=body,
+        headers=headers
+    )
 
 
 # ==================== Setup Endpoints ====================

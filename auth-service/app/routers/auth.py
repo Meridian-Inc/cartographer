@@ -87,7 +87,7 @@ async def get_setup_status():
 async def setup_owner(request: OwnerSetupRequest):
     """Create the initial owner account (only works on first run)"""
     try:
-        user = auth_service.setup_owner(request)
+        user = await auth_service.setup_owner(request)
         return user
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -97,8 +97,8 @@ async def setup_owner(request: OwnerSetupRequest):
 
 @router.post("/login", response_model=LoginResponse)
 async def login(request: LoginRequest):
-    """Authenticate and get access token"""
-    user = auth_service.authenticate(request.username, request.password)
+    """Authenticate and get access token (async password verification for better load handling)"""
+    user = await auth_service.authenticate(request.username, request.password)
     if not user:
         raise HTTPException(
             status_code=401,
@@ -190,7 +190,7 @@ async def list_users(user: UserInDB = Depends(require_auth)):
 async def create_user(request: UserCreate, user: UserInDB = Depends(require_owner)):
     """Create a new user (owner only)"""
     try:
-        new_user = auth_service.create_user(request, user)
+        new_user = await auth_service.create_user(request, user)
         return new_user
     except (ValueError, PermissionError) as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -218,7 +218,7 @@ async def update_user(
 ):
     """Update a user"""
     try:
-        updated = auth_service.update_user(user_id, request, user)
+        updated = await auth_service.update_user(user_id, request, user)
         return updated
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -257,7 +257,7 @@ async def update_current_profile(
         raise HTTPException(status_code=403, detail="Cannot change your own role")
     
     try:
-        updated = auth_service.update_user(user.id, request, user)
+        updated = await auth_service.update_user(user.id, request, user)
         return updated
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -270,7 +270,7 @@ async def change_password(
 ):
     """Change current user's password"""
     try:
-        auth_service.change_password(user.id, request.current_password, request.new_password)
+        await auth_service.change_password(user.id, request.current_password, request.new_password)
         return {"message": "Password changed successfully"}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -348,7 +348,7 @@ async def verify_invite_token(token: str):
 async def accept_invite(request: AcceptInviteRequest):
     """Accept an invitation and create account (public endpoint)"""
     try:
-        user = auth_service.accept_invite(
+        user = await auth_service.accept_invite(
             token=request.token,
             username=request.username,
             first_name=request.first_name,

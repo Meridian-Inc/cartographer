@@ -1,6 +1,11 @@
 """
 Proxy router for assistant service requests.
 Forwards /api/assistant/* requests to the assistant microservice.
+
+Performance optimizations:
+- Uses shared HTTP client pool with connection reuse
+- Circuit breaker prevents cascade failures
+- Connections are pre-warmed on startup
 """
 import os
 import httpx
@@ -12,45 +17,24 @@ from ..dependencies import (
     AuthenticatedUser,
     require_auth,
 )
+from ..services.http_client import http_pool
 
 router = APIRouter(prefix="/assistant", tags=["assistant"])
 
-# Assistant service URL - defaults to localhost:8004 for host network mode
+# Assistant service URL - still needed for streaming endpoint (different connection handling)
 ASSISTANT_SERVICE_URL = os.environ.get("ASSISTANT_SERVICE_URL", "http://localhost:8004")
 
 
 async def proxy_request(method: str, path: str, params: dict = None, json_body: dict = None, timeout: float = 60.0):
-    """Forward a request to the assistant service"""
-    url = f"{ASSISTANT_SERVICE_URL}/api/assistant{path}"
-    
-    async with httpx.AsyncClient(timeout=timeout) as client:
-        try:
-            if method == "GET":
-                response = await client.get(url, params=params)
-            elif method == "POST":
-                response = await client.post(url, params=params, json=json_body)
-            else:
-                raise HTTPException(status_code=405, detail="Method not allowed")
-            
-            return JSONResponse(
-                content=response.json(),
-                status_code=response.status_code
-            )
-        except httpx.ConnectError:
-            raise HTTPException(
-                status_code=503,
-                detail="Assistant service unavailable"
-            )
-        except httpx.TimeoutException:
-            raise HTTPException(
-                status_code=504,
-                detail="Assistant service timeout"
-            )
-        except Exception as e:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Assistant service error: {str(e)}"
-            )
+    """Forward a request to the assistant service using the shared client pool"""
+    return await http_pool.request(
+        service_name="assistant",
+        method=method,
+        path=f"/api/assistant{path}",
+        params=params,
+        json_body=json_body,
+        timeout=timeout
+    )
 
 
 # ==================== Configuration Endpoints ====================
