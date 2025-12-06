@@ -8,6 +8,100 @@
 
 Cartographer is a self-hosted app that maps out your home or office network. It finds all the devices, shows how they're connected, and keeps an eye on their health — so you always know what's online and what's not.
 
+## Architecture
+
+```mermaid
+flowchart TB
+    subgraph Client["🖥️ Client"]
+        Browser["Browser<br/>(Vue.js SPA)"]
+    end
+
+    subgraph Gateway["🚪 API Gateway"]
+        Backend["Backend Service<br/><i>:8000</i>"]
+    end
+
+    subgraph Services["⚙️ Microservices"]
+        Health["Health Service<br/><i>:8001</i><br/>Device Monitoring"]
+        Auth["Auth Service<br/><i>:8002</i><br/>JWT Authentication"]
+        Metrics["Metrics Service<br/><i>:8003</i><br/>Topology Aggregation"]
+        Assistant["Assistant Service<br/><i>:8004</i><br/>AI Chat"]
+        Notification["Notification Service<br/><i>:8005</i><br/>Alerts & Anomaly Detection"]
+    end
+
+    subgraph Storage["💾 Data Storage"]
+        Redis[("Redis<br/><i>:6379</i><br/>Pub/Sub & Cache")]
+        AuthData[("auth-data/<br/>users.json<br/>invites.json")]
+        HealthData[("health-data/<br/>health_history.json")]
+        NotifData[("notification-data/<br/>preferences.json<br/>history.json<br/>anomaly_state.json")]
+        MapData[("cartographer-data/<br/>saved_network_layout.json")]
+    end
+
+    subgraph External["🌐 External Services"]
+        LAN["LAN Devices<br/>(Ping/Scan)"]
+        AI["AI Providers<br/>OpenAI | Anthropic<br/>Google | Ollama"]
+        Email["Resend<br/>(Email)"]
+        Discord["Discord<br/>(Bot)"]
+    end
+
+    %% Client connections
+    Browser <-->|"HTTP/WS"| Backend
+
+    %% Backend proxy routes
+    Backend -->|"/api/health/*"| Health
+    Backend -->|"/api/auth/*"| Auth
+    Backend -->|"/api/metrics/*"| Metrics
+    Backend -->|"/api/assistant/*"| Assistant
+    Backend -->|"/api/notifications/*"| Notification
+
+    %% Service to storage
+    Auth --> AuthData
+    Health --> HealthData
+    Notification --> NotifData
+    Backend --> MapData
+
+    %% Redis pub/sub
+    Metrics -->|"Publish"| Redis
+    Redis -->|"Subscribe"| Browser
+
+    %% Service to service
+    Metrics -->|"Fetch Health"| Health
+    Metrics -->|"Fetch Layout"| Backend
+    Assistant -->|"Get Context"| Metrics
+    Health -->|"Report Events"| Notification
+    Notification -->|"Get Baselines"| Health
+
+    %% External connections
+    Health -->|"ICMP Ping"| LAN
+    Backend -->|"ARP Scan"| LAN
+    Assistant --> AI
+    Notification --> Email
+    Notification --> Discord
+
+    %% Styling
+    classDef gateway fill:#4f46e5,stroke:#312e81,color:#fff
+    classDef service fill:#0891b2,stroke:#164e63,color:#fff
+    classDef storage fill:#059669,stroke:#064e3b,color:#fff
+    classDef external fill:#d97706,stroke:#78350f,color:#fff
+    classDef client fill:#7c3aed,stroke:#4c1d95,color:#fff
+
+    class Backend gateway
+    class Health,Auth,Metrics,Assistant,Notification service
+    class Redis,AuthData,HealthData,NotifData,MapData storage
+    class LAN,AI,Email,Discord external
+    class Browser client
+```
+
+**Service Ports:**
+| Service | Port | Purpose |
+|---------|------|---------|
+| Backend | 8000 | API Gateway + Static Files |
+| Health | 8001 | Device health monitoring |
+| Auth | 8002 | User authentication (JWT) |
+| Metrics | 8003 | Real-time topology metrics |
+| Assistant | 8004 | AI-powered network assistant |
+| Notification | 8005 | Alerts via Email/Discord |
+| Redis | 6379 | Pub/Sub event streaming |
+
 ## What it does
 
 - **Discovers your network** — Hit "Run Mapper" and watch as devices appear: routers, servers, NAS boxes, phones, smart home gadgets, you name it.
