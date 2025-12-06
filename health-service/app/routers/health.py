@@ -16,6 +16,7 @@ from ..models import (
     SpeedTestResult,
 )
 from ..services.health_checker import health_checker
+from ..services.notification_reporter import sync_devices_with_notification_service
 
 router = APIRouter(prefix="/health", tags=["health"])
 
@@ -144,6 +145,10 @@ async def register_devices(request: RegisterDevicesRequest):
     These devices will be checked periodically in the background.
     """
     health_checker.set_monitored_devices(request.ips)
+    
+    # Sync with notification service so ML anomaly detection tracks only current devices
+    await sync_devices_with_notification_service(request.ips)
+    
     return {
         "message": f"Registered {len(request.ips)} devices for monitoring",
         "devices": request.ips
@@ -160,6 +165,10 @@ async def get_monitored_devices():
 async def clear_monitored_devices():
     """Clear all devices from monitoring"""
     health_checker.set_monitored_devices([])
+    
+    # Sync with notification service to clear device tracking
+    await sync_devices_with_notification_service([])
+    
     return {"message": "Cleared all monitored devices"}
 
 

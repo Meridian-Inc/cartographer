@@ -397,4 +397,66 @@ class TestAnomalyDetector:
             anomaly_detector_instance.save()
         
         mock_save.assert_called_once()
+    
+    def test_sync_current_devices(self, anomaly_detector_instance, sample_device_stats):
+        """Should sync current devices list"""
+        # Set up some historical device stats
+        anomaly_detector_instance._device_stats["192.168.1.100"] = sample_device_stats
+        anomaly_detector_instance._device_stats["192.168.1.101"] = sample_device_stats
+        anomaly_detector_instance._device_stats["192.168.1.102"] = sample_device_stats
+        
+        # Sync with only two current devices
+        with patch.object(anomaly_detector_instance, '_save_state'):
+            anomaly_detector_instance.sync_current_devices(["192.168.1.100", "192.168.1.101"])
+        
+        # Historical data should be retained
+        assert len(anomaly_detector_instance._device_stats) == 3
+        # Current devices should be synced
+        assert len(anomaly_detector_instance._current_devices) == 2
+        assert "192.168.1.100" in anomaly_detector_instance._current_devices
+        assert "192.168.1.101" in anomaly_detector_instance._current_devices
+        assert "192.168.1.102" not in anomaly_detector_instance._current_devices
+    
+    def test_get_model_status_with_current_devices(self, anomaly_detector_instance, sample_device_stats):
+        """Should report devices_tracked based on current devices when synced"""
+        # Set up some historical device stats
+        anomaly_detector_instance._device_stats["192.168.1.100"] = sample_device_stats
+        anomaly_detector_instance._device_stats["192.168.1.101"] = sample_device_stats
+        anomaly_detector_instance._device_stats["192.168.1.102"] = sample_device_stats
+        
+        # Without sync, should count all tracked devices
+        status = anomaly_detector_instance.get_model_status()
+        assert status.devices_tracked == 3
+        
+        # After sync, should only count current devices
+        with patch.object(anomaly_detector_instance, '_save_state'):
+            anomaly_detector_instance.sync_current_devices(["192.168.1.100", "192.168.1.101"])
+        
+        status = anomaly_detector_instance.get_model_status()
+        assert status.devices_tracked == 2
+    
+    def test_get_current_devices_count(self, anomaly_detector_instance, sample_device_stats):
+        """Should return current devices count when synced, otherwise all tracked"""
+        # Set up historical data
+        anomaly_detector_instance._device_stats["192.168.1.100"] = sample_device_stats
+        anomaly_detector_instance._device_stats["192.168.1.101"] = sample_device_stats
+        
+        # Without sync, should count all stats
+        assert anomaly_detector_instance.get_current_devices_count() == 2
+        
+        # After sync with fewer devices
+        with patch.object(anomaly_detector_instance, '_save_state'):
+            anomaly_detector_instance.sync_current_devices(["192.168.1.100"])
+        
+        assert anomaly_detector_instance.get_current_devices_count() == 1
+    
+    def test_reset_all_clears_current_devices(self, anomaly_detector_instance, sample_device_stats):
+        """Reset all should also clear current devices list"""
+        anomaly_detector_instance._device_stats["192.168.1.100"] = sample_device_stats
+        anomaly_detector_instance._current_devices = {"192.168.1.100", "192.168.1.101"}
+        
+        with patch.object(anomaly_detector_instance, '_save_state'):
+            anomaly_detector_instance.reset_all()
+        
+        assert len(anomaly_detector_instance._current_devices) == 0
 

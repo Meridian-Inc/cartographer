@@ -187,6 +187,23 @@ async def reset_all_ml_data():
     return {"success": True, "message": "All ML data reset"}
 
 
+@router.post("/ml/sync-devices")
+async def sync_current_devices(device_ips: List[str]):
+    """
+    Sync the list of devices currently in the network.
+    
+    This should be called by the health service when devices are registered
+    or when the device list changes. It ensures the ML model status only
+    reports tracking devices that are actually present in the network.
+    """
+    anomaly_detector.sync_current_devices(device_ips)
+    return {
+        "success": True,
+        "devices_synced": len(device_ips),
+        "message": f"Synced {len(device_ips)} devices for ML tracking",
+    }
+
+
 # ==================== Health Check Processing ====================
 
 @router.post("/process-health-check")

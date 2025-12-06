@@ -109,3 +109,34 @@ def clear_state_tracking():
     global _previous_states
     _previous_states.clear()
 
+
+async def sync_devices_with_notification_service(device_ips: list) -> bool:
+    """
+    Sync the current list of monitored devices with the notification service.
+    
+    This ensures the ML anomaly detector only tracks devices that are
+    currently in the network, preventing stale device counts.
+    
+    Returns True if successfully synced, False otherwise.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.post(
+                f"{NOTIFICATION_SERVICE_URL}/api/notifications/ml/sync-devices",
+                json=device_ips,
+            )
+            
+            if response.status_code == 200:
+                logger.info(f"Synced {len(device_ips)} devices with notification service")
+                return True
+            else:
+                logger.warning(f"Notification service returned {response.status_code}: {response.text}")
+                return False
+                
+    except httpx.ConnectError:
+        logger.debug("Notification service not available for device sync")
+        return False
+    except Exception as e:
+        logger.warning(f"Failed to sync devices with notification service: {e}")
+        return False
+

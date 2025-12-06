@@ -320,6 +320,23 @@ class TestMLAnomalyEndpoints:
             )
             
             assert response.status_code == 200
+    
+    def test_sync_current_devices(self, test_client):
+        """Should sync current devices for ML tracking"""
+        with patch('app.routers.notifications.anomaly_detector') as mock_ad:
+            mock_ad.sync_current_devices.return_value = None
+            
+            device_ips = ["192.168.1.1", "192.168.1.2", "192.168.1.3"]
+            response = test_client.post(
+                "/api/notifications/ml/sync-devices",
+                json=device_ips
+            )
+            
+            assert response.status_code == 200
+            data = response.json()
+            assert data["success"] is True
+            assert data["devices_synced"] == 3
+            mock_ad.sync_current_devices.assert_called_once_with(device_ips)
 
 
 class TestHealthCheckProcessing:

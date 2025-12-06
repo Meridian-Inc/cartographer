@@ -9,6 +9,7 @@ from app.services.notification_reporter import (
     report_health_check,
     report_health_checks_batch,
     clear_state_tracking,
+    sync_devices_with_notification_service,
     _previous_states,
 )
 
@@ -226,4 +227,91 @@ class TestClearStateTracking:
         # Import and check the global state
         from app.services.notification_reporter import _previous_states
         assert len(_previous_states) == 0
+
+
+class TestSyncDevicesWithNotificationService:
+    """Tests for sync_devices_with_notification_service function"""
+    
+    async def test_sync_devices_success(self):
+        """Should sync devices successfully"""
+        mock_response = AsyncMock()
+        mock_response.status_code = 200
+        
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+        mock_client.post = AsyncMock(return_value=mock_response)
+        
+        with patch('httpx.AsyncClient', return_value=mock_client):
+            result = await sync_devices_with_notification_service(
+                ["192.168.1.1", "192.168.1.2", "192.168.1.3"]
+            )
+            
+            assert result is True
+            mock_client.post.assert_called_once()
+            call_args = mock_client.post.call_args
+            assert call_args.kwargs.get('json') == ["192.168.1.1", "192.168.1.2", "192.168.1.3"]
+    
+    async def test_sync_devices_non_200_response(self):
+        """Should return False for non-200 response"""
+        mock_response = AsyncMock()
+        mock_response.status_code = 500
+        mock_response.text = "Internal error"
+        
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+        mock_client.post = AsyncMock(return_value=mock_response)
+        
+        with patch('httpx.AsyncClient', return_value=mock_client):
+            result = await sync_devices_with_notification_service(
+                ["192.168.1.1"]
+            )
+            
+            assert result is False
+    
+    async def test_sync_devices_connect_error(self):
+        """Should handle connection error"""
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+        mock_client.post = AsyncMock(side_effect=httpx.ConnectError("Connection refused"))
+        
+        with patch('httpx.AsyncClient', return_value=mock_client):
+            result = await sync_devices_with_notification_service(
+                ["192.168.1.1"]
+            )
+            
+            assert result is False
+    
+    async def test_sync_devices_generic_exception(self):
+        """Should handle generic exception"""
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+        mock_client.post = AsyncMock(side_effect=Exception("Unknown error"))
+        
+        with patch('httpx.AsyncClient', return_value=mock_client):
+            result = await sync_devices_with_notification_service(
+                ["192.168.1.1"]
+            )
+            
+            assert result is False
+    
+    async def test_sync_empty_devices_list(self):
+        """Should sync empty devices list (clearing all devices)"""
+        mock_response = AsyncMock()
+        mock_response.status_code = 200
+        
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+        mock_client.post = AsyncMock(return_value=mock_response)
+        
+        with patch('httpx.AsyncClient', return_value=mock_client):
+            result = await sync_devices_with_notification_service([])
+            
+            assert result is True
+            call_args = mock_client.post.call_args
+            assert call_args.kwargs.get('json') == []
 

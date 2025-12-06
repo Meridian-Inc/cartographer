@@ -330,6 +330,8 @@ class AnomalyDetector:
         self._notified_offline: set = set()
         # Track anomaly timestamps for 24h count (max 10000 to prevent unbounded growth)
         self._anomaly_timestamps: deque = deque(maxlen=10000)
+        # Track current devices in the network (for accurate device count reporting)
+        self._current_devices: set = set()
         
         # Load persisted state
         self._load_state()
@@ -347,6 +349,7 @@ class AnomalyDetector:
                 "last_training": self._last_training.isoformat() if self._last_training else None,
                 "notified_offline": list(self._notified_offline),  # Track devices with pending online notifications
                 "anomaly_timestamps": [ts.isoformat() for ts in self._anomaly_timestamps],
+                "current_devices": list(self._current_devices),  # Track devices currently in network
             }
             
             with open(MODEL_STATE_FILE, 'w') as f:
@@ -379,6 +382,7 @@ class AnomalyDetector:
             self._false_positives = state.get("false_positives", 0)
             self._last_training = datetime.fromisoformat(state["last_training"]) if state.get("last_training") else None
             self._notified_offline = set(state.get("notified_offline", []))
+            self._current_devices = set(state.get("current_devices", []))
             # Load anomaly timestamps (filter to keep only last 24h on load)
             cutoff = datetime.utcnow() - timedelta(days=1)
             self._anomaly_timestamps = deque(
@@ -387,7 +391,7 @@ class AnomalyDetector:
                 maxlen=10000
             )
             
-            logger.info(f"Loaded anomaly detector state with {len(self._device_stats)} devices, {len(self._notified_offline)} pending online notifications")
+            logger.info(f"Loaded anomaly detector state with {len(self._device_stats)} devices, {len(self._current_devices)} current devices, {len(self._notified_offline)} pending online notifications")
         except Exception as e:
             logger.error(f"Failed to load anomaly detector state: {e}")
     
@@ -841,11 +845,18 @@ class AnomalyDetector:
         cutoff = datetime.utcnow() - timedelta(days=1)
         anomalies_24h = sum(1 for ts in self._anomaly_timestamps if ts > cutoff)
         
+        # Count only devices currently in the network
+        # If current_devices hasn't been synced yet, fall back to tracked stats
+        if self._current_devices:
+            devices_tracked = len(self._current_devices)
+        else:
+            devices_tracked = len(self._device_stats)
+        
         return MLModelStatus(
             model_version=self.MODEL_VERSION,
             last_training=self._last_training,
             samples_count=sum(s.total_checks for s in self._device_stats.values()),
-            devices_tracked=len(self._device_stats),
+            devices_tracked=devices_tracked,
             anomalies_detected_total=self._anomalies_detected,
             anomalies_detected_24h=anomalies_24h,
             is_trained=len(self._device_stats) > 0 and self._last_training is not None,
@@ -871,8 +882,25 @@ class AnomalyDetector:
         self._false_positives = 0
         self._last_training = None
         self._anomaly_timestamps.clear()
+        self._current_devices.clear()
         self._save_state()
         logger.info("Reset all anomaly detection data")
+    
+    def sync_current_devices(self, device_ips: List[str]):
+        """
+        Sync the list of devices currently in the network.
+        
+        This ensures the ML model status only reports tracking devices
+        that are actually present in the network. Historical data for
+        removed devices is retained for potential future use.
+        """
+        self._current_devices = set(device_ips)
+        self._save_state()
+        logger.info(f"Synced {len(self._current_devices)} current devices for ML tracking")
+    
+    def get_current_devices_count(self) -> int:
+        """Get the count of devices currently being tracked in the network"""
+        return len(self._current_devices) if self._current_devices else len(self._device_stats)
     
     def save(self):
         """Public method to save state - call on shutdown"""
