@@ -502,7 +502,8 @@ class NotificationManager:
         if not prefs.quiet_hours_start or not prefs.quiet_hours_end:
             return False
         
-        now = datetime.utcnow()
+        # Use local time since quiet hours are configured in user's local timezone
+        now = datetime.now()
         current_time = now.strftime("%H:%M")
         
         start = prefs.quiet_hours_start

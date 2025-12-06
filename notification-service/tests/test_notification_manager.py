@@ -265,7 +265,8 @@ class TestQuietHours:
     
     def test_is_quiet_hours_within(self, notification_manager_instance):
         """Should detect when in quiet hours"""
-        now = datetime.utcnow()
+        # Use local time since quiet hours are compared in local time
+        now = datetime.now()
         current_hour = now.strftime("%H:%M")
         
         # Set quiet hours to include current time
@@ -282,6 +283,188 @@ class TestQuietHours:
         result = notification_manager_instance._is_quiet_hours(prefs)
         
         assert result is True
+    
+    def test_is_quiet_hours_midnight_to_morning_at_3am(self, notification_manager_instance):
+        """Should detect quiet hours at 3 AM when set to 00:00-08:00 (common sleep hours)"""
+        prefs = NotificationPreferences(
+            user_id="test",
+            quiet_hours_enabled=True,
+            quiet_hours_start="00:00",
+            quiet_hours_end="08:00"
+        )
+        
+        # Mock datetime.now() to return 3:00 AM local time
+        mock_time = datetime(2024, 1, 15, 3, 0, 0)
+        with patch('app.services.notification_manager.datetime') as mock_datetime:
+            mock_datetime.now.return_value = mock_time
+            mock_datetime.utcnow.return_value = mock_time  # Ensure UTC isn't used
+            
+            result = notification_manager_instance._is_quiet_hours(prefs)
+        
+        assert result is True, "3 AM should be within quiet hours 00:00-08:00"
+    
+    def test_is_quiet_hours_midnight_to_morning_at_10am(self, notification_manager_instance):
+        """Should NOT detect quiet hours at 10 AM when set to 00:00-08:00"""
+        prefs = NotificationPreferences(
+            user_id="test",
+            quiet_hours_enabled=True,
+            quiet_hours_start="00:00",
+            quiet_hours_end="08:00"
+        )
+        
+        # Mock datetime.now() to return 10:00 AM local time
+        mock_time = datetime(2024, 1, 15, 10, 0, 0)
+        with patch('app.services.notification_manager.datetime') as mock_datetime:
+            mock_datetime.now.return_value = mock_time
+            mock_datetime.utcnow.return_value = mock_time
+            
+            result = notification_manager_instance._is_quiet_hours(prefs)
+        
+        assert result is False, "10 AM should NOT be within quiet hours 00:00-08:00"
+    
+    def test_is_quiet_hours_overnight_at_11pm(self, notification_manager_instance):
+        """Should detect quiet hours at 11 PM when set to 22:00-07:00 (overnight)"""
+        prefs = NotificationPreferences(
+            user_id="test",
+            quiet_hours_enabled=True,
+            quiet_hours_start="22:00",
+            quiet_hours_end="07:00"
+        )
+        
+        # Mock datetime.now() to return 11:00 PM local time
+        mock_time = datetime(2024, 1, 15, 23, 0, 0)
+        with patch('app.services.notification_manager.datetime') as mock_datetime:
+            mock_datetime.now.return_value = mock_time
+            mock_datetime.utcnow.return_value = mock_time
+            
+            result = notification_manager_instance._is_quiet_hours(prefs)
+        
+        assert result is True, "11 PM should be within overnight quiet hours 22:00-07:00"
+    
+    def test_is_quiet_hours_overnight_at_5am(self, notification_manager_instance):
+        """Should detect quiet hours at 5 AM when set to 22:00-07:00 (overnight)"""
+        prefs = NotificationPreferences(
+            user_id="test",
+            quiet_hours_enabled=True,
+            quiet_hours_start="22:00",
+            quiet_hours_end="07:00"
+        )
+        
+        # Mock datetime.now() to return 5:00 AM local time
+        mock_time = datetime(2024, 1, 15, 5, 0, 0)
+        with patch('app.services.notification_manager.datetime') as mock_datetime:
+            mock_datetime.now.return_value = mock_time
+            mock_datetime.utcnow.return_value = mock_time
+            
+            result = notification_manager_instance._is_quiet_hours(prefs)
+        
+        assert result is True, "5 AM should be within overnight quiet hours 22:00-07:00"
+    
+    def test_is_quiet_hours_overnight_at_noon(self, notification_manager_instance):
+        """Should NOT detect quiet hours at noon when set to 22:00-07:00 (overnight)"""
+        prefs = NotificationPreferences(
+            user_id="test",
+            quiet_hours_enabled=True,
+            quiet_hours_start="22:00",
+            quiet_hours_end="07:00"
+        )
+        
+        # Mock datetime.now() to return 12:00 PM local time
+        mock_time = datetime(2024, 1, 15, 12, 0, 0)
+        with patch('app.services.notification_manager.datetime') as mock_datetime:
+            mock_datetime.now.return_value = mock_time
+            mock_datetime.utcnow.return_value = mock_time
+            
+            result = notification_manager_instance._is_quiet_hours(prefs)
+        
+        assert result is False, "Noon should NOT be within overnight quiet hours 22:00-07:00"
+    
+    def test_is_quiet_hours_uses_local_time_not_utc(self, notification_manager_instance):
+        """Should use local time (datetime.now), not UTC time for quiet hours comparison.
+        
+        This test catches the bug where datetime.utcnow() was used instead of datetime.now(),
+        causing quiet hours to fail for users not in UTC timezone.
+        """
+        prefs = NotificationPreferences(
+            user_id="test",
+            quiet_hours_enabled=True,
+            quiet_hours_start="00:00",
+            quiet_hours_end="08:00"
+        )
+        
+        # Simulate 3 AM local time but 11 AM UTC (like PST timezone)
+        local_time = datetime(2024, 1, 15, 3, 0, 0)
+        utc_time = datetime(2024, 1, 15, 11, 0, 0)
+        
+        with patch('app.services.notification_manager.datetime') as mock_datetime:
+            mock_datetime.now.return_value = local_time
+            mock_datetime.utcnow.return_value = utc_time
+            
+            result = notification_manager_instance._is_quiet_hours(prefs)
+        
+        # Should use local time (3 AM), not UTC (11 AM)
+        # At 3 AM local, should be IN quiet hours
+        assert result is True, (
+            "Quiet hours should use local time (3 AM = in quiet hours), "
+            "not UTC time (11 AM = outside quiet hours)"
+        )
+    
+    def test_is_quiet_hours_boundary_at_start(self, notification_manager_instance):
+        """Should include the start boundary time in quiet hours"""
+        prefs = NotificationPreferences(
+            user_id="test",
+            quiet_hours_enabled=True,
+            quiet_hours_start="22:00",
+            quiet_hours_end="07:00"
+        )
+        
+        # Mock datetime.now() to return exactly 22:00
+        mock_time = datetime(2024, 1, 15, 22, 0, 0)
+        with patch('app.services.notification_manager.datetime') as mock_datetime:
+            mock_datetime.now.return_value = mock_time
+            mock_datetime.utcnow.return_value = mock_time
+            
+            result = notification_manager_instance._is_quiet_hours(prefs)
+        
+        assert result is True, "22:00 exactly should be within quiet hours 22:00-07:00"
+    
+    def test_is_quiet_hours_boundary_at_end(self, notification_manager_instance):
+        """Should include the end boundary time in quiet hours"""
+        prefs = NotificationPreferences(
+            user_id="test",
+            quiet_hours_enabled=True,
+            quiet_hours_start="22:00",
+            quiet_hours_end="07:00"
+        )
+        
+        # Mock datetime.now() to return exactly 07:00
+        mock_time = datetime(2024, 1, 15, 7, 0, 0)
+        with patch('app.services.notification_manager.datetime') as mock_datetime:
+            mock_datetime.now.return_value = mock_time
+            mock_datetime.utcnow.return_value = mock_time
+            
+            result = notification_manager_instance._is_quiet_hours(prefs)
+        
+        assert result is True, "07:00 exactly should be within quiet hours 22:00-07:00"
+    
+    def test_is_quiet_hours_just_after_end(self, notification_manager_instance):
+        """Should NOT include time just after end boundary"""
+        prefs = NotificationPreferences(
+            user_id="test",
+            quiet_hours_enabled=True,
+            quiet_hours_start="22:00",
+            quiet_hours_end="07:00"
+        )
+        
+        # Mock datetime.now() to return 07:01
+        mock_time = datetime(2024, 1, 15, 7, 1, 0)
+        with patch('app.services.notification_manager.datetime') as mock_datetime:
+            mock_datetime.now.return_value = mock_time
+            mock_datetime.utcnow.return_value = mock_time
+            
+            result = notification_manager_instance._is_quiet_hours(prefs)
+        
+        assert result is False, "07:01 should NOT be within quiet hours 22:00-07:00"
 
 
 class TestShouldNotify:
