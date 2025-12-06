@@ -402,7 +402,7 @@ export const NOTIFICATION_TYPE_INFO: Record<NotificationType, { label: string; i
     label: 'Cartographer Up', 
     icon: '✅', 
     description: 'When Cartographer service comes back online',
-    defaultPriority: 'low'
+    defaultPriority: 'medium'
   },
 };
 
