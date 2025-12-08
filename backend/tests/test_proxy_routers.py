@@ -387,26 +387,26 @@ class TestAuthProxyRouter:
         assert call_kwargs["method"] == "POST"
         assert "/login" in call_kwargs["path"]
     
-    async def test_logout(self, mock_http_pool):
-        """logout should POST"""
+    async def test_logout(self, mock_http_pool, owner_user):
+        """logout should POST (requires auth)"""
         from app.routers.auth_proxy import logout
         
         mock_request = MagicMock()
         mock_request.headers = {"Authorization": "Bearer token"}
         
-        await logout(request=mock_request)
+        await logout(request=mock_request, user=owner_user)
         
         call_kwargs = mock_http_pool.request.call_args[1]
         assert "/logout" in call_kwargs["path"]
     
-    async def test_get_session(self, mock_http_pool):
-        """get_session should GET"""
+    async def test_get_session(self, mock_http_pool, owner_user):
+        """get_session should GET (requires auth)"""
         from app.routers.auth_proxy import get_session
         
         mock_request = MagicMock()
         mock_request.headers = {"Authorization": "Bearer token"}
         
-        await get_session(request=mock_request)
+        await get_session(request=mock_request, user=owner_user)
         
         call_kwargs = mock_http_pool.request.call_args[1]
         assert call_kwargs["method"] == "GET"
@@ -424,163 +424,163 @@ class TestAuthProxyRouter:
         call_kwargs = mock_http_pool.request.call_args[1]
         assert "/verify" in call_kwargs["path"]
     
-    async def test_list_users(self, mock_http_pool):
-        """list_users should GET"""
+    async def test_list_users(self, mock_http_pool, owner_user):
+        """list_users should GET (requires auth)"""
         from app.routers.auth_proxy import list_users
         
         mock_request = MagicMock()
         mock_request.headers = {"Authorization": "Bearer token"}
         
-        await list_users(request=mock_request)
+        await list_users(request=mock_request, user=owner_user)
         
         call_kwargs = mock_http_pool.request.call_args[1]
         assert "/users" in call_kwargs["path"]
     
-    async def test_create_user(self, mock_http_pool):
-        """create_user should POST with body"""
+    async def test_create_user(self, mock_http_pool, owner_user):
+        """create_user should POST with body (requires owner)"""
         from app.routers.auth_proxy import create_user
         
         mock_request = MagicMock()
         mock_request.headers = {"Authorization": "Bearer token"}
         mock_request.json = AsyncMock(return_value={"username": "newuser", "role": "readonly"})
         
-        await create_user(request=mock_request)
+        await create_user(request=mock_request, user=owner_user)
         
         call_kwargs = mock_http_pool.request.call_args[1]
         assert call_kwargs["method"] == "POST"
     
-    async def test_get_user(self, mock_http_pool):
-        """get_user should GET by ID"""
+    async def test_get_user(self, mock_http_pool, owner_user):
+        """get_user should GET by ID (requires auth)"""
         from app.routers.auth_proxy import get_user
         
         mock_request = MagicMock()
         mock_request.headers = {"Authorization": "Bearer token"}
         
-        await get_user(user_id="user-123", request=mock_request)
+        await get_user(user_id="user-123", request=mock_request, user=owner_user)
         
         call_kwargs = mock_http_pool.request.call_args[1]
         assert "/users/user-123" in call_kwargs["path"]
     
-    async def test_update_user(self, mock_http_pool):
-        """update_user should PATCH"""
+    async def test_update_user(self, mock_http_pool, owner_user):
+        """update_user should PATCH (requires auth)"""
         from app.routers.auth_proxy import update_user
         
         mock_request = MagicMock()
         mock_request.headers = {"Authorization": "Bearer token"}
         mock_request.json = AsyncMock(return_value={"role": "readwrite"})
         
-        await update_user(user_id="user-123", request=mock_request)
+        await update_user(user_id="user-123", request=mock_request, user=owner_user)
         
         call_kwargs = mock_http_pool.request.call_args[1]
         assert call_kwargs["method"] == "PATCH"
     
-    async def test_delete_user(self, mock_http_pool):
-        """delete_user should DELETE"""
+    async def test_delete_user(self, mock_http_pool, owner_user):
+        """delete_user should DELETE (requires owner)"""
         from app.routers.auth_proxy import delete_user
         
         mock_request = MagicMock()
         mock_request.headers = {"Authorization": "Bearer token"}
         
-        await delete_user(user_id="user-123", request=mock_request)
+        await delete_user(user_id="user-123", request=mock_request, user=owner_user)
         
         call_kwargs = mock_http_pool.request.call_args[1]
         assert call_kwargs["method"] == "DELETE"
     
-    async def test_get_current_profile(self, mock_http_pool):
-        """get_current_profile should GET /me"""
+    async def test_get_current_profile(self, mock_http_pool, owner_user):
+        """get_current_profile should GET /me (requires auth)"""
         from app.routers.auth_proxy import get_current_profile
         
         mock_request = MagicMock()
         mock_request.headers = {"Authorization": "Bearer token"}
         
-        await get_current_profile(request=mock_request)
+        await get_current_profile(request=mock_request, user=owner_user)
         
         call_kwargs = mock_http_pool.request.call_args[1]
         assert "/me" in call_kwargs["path"]
     
-    async def test_update_current_profile(self, mock_http_pool):
-        """update_current_profile should PATCH /me"""
+    async def test_update_current_profile(self, mock_http_pool, owner_user):
+        """update_current_profile should PATCH /me (requires auth)"""
         from app.routers.auth_proxy import update_current_profile
         
         mock_request = MagicMock()
         mock_request.headers = {"Authorization": "Bearer token"}
         mock_request.json = AsyncMock(return_value={"display_name": "New Name"})
         
-        await update_current_profile(request=mock_request)
+        await update_current_profile(request=mock_request, user=owner_user)
         
         call_kwargs = mock_http_pool.request.call_args[1]
         assert call_kwargs["method"] == "PATCH"
     
-    async def test_change_password(self, mock_http_pool):
-        """change_password should POST"""
+    async def test_change_password(self, mock_http_pool, owner_user):
+        """change_password should POST (requires auth)"""
         from app.routers.auth_proxy import change_password
         
         mock_request = MagicMock()
         mock_request.headers = {"Authorization": "Bearer token"}
         mock_request.json = AsyncMock(return_value={"old_password": "old", "new_password": "new"})
         
-        await change_password(request=mock_request)
+        await change_password(request=mock_request, user=owner_user)
         
         call_kwargs = mock_http_pool.request.call_args[1]
         assert "/change-password" in call_kwargs["path"]
     
-    async def test_list_invites(self, mock_http_pool):
-        """list_invites should GET"""
+    async def test_list_invites(self, mock_http_pool, owner_user):
+        """list_invites should GET (requires owner)"""
         from app.routers.auth_proxy import list_invites
         
         mock_request = MagicMock()
         mock_request.headers = {"Authorization": "Bearer token"}
         
-        await list_invites(request=mock_request)
+        await list_invites(request=mock_request, user=owner_user)
         
         call_kwargs = mock_http_pool.request.call_args[1]
         assert "/invites" in call_kwargs["path"]
     
-    async def test_create_invite(self, mock_http_pool):
-        """create_invite should POST"""
+    async def test_create_invite(self, mock_http_pool, owner_user):
+        """create_invite should POST (requires owner)"""
         from app.routers.auth_proxy import create_invite
         
         mock_request = MagicMock()
         mock_request.headers = {"Authorization": "Bearer token"}
         mock_request.json = AsyncMock(return_value={"email": "test@example.com"})
         
-        await create_invite(request=mock_request)
+        await create_invite(request=mock_request, user=owner_user)
         
         call_kwargs = mock_http_pool.request.call_args[1]
         assert call_kwargs["method"] == "POST"
     
-    async def test_get_invite(self, mock_http_pool):
-        """get_invite should GET by ID"""
+    async def test_get_invite(self, mock_http_pool, owner_user):
+        """get_invite should GET by ID (requires owner)"""
         from app.routers.auth_proxy import get_invite
         
         mock_request = MagicMock()
         mock_request.headers = {"Authorization": "Bearer token"}
         
-        await get_invite(invite_id="inv-123", request=mock_request)
+        await get_invite(invite_id="inv-123", request=mock_request, user=owner_user)
         
         call_kwargs = mock_http_pool.request.call_args[1]
         assert "/invites/inv-123" in call_kwargs["path"]
     
-    async def test_revoke_invite(self, mock_http_pool):
-        """revoke_invite should DELETE"""
+    async def test_revoke_invite(self, mock_http_pool, owner_user):
+        """revoke_invite should DELETE (requires owner)"""
         from app.routers.auth_proxy import revoke_invite
         
         mock_request = MagicMock()
         mock_request.headers = {"Authorization": "Bearer token"}
         
-        await revoke_invite(invite_id="inv-123", request=mock_request)
+        await revoke_invite(invite_id="inv-123", request=mock_request, user=owner_user)
         
         call_kwargs = mock_http_pool.request.call_args[1]
         assert call_kwargs["method"] == "DELETE"
     
-    async def test_resend_invite(self, mock_http_pool):
-        """resend_invite should POST"""
+    async def test_resend_invite(self, mock_http_pool, owner_user):
+        """resend_invite should POST (requires owner)"""
         from app.routers.auth_proxy import resend_invite
         
         mock_request = MagicMock()
         mock_request.headers = {"Authorization": "Bearer token"}
         
-        await resend_invite(invite_id="inv-123", request=mock_request)
+        await resend_invite(invite_id="inv-123", request=mock_request, user=owner_user)
         
         call_kwargs = mock_http_pool.request.call_args[1]
         assert "/resend" in call_kwargs["path"]
