@@ -810,19 +810,50 @@ class NotificationManager:
         
         notification_id = str(uuid.uuid4())
         
+        # Check email configuration
+        email_configured = is_email_configured()
+        email_enabled = prefs.email.enabled and prefs.email.email_address
+        
         # Send via email
-        if prefs.email.enabled and prefs.email.email_address:
-            record = await send_notification_email(
-                to_email=prefs.email.email_address,
-                event=event,
-                notification_id=notification_id,
-            )
-            record.network_id = network_id
-            records.append(record)
-            self._history.append(record)
+        if email_enabled:
+            if not email_configured:
+                logger.error(
+                    f"Email is enabled for network {network_id} but RESEND_API_KEY is not configured. "
+                    f"Cannot send email notification."
+                )
+                record = NotificationRecord(
+                    notification_id=notification_id,
+                    event_id=event.event_id,
+                    network_id=network_id,
+                    channel=NotificationChannel.EMAIL,
+                    success=False,
+                    error_message="Email service not configured - RESEND_API_KEY not set",
+                    title=event.title,
+                    message=event.message,
+                    priority=event.priority,
+                )
+                records.append(record)
+                self._history.append(record)
+            else:
+                logger.info(f"Attempting to send email notification to {prefs.email.email_address} for network {network_id}")
+                record = await send_notification_email(
+                    to_email=prefs.email.email_address,
+                    event=event,
+                    notification_id=notification_id,
+                )
+                record.network_id = network_id
+                if record.success:
+                    logger.info(f"✓ Email notification sent successfully to {prefs.email.email_address} for network {network_id}")
+                else:
+                    logger.error(f"✗ Email notification failed for network {network_id}: {record.error_message}")
+                records.append(record)
+                self._history.append(record)
+        else:
+            logger.debug(f"Email notifications not enabled for network {network_id} (enabled={prefs.email.enabled}, address={'SET' if prefs.email.email_address else 'NOT SET'})")
         
         # Send via Discord
         if prefs.discord.enabled:
+            logger.info(f"Attempting to send Discord notification for network {network_id}")
             record = await send_discord_notification(
                 config=prefs.discord,
                 event=event,
@@ -830,8 +861,14 @@ class NotificationManager:
                 user_id=prefs.owner_user_id or "",
             )
             record.network_id = network_id
+            if record.success:
+                logger.info(f"✓ Discord notification sent successfully for network {network_id}")
+            else:
+                logger.error(f"✗ Discord notification failed for network {network_id}: {record.error_message}")
             records.append(record)
             self._history.append(record)
+        else:
+            logger.debug(f"Discord notifications not enabled for network {network_id}")
         
         # Record for rate limiting
         if records and not force:
@@ -888,37 +925,25 @@ class NotificationManager:
         # All members will receive the notification through the network's email/Discord
         # We send once per channel, but track that all members received it
         
+        # Check email configuration
+        email_configured = is_email_configured()
+        email_enabled = network_prefs.email.enabled and network_prefs.email.email_address
+        
+        logger.info(
+            f"Broadcast notification for network {network_id}: "
+            f"email_enabled={network_prefs.email.enabled}, "
+            f"email_address={'SET' if network_prefs.email.email_address else 'NOT SET'}, "
+            f"email_service_configured={email_configured}, "
+            f"discord_enabled={network_prefs.discord.enabled}"
+        )
+        
         # Send via email if enabled
-        if network_prefs.email.enabled and network_prefs.email.email_address:
-            try:
-                record = await send_notification_email(
-                    to_email=network_prefs.email.email_address,
-                    event=event,
-                    notification_id=notification_id,
+        if email_enabled:
+            if not email_configured:
+                logger.error(
+                    f"Email is enabled for network {network_id} but RESEND_API_KEY is not configured. "
+                    f"Cannot send email notification."
                 )
-                record.network_id = network_id
-                # Record for all members (they all share the same email address)
-                for user_id in user_ids:
-                    if user_id not in results:
-                        results[user_id] = []
-                    # Create a copy of the record for each user for tracking purposes
-                    user_record = NotificationRecord(
-                        notification_id=record.notification_id,
-                        event_id=record.event_id,
-                        network_id=record.network_id,
-                        channel=record.channel,
-                        timestamp=record.timestamp,
-                        success=record.success,
-                        error_message=record.error_message,
-                        title=record.title,
-                        message=record.message,
-                        priority=record.priority,
-                    )
-                    results[user_id].append(user_record)
-                # Add one record to history (the actual sent notification)
-                self._history.append(record)
-            except Exception as e:
-                logger.error(f"Failed to send email notification for network {network_id}: {e}")
                 # Record failure for all members
                 for user_id in user_ids:
                     if user_id not in results:
@@ -929,15 +954,70 @@ class NotificationManager:
                         network_id=network_id,
                         channel=NotificationChannel.EMAIL,
                         success=False,
-                        error_message=str(e),
+                        error_message="Email service not configured - RESEND_API_KEY not set",
                         title=event.title,
                         message=event.message,
                         priority=event.priority,
                     ))
+            else:
+                try:
+                    logger.info(f"Attempting to send email notification to {network_prefs.email.email_address} for network {network_id}")
+                    record = await send_notification_email(
+                        to_email=network_prefs.email.email_address,
+                        event=event,
+                        notification_id=notification_id,
+                    )
+                    record.network_id = network_id
+                    
+                    if record.success:
+                        logger.info(f"✓ Email notification sent successfully to {network_prefs.email.email_address} for network {network_id}")
+                    else:
+                        logger.error(f"✗ Email notification failed for network {network_id}: {record.error_message}")
+                    
+                    # Record for all members (they all share the same email address)
+                    for user_id in user_ids:
+                        if user_id not in results:
+                            results[user_id] = []
+                        # Create a copy of the record for each user for tracking purposes
+                        user_record = NotificationRecord(
+                            notification_id=record.notification_id,
+                            event_id=record.event_id,
+                            network_id=record.network_id,
+                            channel=record.channel,
+                            timestamp=record.timestamp,
+                            success=record.success,
+                            error_message=record.error_message,
+                            title=record.title,
+                            message=record.message,
+                            priority=record.priority,
+                        )
+                        results[user_id].append(user_record)
+                    # Add one record to history (the actual sent notification)
+                    self._history.append(record)
+                except Exception as e:
+                    logger.error(f"Exception while sending email notification for network {network_id}: {e}", exc_info=True)
+                    # Record failure for all members
+                    for user_id in user_ids:
+                        if user_id not in results:
+                            results[user_id] = []
+                        results[user_id].append(NotificationRecord(
+                            notification_id=notification_id,
+                            event_id=event.event_id,
+                            network_id=network_id,
+                            channel=NotificationChannel.EMAIL,
+                            success=False,
+                            error_message=str(e),
+                            title=event.title,
+                            message=event.message,
+                            priority=event.priority,
+                        ))
+        else:
+            logger.info(f"Email notifications not enabled for network {network_id} (enabled={network_prefs.email.enabled}, address={'SET' if network_prefs.email.email_address else 'NOT SET'})")
         
         # Send via Discord if enabled
         if network_prefs.discord.enabled:
             try:
+                logger.info(f"Attempting to send Discord notification for network {network_id}")
                 # Discord notifications can be sent to a channel (shared) or DM (per-user)
                 # For broadcasts, we send to the configured channel which all members can see
                 record = await send_discord_notification(
@@ -947,6 +1027,12 @@ class NotificationManager:
                     user_id=network_prefs.owner_user_id or "",
                 )
                 record.network_id = network_id
+                
+                if record.success:
+                    logger.info(f"✓ Discord notification sent successfully for network {network_id}")
+                else:
+                    logger.error(f"✗ Discord notification failed for network {network_id}: {record.error_message}")
+                
                 # Record for all members (they all see the same Discord channel)
                 for user_id in user_ids:
                     if user_id not in results:
@@ -968,7 +1054,7 @@ class NotificationManager:
                 # Add one record to history (the actual sent notification)
                 self._history.append(record)
             except Exception as e:
-                logger.error(f"Failed to send Discord notification for network {network_id}: {e}")
+                logger.error(f"Exception while sending Discord notification for network {network_id}: {e}", exc_info=True)
                 # Record failure for all members
                 for user_id in user_ids:
                     if user_id not in results:
@@ -984,6 +1070,8 @@ class NotificationManager:
                         message=event.message,
                         priority=event.priority,
                     ))
+        else:
+            logger.info(f"Discord notifications not enabled for network {network_id}")
         
         # Record for rate limiting (once per network, not per user)
         if results and not force:
@@ -993,7 +1081,32 @@ class NotificationManager:
         if len(self._history) % 50 == 0:
             self._save_history()
         
-        logger.info(f"Sent broadcast notification to {len(user_ids)} network members in network {network_id} via {len([r for r in results.values() if r])} channels")
+        # Count successful sends
+        successful_channels = 0
+        failed_channels = 0
+        for user_records in results.values():
+            for record in user_records:
+                if record.success:
+                    successful_channels += 1
+                else:
+                    failed_channels += 1
+        
+        if successful_channels > 0:
+            logger.info(
+                f"✓ Broadcast notification sent to {len(user_ids)} network members in network {network_id}: "
+                f"{successful_channels} successful channel(s), {failed_channels} failed"
+            )
+        elif failed_channels > 0:
+            logger.warning(
+                f"✗ Broadcast notification failed for network {network_id}: "
+                f"All {failed_channels} channel(s) failed. Check email/Discord configuration."
+            )
+        else:
+            logger.warning(
+                f"✗ No notification channels attempted for network {network_id}. "
+                f"Email enabled: {network_prefs.email.enabled}, Discord enabled: {network_prefs.discord.enabled}"
+            )
+        
         return results
     
     async def send_notification(
@@ -1281,15 +1394,28 @@ class NotificationManager:
             # Send notification only to the specific network
             records = await self.send_notification_to_network(network_id, event)
             if records:
-                logger.info(f"✓ Sent notification to network {network_id} for device {device_ip}: {event.title} ({len(records)} channels)")
+                successful = [r for r in records if r.success]
+                failed = [r for r in records if not r.success]
+                if successful:
+                    logger.info(
+                        f"✓ Sent notification to network {network_id} for device {device_ip}: {event.title} "
+                        f"({len(successful)} successful, {len(failed)} failed)"
+                    )
+                else:
+                    logger.error(
+                        f"✗ All notification channels failed for network {network_id}, device {device_ip}: {event.title}. "
+                        f"Errors: {[r.error_message for r in failed]}"
+                    )
             else:
                 # Get preferences to see why it was filtered
                 prefs = self.get_preferences(network_id)
                 should_notify, reason = self._should_notify(prefs, event)
                 logger.warning(
                     f"✗ No notifications sent for network {network_id}, device {device_ip}, event {event.event_type.value}: {reason}. "
-                    f"Prefs: enabled={prefs.enabled}, email={prefs.email.enabled}, discord={prefs.discord.enabled}, "
-                    f"event_type_in_enabled={event.event_type in prefs.enabled_notification_types}"
+                    f"Prefs: enabled={prefs.enabled}, email={prefs.email.enabled} ({'SET' if prefs.email.email_address else 'NOT SET'}), "
+                    f"discord={prefs.discord.enabled}, "
+                    f"event_type_in_enabled={event.event_type in prefs.enabled_notification_types}, "
+                    f"min_priority={prefs.minimum_priority.value}"
                 )
         elif event and is_silenced:
             logger.debug(f"Skipping notification for silenced device {device_ip}: {event.title}")

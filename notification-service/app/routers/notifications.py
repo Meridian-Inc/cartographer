@@ -295,21 +295,57 @@ async def send_network_notification(
     
     if user_ids:
         # Send to specific network members based on their preferences
+        logger.info(f"Broadcast request for network {network_id} to {len(user_ids)} users: {event.title}")
         results = await notification_manager.send_notification_to_network_members(
             network_id, user_ids, event, force=True
         )
-        total_records = sum(len(records) for records in results.values())
+        
+        # Count successful and failed records
+        total_records = 0
+        successful_records = 0
+        failed_records = 0
+        for user_id, records in results.items():
+            for record in records:
+                total_records += 1
+                if record.success:
+                    successful_records += 1
+                else:
+                    failed_records += 1
+        
+        success = successful_records > 0
+        
+        logger.info(
+            f"Broadcast result for network {network_id}: "
+            f"success={success}, users={len(results)}, "
+            f"total_records={total_records}, successful={successful_records}, failed={failed_records}"
+        )
+        
         return {
-            "success": total_records > 0,
+            "success": success,
             "users_notified": len(results),
             "total_records": total_records,
+            "successful_records": successful_records,
+            "failed_records": failed_records,
             "network_id": network_id,
         }
     else:
         # Fallback to network-level preferences
+        logger.info(f"Network-level notification request for network {network_id}: {event.title}")
         records = await notification_manager.send_notification_to_network(network_id, event, force=True)
+        successful = [r for r in records if r.success]
+        failed = [r for r in records if not r.success]
+        
+        logger.info(
+            f"Network-level notification result for network {network_id}: "
+            f"success={len(successful) > 0}, total={len(records)}, "
+            f"successful={len(successful)}, failed={len(failed)}"
+        )
+        
         return {
-            "success": len([r for r in records if r.success]) > 0,
+            "success": len(successful) > 0,
+            "total_records": len(records),
+            "successful_records": len(successful),
+            "failed_records": len(failed),
             "records": [r.model_dump() for r in records],
             "network_id": network_id,
         }

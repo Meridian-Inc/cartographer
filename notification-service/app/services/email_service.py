@@ -291,12 +291,13 @@ async def send_notification_email(
     
     if not is_email_configured():
         record.error_message = "Email not configured - RESEND_API_KEY not set"
-        logger.warning(f"Email not configured - notification for {to_email} not sent")
+        logger.warning(f"✗ Email not configured - RESEND_API_KEY not set. Cannot send notification to {to_email}")
         return record
     
     resend = _get_resend()
     if not resend:
         record.error_message = "Resend module not available"
+        logger.error(f"✗ Resend module not available. Cannot send notification to {to_email}")
         return record
     
     try:
@@ -319,15 +320,20 @@ async def send_notification_email(
             "text": text_content,
         }
         
+        logger.info(f"Attempting to send email via Resend to {to_email} with subject: {subject}")
         result = resend.Emails.send(params)
         email_id = result.get("id") if isinstance(result, dict) else getattr(result, "id", None)
         
-        record.success = True
-        logger.info(f"Notification email sent to {to_email} (ID: {email_id}) - {event.title}")
+        if email_id:
+            record.success = True
+            logger.info(f"✓ Notification email sent successfully to {to_email} (Resend ID: {email_id}) - {event.title}")
+        else:
+            record.error_message = "Resend API returned no email ID"
+            logger.error(f"✗ Resend API returned no email ID for notification to {to_email}")
         
     except Exception as e:
         record.error_message = str(e)
-        logger.error(f"Failed to send notification email to {to_email}: {e}")
+        logger.error(f"✗ Exception while sending notification email to {to_email}: {e}", exc_info=True)
     
     return record
 

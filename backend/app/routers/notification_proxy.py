@@ -308,13 +308,13 @@ async def send_global_notification(
         f"/networks/{network_id}/send-notification",
         json_body={
             "event_id": f"broadcast-{user.user_id}-{network_id}-{body.get('title', 'notification')[:20]}",
-            "event_type": body.get("event_type", "scheduled_maintenance"),
-            "priority": body.get("priority", "medium"),
-            "title": body.get("title", "System Notification"),
-            "message": body.get("message", ""),
+        "event_type": body.get("event_type", "scheduled_maintenance"),
+        "priority": body.get("priority", "medium"),
+        "title": body.get("title", "System Notification"),
+        "message": body.get("message", ""),
             "network_id": network_id,
-            "details": {
-                "sent_by": user.username,
+        "details": {
+            "sent_by": user.username,
                 "is_broadcast": True,
             },
             "user_ids": user_ids,  # Pass list of network member user IDs
