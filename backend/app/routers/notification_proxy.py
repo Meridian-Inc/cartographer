@@ -287,6 +287,12 @@ async def send_global_notification(
     if not network_id:
         raise HTTPException(status_code=400, detail="network_id is required")
     
+    # Ensure network_id is an integer
+    try:
+        network_id = int(network_id)
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail="network_id must be an integer")
+    
     # Get all network members (owner + users with permissions)
     try:
         user_ids = await get_network_member_user_ids(network_id, db)

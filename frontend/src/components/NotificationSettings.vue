@@ -1259,7 +1259,13 @@ async function sendBroadcast() {
 	broadcastResult.value = null;
 	
 	try {
+		if (!props.networkId) {
+			broadcastResult.value = { success: false, error: "Network ID is required" };
+			return;
+		}
+		
 		const result = await sendBroadcastNotification(
+			props.networkId,
 			broadcastTitle.value.trim(),
 			broadcastMessage.value.trim(),
 			broadcastType.value,
@@ -1294,9 +1300,15 @@ async function scheduleTheBroadcast() {
 	broadcastResult.value = null;
 	
 	try {
+		if (!props.networkId) {
+			broadcastResult.value = { success: false, error: "Network ID is required" };
+			return;
+		}
+		
 		const scheduleDate = new Date(scheduledDateTime.value);
 		
 		await scheduleBroadcast(
+			props.networkId,
 			broadcastTitle.value.trim(),
 			broadcastMessage.value.trim(),
 			scheduleDate,
