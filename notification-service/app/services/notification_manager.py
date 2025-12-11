@@ -699,16 +699,16 @@ class NotificationManager:
     
     async def broadcast_notification(self, event: NetworkEvent) -> Dict[str, List[NotificationRecord]]:
         """
-        Send a notification to all users who should receive it.
+        Send a notification to all networks with notifications enabled.
         
-        Returns a dict of user_id -> list of records.
+        Returns a dict of network_id -> list of records.
         """
         results = {}
         
-        for user_id in self.get_all_users_with_notifications_enabled():
-            records = await self.send_notification(user_id, event)
+        for network_id in self.get_all_networks_with_notifications_enabled():
+            records = await self.send_notification(network_id, event)
             if records:
-                results[user_id] = records
+                results[str(network_id)] = records
         
         return results
     

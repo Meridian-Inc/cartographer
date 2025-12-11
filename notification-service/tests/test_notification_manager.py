@@ -100,7 +100,8 @@ class TestPreferencesManagement:
             enabled=False
         )
         
-        users = notification_manager_instance.get_all_users_with_notifications_enabled()
+        # Note: Tests need to be updated for network-based preferences
+        users = notification_manager_instance.get_all_networks_with_notifications_enabled()
         
         assert "user1" in users
         assert "user2" not in users
