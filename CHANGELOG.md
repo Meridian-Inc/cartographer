@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### ✨ Features
 
 * add multi-tenant dashboard ([bd4a39d](https://github.com/devartech/cartographer/commit/bd4a39db07f1a218d22af18e8525ace366ec39ac))
+* add selectable default provider ([de28980](https://github.com/devartech/cartographer/commit/de28980783c947544bdd071219c7de3110ce4761))
 
 ### [0.3.2](https://github.com/devartech/cartographer/compare/v0.3.1...v0.3.2) (2025-12-08)
 

@@ -1,5 +1,25 @@
 <template>
-	<div class="flex flex-col h-full bg-white dark:bg-slate-800 border-l border-slate-200 dark:border-slate-700 overflow-hidden">
+	<div class="flex flex-col h-full bg-white dark:bg-slate-800 border-l border-slate-200 dark:border-slate-700 overflow-hidden relative">
+		<!-- Default provider notification -->
+		<transition
+			enter-active-class="transition ease-out duration-200"
+			enter-from-class="opacity-0 translate-y-2"
+			enter-to-class="opacity-100 translate-y-0"
+			leave-active-class="transition ease-in duration-150"
+			leave-from-class="opacity-100 translate-y-0"
+			leave-to-class="opacity-0 translate-y-2"
+		>
+			<div 
+				v-if="defaultProviderNotification"
+				class="absolute top-4 left-1/2 transform -translate-x-1/2 z-50 px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded-lg shadow-lg flex items-center gap-2"
+			>
+				<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+				</svg>
+				{{ defaultProviderNotification }}
+			</div>
+		</transition>
+		
 		<!-- Header -->
 		<div class="flex flex-col border-b border-slate-200 dark:border-slate-700">
 			<!-- Title row -->
@@ -27,22 +47,29 @@
 			</div>
 			<!-- Model selection row -->
 			<div class="flex items-center gap-2 px-4 py-2 bg-slate-100/50 dark:bg-slate-800/50">
-				<!-- Provider icon buttons -->
-				<div class="flex items-center gap-1">
-					<button
-						v-for="p in availableProviders"
-						:key="p.provider"
-						@click="selectProvider(p.provider)"
-						:disabled="isStreaming"
-						class="p-1.5 rounded-md transition-all"
-						:class="[
-							selectedProvider === p.provider 
-								? 'bg-slate-200 dark:bg-slate-700 ring-2 ring-violet-500' 
-								: 'hover:bg-slate-200 dark:hover:bg-slate-700',
-							isStreaming ? 'opacity-50 cursor-not-allowed' : ''
-						]"
-						:title="providerLabels[p.provider] || p.provider"
-					>
+			<!-- Provider icon buttons -->
+			<div class="flex items-center gap-1">
+				<button
+					v-for="p in allProviders"
+					:key="p.provider"
+					@click="p.available ? selectProvider(p.provider) : null"
+					@dblclick="p.available ? setDefaultProvider(p.provider) : null"
+					:disabled="isStreaming || !p.available"
+					class="p-1.5 rounded-md transition-all relative"
+					:class="[
+						selectedProvider === p.provider 
+							? 'bg-slate-200 dark:bg-slate-700 ring-2 ring-violet-500' 
+							: p.available ? 'hover:bg-slate-200 dark:hover:bg-slate-700' : '',
+						isStreaming || !p.available ? 'opacity-30 cursor-not-allowed' : ''
+					]"
+					:title="getProviderTitle(p)"
+				>
+					<!-- Default provider indicator -->
+					<span 
+						v-if="p.provider === userDefaultProvider && p.available"
+						class="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-400 dark:bg-amber-500 rounded-full border border-white dark:border-slate-800"
+						title="Your default provider"
+					></span>
 						<!-- OpenAI icon (monochrome/black) -->
 						<svg v-if="p.provider === 'openai'" class="h-5 w-5" :class="selectedProvider === p.provider ? 'text-slate-900 dark:text-white' : 'text-slate-400 dark:text-slate-500'" viewBox="0 0 24 24" fill="currentColor">
 							<path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z"/>
@@ -300,7 +327,10 @@ const messagesContainer = ref<HTMLElement | null>(null);
 
 const selectedProvider = ref('openai');
 const selectedModel = ref('');
+const allProviders = ref<Provider[]>([]);
 const availableProviders = ref<Provider[]>([]);
+const userDefaultProvider = ref<string | null>(null);
+const defaultProviderNotification = ref<string | null>(null);
 const includeContext = ref(true);
 const contextSummary = ref<ContextSummary | null>(null);
 const contextLoading = ref(true);
@@ -345,6 +375,7 @@ const suggestions = [
 
 // Fetch available providers on mount
 onMounted(async () => {
+	loadDefaultProvider();
 	await fetchProviders();
 	await fetchContext();
 });
@@ -358,21 +389,81 @@ async function fetchProviders() {
 	try {
 		const response = await axios.get('/api/assistant/config');
 		const providers = response.data.providers || [];
+		
+		// Store all providers for display
+		allProviders.value = providers;
+		// Filter available providers for selection
 		availableProviders.value = providers.filter((p: Provider) => p.available);
 		
-		// Set default provider to first available
-		if (availableProviders.value.length > 0) {
-			selectedProvider.value = availableProviders.value[0].provider;
-			// Set default model for the provider
-			const defaultProvider = availableProviders.value[0];
-			selectedModel.value = defaultProvider.default_model || defaultProvider.available_models?.[0] || '';
+		// Determine which provider to select
+		let providerToSelect = null;
+		
+		// 1. Try user's saved default if it's available
+		if (userDefaultProvider.value) {
+			const userDefault = availableProviders.value.find(p => p.provider === userDefaultProvider.value);
+			if (userDefault) {
+				providerToSelect = userDefault;
+			}
+		}
+		
+		// 2. Fall back to first available provider
+		if (!providerToSelect && availableProviders.value.length > 0) {
+			providerToSelect = availableProviders.value[0];
+		}
+		
+		// Set the selected provider and model
+		if (providerToSelect) {
+			selectedProvider.value = providerToSelect.provider;
+			selectedModel.value = providerToSelect.default_model || providerToSelect.available_models?.[0] || '';
 		}
 	} catch (err) {
 		console.error('Failed to fetch providers:', err);
 		// Default to OpenAI if we can't fetch
-		availableProviders.value = [{ provider: 'openai', available: true, default_model: 'gpt-4o-mini' }];
+		const defaultProvider = { provider: 'openai', available: true, default_model: 'gpt-4o-mini' };
+		allProviders.value = [defaultProvider];
+		availableProviders.value = [defaultProvider];
 		selectedModel.value = 'gpt-4o-mini';
 	}
+}
+
+function loadDefaultProvider() {
+	try {
+		const stored = localStorage.getItem('cartographer_default_provider');
+		if (stored) {
+			userDefaultProvider.value = stored;
+		}
+	} catch (e) {
+		console.error('Failed to load default provider:', e);
+	}
+}
+
+function setDefaultProvider(providerName: string) {
+	try {
+		userDefaultProvider.value = providerName;
+		localStorage.setItem('cartographer_default_provider', providerName);
+		
+		// Show notification
+		const providerLabel = providerLabels[providerName] || providerName;
+		defaultProviderNotification.value = `${providerLabel} set as default`;
+		
+		// Clear notification after 3 seconds
+		setTimeout(() => {
+			defaultProviderNotification.value = null;
+		}, 3000);
+	} catch (e) {
+		console.error('Failed to save default provider:', e);
+	}
+}
+
+function getProviderTitle(p: Provider): string {
+	const label = providerLabels[p.provider] || p.provider;
+	if (!p.available) {
+		return `${label} (unavailable)`;
+	}
+	if (p.provider === userDefaultProvider.value) {
+		return `${label} (your default - double-click to change)`;
+	}
+	return `${label} (double-click to set as default)`;
 }
 
 function onProviderChange() {
