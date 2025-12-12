@@ -37,6 +37,8 @@ class CartographerStatusSubscription:
         email_address: str,
         cartographer_up_enabled: bool = True,
         cartographer_down_enabled: bool = True,
+        cartographer_up_priority: str = "medium",
+        cartographer_down_priority: str = "critical",
         email_enabled: bool = True,
         discord_enabled: bool = False,
         minimum_priority: str = "medium",
@@ -48,6 +50,8 @@ class CartographerStatusSubscription:
         self.email_address = email_address
         self.cartographer_up_enabled = cartographer_up_enabled
         self.cartographer_down_enabled = cartographer_down_enabled
+        self.cartographer_up_priority = cartographer_up_priority
+        self.cartographer_down_priority = cartographer_down_priority
         self.email_enabled = email_enabled
         self.discord_enabled = discord_enabled
         self.minimum_priority = minimum_priority
@@ -64,6 +68,8 @@ class CartographerStatusSubscription:
             "email_address": self.email_address,
             "cartographer_up_enabled": self.cartographer_up_enabled,
             "cartographer_down_enabled": self.cartographer_down_enabled,
+            "cartographer_up_priority": self.cartographer_up_priority,
+            "cartographer_down_priority": self.cartographer_down_priority,
             "email_enabled": self.email_enabled,
             "discord_enabled": self.discord_enabled,
             "minimum_priority": self.minimum_priority,
@@ -82,6 +88,8 @@ class CartographerStatusSubscription:
             email_address=data["email_address"],
             cartographer_up_enabled=data.get("cartographer_up_enabled", True),
             cartographer_down_enabled=data.get("cartographer_down_enabled", True),
+            cartographer_up_priority=data.get("cartographer_up_priority", "medium"),
+            cartographer_down_priority=data.get("cartographer_down_priority", "critical"),
             email_enabled=data.get("email_enabled", True),
             discord_enabled=data.get("discord_enabled", False),
             minimum_priority=data.get("minimum_priority", "medium"),
@@ -155,6 +163,8 @@ class CartographerStatusService:
         email_address: Optional[str] = None,
         cartographer_up_enabled: Optional[bool] = None,
         cartographer_down_enabled: Optional[bool] = None,
+        cartographer_up_priority: Optional[str] = None,
+        cartographer_down_priority: Optional[str] = None,
         email_enabled: Optional[bool] = None,
         discord_enabled: Optional[bool] = None,
         minimum_priority: Optional[str] = None,
@@ -172,6 +182,10 @@ class CartographerStatusService:
                 sub.cartographer_up_enabled = cartographer_up_enabled
             if cartographer_down_enabled is not None:
                 sub.cartographer_down_enabled = cartographer_down_enabled
+            if cartographer_up_priority is not None:
+                sub.cartographer_up_priority = cartographer_up_priority
+            if cartographer_down_priority is not None:
+                sub.cartographer_down_priority = cartographer_down_priority
             if email_enabled is not None:
                 sub.email_enabled = email_enabled
             if discord_enabled is not None:
@@ -194,6 +208,8 @@ class CartographerStatusService:
                 email_address=email_address,
                 cartographer_up_enabled=cartographer_up_enabled if cartographer_up_enabled is not None else True,
                 cartographer_down_enabled=cartographer_down_enabled if cartographer_down_enabled is not None else True,
+                cartographer_up_priority=cartographer_up_priority if cartographer_up_priority is not None else "medium",
+                cartographer_down_priority=cartographer_down_priority if cartographer_down_priority is not None else "critical",
                 email_enabled=email_enabled if email_enabled is not None else True,
                 discord_enabled=discord_enabled if discord_enabled is not None else False,
                 minimum_priority=minimum_priority if minimum_priority is not None else "medium",

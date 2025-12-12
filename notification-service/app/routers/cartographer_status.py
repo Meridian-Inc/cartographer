@@ -40,8 +40,10 @@ async def get_cartographer_status_subscription(
         return {
             "user_id": x_user_id,
             "email_address": None,
-            "cartographer_up_enabled": False,
-            "cartographer_down_enabled": False,
+            "cartographer_up_enabled": True,
+            "cartographer_down_enabled": True,
+            "cartographer_up_priority": "medium",
+            "cartographer_down_priority": "critical",
             "email_enabled": True,
             "discord_enabled": False,
             "minimum_priority": "medium",
@@ -56,6 +58,8 @@ async def get_cartographer_status_subscription(
         "email_address": subscription.email_address,
         "cartographer_up_enabled": subscription.cartographer_up_enabled,
         "cartographer_down_enabled": subscription.cartographer_down_enabled,
+        "cartographer_up_priority": subscription.cartographer_up_priority,
+        "cartographer_down_priority": subscription.cartographer_down_priority,
         "email_enabled": subscription.email_enabled,
         "discord_enabled": subscription.discord_enabled,
         "minimum_priority": subscription.minimum_priority,
@@ -73,6 +77,8 @@ class CreateSubscriptionRequest(BaseModel):
     email_address: str
     cartographer_up_enabled: bool = True
     cartographer_down_enabled: bool = True
+    cartographer_up_priority: str = "medium"
+    cartographer_down_priority: str = "critical"
     email_enabled: bool = True
     discord_enabled: bool = False
     minimum_priority: str = "medium"
@@ -101,6 +107,8 @@ async def create_cartographer_status_subscription(
         email_address=request.email_address,
         cartographer_up_enabled=request.cartographer_up_enabled,
         cartographer_down_enabled=request.cartographer_down_enabled,
+        cartographer_up_priority=request.cartographer_up_priority,
+        cartographer_down_priority=request.cartographer_down_priority,
         email_enabled=request.email_enabled,
         discord_enabled=request.discord_enabled,
         minimum_priority=request.minimum_priority,
@@ -114,6 +122,8 @@ async def create_cartographer_status_subscription(
         "email_address": subscription.email_address,
         "cartographer_up_enabled": subscription.cartographer_up_enabled,
         "cartographer_down_enabled": subscription.cartographer_down_enabled,
+        "cartographer_up_priority": subscription.cartographer_up_priority,
+        "cartographer_down_priority": subscription.cartographer_down_priority,
         "email_enabled": subscription.email_enabled,
         "discord_enabled": subscription.discord_enabled,
         "minimum_priority": subscription.minimum_priority,
@@ -131,6 +141,8 @@ class UpdateSubscriptionRequest(BaseModel):
     email_address: Optional[str] = None
     cartographer_up_enabled: Optional[bool] = None
     cartographer_down_enabled: Optional[bool] = None
+    cartographer_up_priority: Optional[str] = None
+    cartographer_down_priority: Optional[str] = None
     email_enabled: Optional[bool] = None
     discord_enabled: Optional[bool] = None
     minimum_priority: Optional[str] = None
@@ -159,6 +171,8 @@ async def update_cartographer_status_subscription(
         email_address=request.email_address,
         cartographer_up_enabled=request.cartographer_up_enabled,
         cartographer_down_enabled=request.cartographer_down_enabled,
+        cartographer_up_priority=request.cartographer_up_priority,
+        cartographer_down_priority=request.cartographer_down_priority,
         email_enabled=request.email_enabled,
         discord_enabled=request.discord_enabled,
         minimum_priority=request.minimum_priority,
@@ -172,6 +186,8 @@ async def update_cartographer_status_subscription(
         "email_address": updated.email_address,
         "cartographer_up_enabled": updated.cartographer_up_enabled,
         "cartographer_down_enabled": updated.cartographer_down_enabled,
+        "cartographer_up_priority": updated.cartographer_up_priority,
+        "cartographer_down_priority": updated.cartographer_down_priority,
         "email_enabled": updated.email_enabled,
         "discord_enabled": updated.discord_enabled,
         "minimum_priority": updated.minimum_priority,
