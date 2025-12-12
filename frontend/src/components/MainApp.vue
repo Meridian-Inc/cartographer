@@ -39,6 +39,8 @@
 			<template #user-menu>
 				<UserMenu 
 					:showNotifications="!!props.networkId"
+					:isNetworkContext="!!props.networkId"
+					:isNetworkOwner="props.isNetworkOwner"
 					@logout="onLogout" 
 					@manageUsers="showUserManagement = true" 
 					@notifications="showNotificationSettings = true" 
@@ -537,6 +539,7 @@ const props = defineProps<{
 	networkId?: number;
 	networkName?: string;
 	canWriteNetwork?: boolean;
+	isNetworkOwner?: boolean;
 }>();
 
 // Auth state

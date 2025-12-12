@@ -38,6 +38,7 @@
 		:networkId="network.id"
 		:networkName="network.name"
 		:canWriteNetwork="canWrite"
+		:isNetworkOwner="network.is_owner"
 	/>
 </template>
 

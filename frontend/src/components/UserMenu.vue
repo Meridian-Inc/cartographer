@@ -63,9 +63,9 @@
 
 				<!-- Menu Items -->
 				<div class="py-1">
-					<!-- Manage Users (Owner only) -->
+					<!-- Manage Users (context-dependent visibility) -->
 					<button
-						v-if="isOwner"
+						v-if="showManageUsers"
 						@click="onManageUsers"
 						class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors"
 					>
@@ -75,8 +75,8 @@
 							</svg>
 						</div>
 						<div class="flex flex-col items-start">
-							<span class="font-medium">Manage Users</span>
-							<span class="text-xs text-slate-500 dark:text-slate-400">Add, edit, remove users</span>
+							<span class="font-medium">{{ manageUsersLabel }}</span>
+							<span class="text-xs text-slate-500 dark:text-slate-400">{{ manageUsersDescription }}</span>
 						</div>
 					</button>
 
@@ -97,8 +97,9 @@
 						</div>
 					</button>
 
-					<!-- Updates -->
+					<!-- Updates (Owner only) -->
 					<button
+						v-if="isOwner"
 						@click="onUpdates"
 						class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors"
 					>
@@ -284,6 +285,9 @@ import { getRoleLabel, getFullName } from "../types/auth";
 
 const props = defineProps<{
 	showNotifications?: boolean;
+	// Network context props
+	isNetworkContext?: boolean;  // true when viewing a specific network
+	isNetworkOwner?: boolean;    // true if user owns the current network
 }>();
 
 const emit = defineEmits<{
@@ -294,6 +298,33 @@ const emit = defineEmits<{
 }>();
 
 const { user, isOwner, logout, changePassword } = useAuth();
+
+// Determine if the Manage Users option should be shown
+// - On home page (not network context): show only for app owners
+// - On network page (network context): show only for network owners
+const showManageUsers = computed(() => {
+	if (props.isNetworkContext) {
+		// In network context, only show if user is the network owner
+		return props.isNetworkOwner === true;
+	}
+	// On home page, only show if user is the app owner
+	return isOwner.value;
+});
+
+// Get the appropriate label and description for Manage Users
+const manageUsersLabel = computed(() => {
+	if (props.isNetworkContext) {
+		return "Manage Network Access";
+	}
+	return "Manage Users";
+});
+
+const manageUsersDescription = computed(() => {
+	if (props.isNetworkContext) {
+		return "Control who can access this network";
+	}
+	return "Add, edit, remove users";
+});
 
 const menuContainer = ref<HTMLElement | null>(null);
 const isOpen = ref(false);
