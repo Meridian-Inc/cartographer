@@ -421,11 +421,12 @@ function onSetupComplete() {
 
 async function onLoginSuccess() {
 	console.log("[HomePage] Login successful");
-	clearNetworks();
 	await loadNetworks();
 }
 
 function onLogout() {
+	// Set flag before reload so networks are cleared on next page load
+	sessionStorage.setItem("cartographer_logout", "true");
 	clearNetworks();
 	window.location.reload();
 }

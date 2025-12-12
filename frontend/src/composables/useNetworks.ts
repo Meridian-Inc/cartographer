@@ -36,13 +36,22 @@ const networks = ref<Network[]>([]);
 const loading = ref(false);
 const error = ref<string | null>(null);
 
+// Check for logout flag on module load - ensures networks are cleared after logout
+if (typeof sessionStorage !== "undefined") {
+	const logoutFlag = sessionStorage.getItem("cartographer_logout");
+	if (logoutFlag) {
+		sessionStorage.removeItem("cartographer_logout");
+		networks.value = [];
+		console.log("[Networks] Cleared networks after logout");
+	}
+}
+
 export function useNetworks() {
 	// Clear networks state (call when switching accounts)
-	// Sets loading to true to show loading state instead of "no networks"
 	function clearNetworks(): void {
 		networks.value = [];
 		error.value = null;
-		loading.value = true;
+		loading.value = false;
 	}
 
 	async function fetchNetworks(): Promise<void> {
