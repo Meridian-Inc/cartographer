@@ -91,44 +91,60 @@
 					</div>
 
 					<div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-						<router-link
+						<div
 							v-for="network in networks"
 							:key="network.id"
-							:to="`/network/${network.id}`"
-							class="block bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-6 hover:bg-slate-800/70 hover:border-slate-600/50 transition-all group"
+							class="relative bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-6 hover:bg-slate-800/70 hover:border-slate-600/50 transition-all group"
 						>
-							<div class="flex items-start justify-between mb-4">
-								<div class="w-12 h-12 rounded-xl bg-cyan-500/10 flex items-center justify-center group-hover:bg-cyan-500/20 transition-colors">
-									<svg class="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+							<router-link
+								:to="`/network/${network.id}`"
+								class="block"
+							>
+								<div class="flex items-start justify-between mb-4">
+									<div class="w-12 h-12 rounded-xl bg-cyan-500/10 flex items-center justify-center group-hover:bg-cyan-500/20 transition-colors">
+										<svg class="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+										</svg>
+									</div>
+									<div class="flex items-center gap-2">
+										<span
+											v-if="network.is_owner"
+											class="px-2 py-0.5 text-xs rounded-full bg-amber-500/20 text-amber-400"
+										>
+											Owner
+										</span>
+										<span
+											v-else-if="network.permission"
+											class="px-2 py-0.5 text-xs rounded-full bg-slate-700 text-slate-400"
+										>
+											{{ network.permission }}
+										</span>
+									</div>
+								</div>
+
+								<h3 class="text-lg font-semibold text-white mb-1 group-hover:text-cyan-400 transition-colors">{{ network.name }}</h3>
+								<p class="text-sm text-slate-400 mb-4 line-clamp-2">{{ network.description || 'No description' }}</p>
+
+								<div class="flex items-center justify-between text-xs text-slate-500">
+									<span>Updated {{ formatDate(network.updated_at) }}</span>
+									<svg class="w-4 h-4 text-slate-600 group-hover:text-cyan-400 group-hover:translate-x-0.5 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
 									</svg>
 								</div>
-								<div class="flex items-center gap-2">
-									<span
-										v-if="network.is_owner"
-										class="px-2 py-0.5 text-xs rounded-full bg-amber-500/20 text-amber-400"
-									>
-										Owner
-									</span>
-									<span
-										v-else-if="network.permission"
-										class="px-2 py-0.5 text-xs rounded-full bg-slate-700 text-slate-400"
-									>
-										{{ network.permission }}
-									</span>
-								</div>
-							</div>
+							</router-link>
 
-							<h3 class="text-lg font-semibold text-white mb-1 group-hover:text-cyan-400 transition-colors">{{ network.name }}</h3>
-							<p class="text-sm text-slate-400 mb-4 line-clamp-2">{{ network.description || 'No description' }}</p>
-
-							<div class="flex items-center justify-between text-xs text-slate-500">
-								<span>Updated {{ formatDate(network.updated_at) }}</span>
-								<svg class="w-4 h-4 text-slate-600 group-hover:text-cyan-400 group-hover:translate-x-0.5 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+							<!-- Edit Button -->
+							<button
+								v-if="canWriteNetwork(network)"
+								@click.stop="openEditModal(network)"
+								class="absolute top-4 right-4 p-2 rounded-lg bg-slate-700/50 text-slate-400 opacity-0 group-hover:opacity-100 hover:bg-slate-600/50 hover:text-white transition-all"
+								title="Edit network"
+							>
+								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
 								</svg>
-							</div>
-						</router-link>
+							</button>
+						</div>
 					</div>
 				</div>
 			</div>
@@ -224,6 +240,96 @@
 			</div>
 		</Transition>
 
+		<!-- Edit Network Modal -->
+		<Transition
+			enter-active-class="transition duration-200"
+			enter-from-class="opacity-0"
+			enter-to-class="opacity-100"
+			leave-active-class="transition duration-150"
+			leave-from-class="opacity-100"
+			leave-to-class="opacity-0"
+		>
+			<div v-if="showEditModal" class="fixed inset-0 z-50 flex items-center justify-center p-6">
+				<div class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" @click="closeEditModal" />
+
+				<Transition
+					enter-active-class="transition duration-200 delay-75"
+					enter-from-class="opacity-0 scale-95"
+					enter-to-class="opacity-100 scale-100"
+					leave-active-class="transition duration-150"
+					leave-from-class="opacity-100 scale-100"
+					leave-to-class="opacity-0 scale-95"
+				>
+					<div v-if="showEditModal" class="relative bg-slate-800/90 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-8 w-full max-w-md shadow-2xl">
+						<h2 class="text-xl font-bold text-white mb-6">Edit Network</h2>
+
+						<form @submit.prevent="saveEditNetwork" class="space-y-4">
+							<div>
+								<label for="editNetworkName" class="block text-sm font-medium text-slate-300 mb-1.5">
+									Network Name
+								</label>
+								<input
+									id="editNetworkName"
+									v-model="editNetwork.name"
+									type="text"
+									required
+									class="w-full px-4 py-2.5 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
+									placeholder="Home Network"
+								/>
+							</div>
+
+							<div>
+								<label for="editNetworkDescription" class="block text-sm font-medium text-slate-300 mb-1.5">
+									Description (optional)
+								</label>
+								<textarea
+									id="editNetworkDescription"
+									v-model="editNetwork.description"
+									rows="3"
+									class="w-full px-4 py-2.5 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition resize-none"
+									placeholder="Describe this network..."
+								></textarea>
+							</div>
+
+							<Transition
+								enter-active-class="transition duration-200"
+								enter-from-class="opacity-0"
+								enter-to-class="opacity-100"
+							>
+								<div v-if="editError" class="p-4 bg-red-900/30 border border-red-500/50 rounded-xl">
+									<p class="text-sm text-red-400">{{ editError }}</p>
+								</div>
+							</Transition>
+
+							<div class="flex gap-3 pt-4">
+								<button
+									type="button"
+									@click="closeEditModal"
+									class="flex-1 py-3 text-slate-400 hover:text-white transition-colors"
+								>
+									Cancel
+								</button>
+								<button
+									type="submit"
+									:disabled="isEditing || !editNetwork.name.trim()"
+									class="flex-1 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold rounded-xl shadow-lg shadow-cyan-500/25 transition-all hover:shadow-cyan-500/40 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+								>
+									<span v-if="isEditing" class="flex items-center justify-center gap-2">
+										<svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+											<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+											<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+										</svg>
+										Saving...
+									</span>
+									<span v-else>Save Changes</span>
+								</button>
+							</div>
+						</form>
+					</div>
+				</Transition>
+			</div>
+		</Transition>
+
 		<!-- User Management Modal -->
 		<UserManagement v-if="showUserManagement" @close="showUserManagement = false" />
 	</div>
@@ -241,19 +347,30 @@ import UserManagement from "./UserManagement.vue";
 
 const router = useRouter();
 const { isAuthenticated, checkSetupStatus, verifySession } = useAuth();
-const { networks, loading: networksLoading, fetchNetworks, createNetwork: createNetworkApi } = useNetworks();
+const { networks, loading: networksLoading, fetchNetworks, createNetwork: createNetworkApi, updateNetwork: updateNetworkApi, canWriteNetwork } = useNetworks();
 
 // Auth state
 const authLoading = ref(true);
 const needsSetup = ref(false);
 const showUserManagement = ref(false);
 
-// Modal state
+// Create Modal state
 const showCreateModal = ref(false);
 const isCreating = ref(false);
 const createError = ref("");
 
 const newNetwork = reactive({
+	name: "",
+	description: "",
+});
+
+// Edit Modal state
+const showEditModal = ref(false);
+const isEditing = ref(false);
+const editError = ref("");
+const editingNetworkId = ref<number | null>(null);
+
+const editNetwork = reactive({
 	name: "",
 	description: "",
 });
@@ -335,6 +452,42 @@ async function createNetwork() {
 		createError.value = e.message || "Failed to create network";
 	} finally {
 		isCreating.value = false;
+	}
+}
+
+function openEditModal(network: Network) {
+	editingNetworkId.value = network.id;
+	editNetwork.name = network.name;
+	editNetwork.description = network.description || "";
+	editError.value = "";
+	showEditModal.value = true;
+}
+
+function closeEditModal() {
+	showEditModal.value = false;
+	editError.value = "";
+	editingNetworkId.value = null;
+	editNetwork.name = "";
+	editNetwork.description = "";
+}
+
+async function saveEditNetwork() {
+	if (!editNetwork.name.trim() || editingNetworkId.value === null) return;
+
+	isEditing.value = true;
+	editError.value = "";
+
+	try {
+		await updateNetworkApi(editingNetworkId.value, {
+			name: editNetwork.name.trim(),
+			description: editNetwork.description.trim() || undefined,
+		});
+
+		closeEditModal();
+	} catch (e: any) {
+		editError.value = e.message || "Failed to update network";
+	} finally {
+		isEditing.value = false;
 	}
 }
 
