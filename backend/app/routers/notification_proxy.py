@@ -10,7 +10,7 @@ Performance optimizations:
 
 from fastapi import APIRouter, HTTPException, Request, Depends, Query
 from fastapi import Request as FastAPIRequest
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -754,10 +754,39 @@ async def discord_oauth_callback(
     state: str = Query(...),
 ):
     """Handle Discord OAuth callback (no auth required - handled by notification service)."""
-    return await proxy_request(
-        "GET",
-        f"/auth/discord/callback?code={code}&state={state}",
-        use_user_path=True,
+    # For OAuth callbacks, we need to handle redirects specially
+    # The notification service returns a RedirectResponse, not JSON
+    from ..services.http_client import http_pool
+    
+    service = http_pool._services.get("notification")
+    if not service:
+        raise HTTPException(status_code=500, detail="Notification service not available")
+    
+    if not service.client:
+        await service.initialize()
+    
+    # Make request with follow_redirects=False to get the redirect response
+    response = await service.client.get(
+        f"/api/auth/discord/callback",
+        params={"code": code, "state": state},
+        follow_redirects=False
+    )
+    
+    # If it's a redirect (302/303), return a RedirectResponse
+    if response.status_code in (302, 303, 307, 308):
+        redirect_url = response.headers.get("location")
+        if redirect_url:
+            return RedirectResponse(url=redirect_url)
+    
+    # Otherwise, try to parse as JSON
+    try:
+        content = response.json()
+    except Exception:
+        content = {"detail": response.text or "Empty response"}
+    
+    return JSONResponse(
+        content=content,
+        status_code=response.status_code
     )
 
 
