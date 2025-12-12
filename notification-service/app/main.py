@@ -136,12 +136,25 @@ async def lifespan(app: FastAPI):
     # Run database migrations
     logger.info("Running database migrations...")
     try:
-        from migrations.env import run_async_migrations
-        await run_async_migrations()
-        logger.info("Database migrations completed successfully")
+        import os
+        from pathlib import Path
+        
+        # Ensure we're in the right directory for alembic.ini
+        app_dir = Path(__file__).parent.parent
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(app_dir)
+            from migrations.env import run_async_migrations
+            await run_async_migrations()
+            logger.info("Database migrations completed successfully")
+        finally:
+            os.chdir(original_cwd)
+    except ImportError as e:
+        logger.error(f"Failed to import migrations module: {e}", exc_info=True)
+        logger.warning("Migrations directory may not be available. Service will continue but some features may not work.")
     except Exception as e:
         logger.error(f"Failed to run database migrations: {e}", exc_info=True)
-        logger.warning("Service will continue, but some features may not work. Please run migrations manually.")
+        logger.warning("Service will continue, but some features may not work. Please check database connection and migration files.")
     
     # Check previous service state
     previous_state = _get_service_state()
