@@ -22,8 +22,8 @@ security = HTTPBearer(auto_error=False)
 
 class UserRole(str, Enum):
     OWNER = "owner"
-    READ_WRITE = "readwrite"
-    READ_ONLY = "readonly"
+    ADMIN = "admin"
+    MEMBER = "member"
 
 
 class AuthenticatedUser(BaseModel):
@@ -38,7 +38,7 @@ class AuthenticatedUser(BaseModel):
     
     @property
     def can_write(self) -> bool:
-        return self.role in [UserRole.OWNER, UserRole.READ_WRITE]
+        return self.role in [UserRole.OWNER, UserRole.ADMIN]
 
 
 async def verify_token_with_auth_service(token: str) -> Optional[AuthenticatedUser]:
