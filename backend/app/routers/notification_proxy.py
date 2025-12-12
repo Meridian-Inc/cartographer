@@ -561,7 +561,8 @@ async def proxy_cartographer_status_request(
     headers = {}
     if user:
         headers["X-User-Id"] = user.user_id
-        if user.email:
+        # AuthenticatedUser doesn't have email - use username as fallback for email header
+        if hasattr(user, 'email') and user.email:
             headers["X-User-Email"] = user.email
     
     return await http_pool.request(
