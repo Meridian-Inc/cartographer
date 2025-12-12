@@ -35,7 +35,8 @@ class DiscordOAuthService:
     def get_authorization_url(self, user_id: str) -> str:
         """Generate Discord OAuth authorization URL"""
         if not DISCORD_CLIENT_ID:
-            raise ValueError("DISCORD_CLIENT_ID not configured")
+            logger.error("DISCORD_CLIENT_ID not configured")
+            raise ValueError("DISCORD_CLIENT_ID not configured. Please set DISCORD_CLIENT_ID environment variable.")
         
         # Generate state token
         state_token = secrets.token_urlsafe(32)
@@ -77,7 +78,8 @@ class DiscordOAuthService:
     async def exchange_code_for_tokens(self, code: str) -> Dict[str, Any]:
         """Exchange OAuth code for access token"""
         if not DISCORD_CLIENT_ID or not DISCORD_CLIENT_SECRET:
-            raise ValueError("Discord OAuth not configured")
+            logger.error(f"Discord OAuth not configured: CLIENT_ID={'set' if DISCORD_CLIENT_ID else 'missing'}, CLIENT_SECRET={'set' if DISCORD_CLIENT_SECRET else 'missing'}")
+            raise ValueError("Discord OAuth not configured. Please set DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET environment variables.")
         
         async with httpx.AsyncClient() as client:
             response = await client.post(

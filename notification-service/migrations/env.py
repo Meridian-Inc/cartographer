@@ -99,13 +99,19 @@ async def run_async_migrations() -> None:
     await connectable.dispose()
 
 
+# Export for use in main.py
+__all__ = ['run_async_migrations']
+
+
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode."""
 
     asyncio.run(run_async_migrations())
 
 
-if context.is_offline_mode():
-    run_migrations_offline()
-else:
-    run_migrations_online()
+# Only run migrations if this script is executed directly (not when imported)
+if __name__ == "__main__":
+    if context.is_offline_mode():
+        run_migrations_offline()
+    else:
+        run_migrations_online()

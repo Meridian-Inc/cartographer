@@ -133,6 +133,16 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting Notification Service...")
     
+    # Run database migrations
+    logger.info("Running database migrations...")
+    try:
+        from migrations.env import run_async_migrations
+        await run_async_migrations()
+        logger.info("Database migrations completed successfully")
+    except Exception as e:
+        logger.error(f"Failed to run database migrations: {e}", exc_info=True)
+        logger.warning("Service will continue, but some features may not work. Please run migrations manually.")
+    
     # Check previous service state
     previous_state = _get_service_state()
     was_clean_shutdown = previous_state.get("clean_shutdown", False)
