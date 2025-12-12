@@ -1739,11 +1739,11 @@ async function testGlobalDiscord() {
 	testingGlobalDiscord.value = true;
 	try {
 		if (globalPrefs.value.discord_delivery_method === 'channel' && globalSelectedChannelId.value) {
-			await axios.post('/api/notifications/test/discord', {
+			await axios.post('/api/notifications/cartographer-status/test/discord', {
 				channel_id: globalSelectedChannelId.value,
 			});
 		} else if (globalPrefs.value.discord_delivery_method === 'dm' && globalPrefs.value.discord_user_id) {
-			await axios.post('/api/notifications/test/discord', {
+			await axios.post('/api/notifications/cartographer-status/test/discord', {
 				user_id: globalPrefs.value.discord_user_id,
 			});
 		}

@@ -13,7 +13,8 @@ from pydantic import BaseModel
 
 from ..services.cartographer_status import cartographer_status_service, CartographerStatusSubscription
 from ..services.email_service import send_notification_email, is_email_configured
-from ..models import NetworkEvent, NotificationType, NotificationPriority, get_default_priority_for_type
+from ..services.discord_service import discord_service, is_discord_configured
+from ..models import NetworkEvent, NotificationType, NotificationPriority, get_default_priority_for_type, DiscordConfig, DiscordDeliveryMethod, DiscordChannelConfig
 
 logger = logging.getLogger(__name__)
 
@@ -196,12 +197,17 @@ class UpdateSubscriptionRequest(BaseModel):
 async def update_cartographer_status_subscription(
     request: UpdateSubscriptionRequest,
     x_user_id: str = Header(..., description="User ID from auth service"),
+    x_user_email: str = Header(None, description="User email from auth service"),
 ):
-    """Update Cartographer status subscription"""
+    """Update Cartographer status subscription (creates if not exists)"""
     subscription = cartographer_status_service.get_subscription(x_user_id)
     
-    if not subscription:
-        raise HTTPException(status_code=404, detail="Subscription not found. Create one first with POST /subscription")
+    # If no subscription exists, we'll create one - determine email to use
+    email_to_use = request.email_address
+    if not subscription and not email_to_use:
+        # Use email from header or a placeholder for new subscriptions
+        email_to_use = x_user_email or f"{x_user_id}@cartographer.local"
+        logger.info(f"Creating new subscription for user {x_user_id} with email {email_to_use}")
     
     # Validate email if provided
     if request.email_address is not None and not request.email_address:
@@ -217,7 +223,7 @@ async def update_cartographer_status_subscription(
     
     updated = cartographer_status_service.create_or_update_subscription(
         user_id=x_user_id,
-        email_address=request.email_address,
+        email_address=email_to_use,
         cartographer_up_enabled=request.cartographer_up_enabled,
         cartographer_down_enabled=request.cartographer_down_enabled,
         cartographer_up_priority=request.cartographer_up_priority,
@@ -380,3 +386,54 @@ async def notify_cartographer_status(
         "total_subscribers": len(subscribers),
         "failed": failed,
     }
+
+
+class TestDiscordRequest(BaseModel):
+    """Request model for testing Discord notifications"""
+    channel_id: Optional[str] = None
+    user_id: Optional[str] = None
+
+
+@router.post("/test/discord")
+async def test_global_discord(
+    request: TestDiscordRequest,
+    x_user_id: str = Header(..., description="User ID from auth service"),
+):
+    """Test Discord notifications for global settings"""
+    if not is_discord_configured():
+        raise HTTPException(status_code=503, detail="Discord bot is not configured")
+    
+    if not request.channel_id and not request.user_id:
+        raise HTTPException(status_code=400, detail="Either channel_id or user_id must be provided")
+    
+    try:
+        # Build Discord config based on request
+        if request.channel_id:
+            # Channel delivery
+            config = DiscordConfig(
+                enabled=True,
+                delivery_method=DiscordDeliveryMethod.CHANNEL,
+                channel_config=DiscordChannelConfig(
+                    guild_id="",  # Not needed for sending
+                    channel_id=request.channel_id,
+                ),
+            )
+        else:
+            # DM delivery
+            config = DiscordConfig(
+                enabled=True,
+                delivery_method=DiscordDeliveryMethod.DM,
+                discord_user_id=request.user_id,
+            )
+        
+        result = await discord_service.send_test_notification(config)
+        
+        if result.get("success"):
+            return {"success": True, "message": "Test Discord notification sent successfully"}
+        else:
+            raise HTTPException(status_code=500, detail=result.get("error", "Failed to send test notification"))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to send test Discord notification: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))

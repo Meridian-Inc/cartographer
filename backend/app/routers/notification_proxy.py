@@ -561,6 +561,8 @@ async def proxy_cartographer_status_request(
     headers = {}
     if user:
         headers["X-User-Id"] = user.user_id
+        if user.email:
+            headers["X-User-Email"] = user.email
     
     return await http_pool.request(
         service_name="notification",
@@ -604,4 +606,13 @@ async def delete_cartographer_status_subscription(
 ):
     """Delete Cartographer status subscription"""
     return await proxy_cartographer_status_request("DELETE", "/subscription", user=user)
+
+
+@router.post("/cartographer-status/test/discord")
+async def test_global_discord(
+    body: dict,
+    user: AuthenticatedUser = Depends(require_auth),
+):
+    """Test Discord notifications for global settings"""
+    return await proxy_cartographer_status_request("POST", "/test/discord", json_body=body, user=user)
 
