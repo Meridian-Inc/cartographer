@@ -366,7 +366,7 @@ import UserManagement from "./UserManagement.vue";
 
 const router = useRouter();
 const { isAuthenticated, checkSetupStatus, verifySession } = useAuth();
-const { networks, loading: networksLoading, fetchNetworks, createNetwork: createNetworkApi, updateNetwork: updateNetworkApi, canWriteNetwork } = useNetworks();
+const { networks, loading: networksLoading, clearNetworks, fetchNetworks, createNetwork: createNetworkApi, updateNetwork: updateNetworkApi, canWriteNetwork } = useNetworks();
 
 // Auth state
 const authLoading = ref(true);
@@ -421,10 +421,12 @@ function onSetupComplete() {
 
 function onLoginSuccess() {
 	console.log("[HomePage] Login successful");
+	clearNetworks();
 	loadNetworks();
 }
 
 function onLogout() {
+	clearNetworks();
 	window.location.reload();
 }
 

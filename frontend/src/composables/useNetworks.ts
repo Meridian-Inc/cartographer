@@ -37,6 +37,12 @@ const loading = ref(false);
 const error = ref<string | null>(null);
 
 export function useNetworks() {
+	// Clear networks state (call when switching accounts)
+	function clearNetworks(): void {
+		networks.value = [];
+		error.value = null;
+	}
+
 	async function fetchNetworks(): Promise<void> {
 		loading.value = true;
 		error.value = null;
@@ -139,6 +145,7 @@ export function useNetworks() {
 		error,
 
 		// Actions
+		clearNetworks,
 		fetchNetworks,
 		createNetwork,
 		getNetwork,
