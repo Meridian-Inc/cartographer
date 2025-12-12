@@ -37,6 +37,7 @@
 		v-else-if="network"
 		:networkId="network.id"
 		:networkName="network.name"
+		:networkOwnerId="network.owner_id"
 		:canWriteNetwork="canWrite"
 		:isNetworkOwner="network.is_owner"
 	/>

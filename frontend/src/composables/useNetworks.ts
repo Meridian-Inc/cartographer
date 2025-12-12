@@ -10,6 +10,7 @@ export interface Network {
 	created_at: string;
 	updated_at: string;
 	last_sync_at: string | null;
+	owner_id: string | null;
 	is_owner: boolean;
 	permission: "viewer" | "editor" | "admin" | null;
 }
@@ -29,6 +30,27 @@ export interface CreateNetworkData {
 export interface UpdateNetworkData {
 	name?: string;
 	description?: string;
+}
+
+// Network permission types
+export type NetworkPermissionRole = "viewer" | "editor";
+
+export interface NetworkPermission {
+	id: number;
+	network_id: number;
+	user_id: string;
+	role: NetworkPermissionRole;
+	created_at: string;
+	username?: string;
+}
+
+export interface CreateNetworkPermission {
+	user_id: string;
+	role: NetworkPermissionRole;
+}
+
+export interface UpdateNetworkPermission {
+	role: NetworkPermissionRole;
 }
 
 // Shared state across components
@@ -155,6 +177,37 @@ export function useNetworks() {
 		return network.permission === "editor" || network.permission === "admin";
 	}
 
+	// ==================== Network Permission Management ====================
+
+	async function listNetworkPermissions(networkId: number): Promise<NetworkPermission[]> {
+		try {
+			const response = await axios.get<NetworkPermission[]>(`/api/networks/${networkId}/permissions`);
+			return response.data;
+		} catch (e: any) {
+			const message = e.response?.data?.detail || e.message || "Failed to get network permissions";
+			throw new Error(message);
+		}
+	}
+
+	async function addNetworkPermission(networkId: number, data: CreateNetworkPermission): Promise<NetworkPermission> {
+		try {
+			const response = await axios.post<NetworkPermission>(`/api/networks/${networkId}/permissions`, data);
+			return response.data;
+		} catch (e: any) {
+			const message = e.response?.data?.detail || e.message || "Failed to add user to network";
+			throw new Error(message);
+		}
+	}
+
+	async function removeNetworkPermission(networkId: number, userId: string): Promise<void> {
+		try {
+			await axios.delete(`/api/networks/${networkId}/permissions/${userId}`);
+		} catch (e: any) {
+			const message = e.response?.data?.detail || e.message || "Failed to remove user from network";
+			throw new Error(message);
+		}
+	}
+
 	return {
 		// State
 		networks,
@@ -170,6 +223,11 @@ export function useNetworks() {
 		deleteNetwork,
 		getNetworkLayout,
 		saveNetworkLayout,
+
+		// Network permissions
+		listNetworkPermissions,
+		addNetworkPermission,
+		removeNetworkPermission,
 
 		// Helpers
 		canWriteNetwork,

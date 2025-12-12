@@ -35,6 +35,7 @@ class NetworkResponse(BaseModel):
     updated_at: datetime
     last_sync_at: Optional[datetime]
     # Computed fields
+    owner_id: Optional[str] = None  # UUID of the network owner
     is_owner: bool = False
     permission: Optional[PermissionRole] = None
 

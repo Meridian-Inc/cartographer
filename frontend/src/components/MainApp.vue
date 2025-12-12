@@ -477,7 +477,15 @@
 		</div>
 
 		<!-- User Management Modal -->
-		<UserManagement v-if="showUserManagement" @close="showUserManagement = false" />
+		<!-- Network-specific user management when in network context -->
+		<NetworkUserManagement 
+			v-if="showUserManagement && isNetworkMode && props.networkId && props.networkOwnerId" 
+			:networkId="props.networkId"
+			:ownerId="props.networkOwnerId"
+			@close="showUserManagement = false" 
+		/>
+		<!-- App-level user management otherwise -->
+		<UserManagement v-else-if="showUserManagement" @close="showUserManagement = false" />
 		<NotificationSettings v-if="showNotificationSettings && props.networkId" :networkId="props.networkId" @close="showNotificationSettings = false" />
 		<UpdateSettings :isOpen="showUpdateSettings" @close="showUpdateSettings = false" />
 
@@ -523,6 +531,7 @@ import SetupWizard from "./SetupWizard.vue";
 import LoginScreen from "./LoginScreen.vue";
 import UserMenu from "./UserMenu.vue";
 import UserManagement from "./UserManagement.vue";
+import NetworkUserManagement from "./NetworkUserManagement.vue";
 import AssistantChat from "./AssistantChat.vue";
 import NotificationSettings from "./NotificationSettings.vue";
 import VersionBanner from "./VersionBanner.vue";
@@ -538,6 +547,7 @@ import { useNotifications } from "../composables/useNotifications";
 const props = defineProps<{
 	networkId?: number;
 	networkName?: string;
+	networkOwnerId?: string;
 	canWriteNetwork?: boolean;
 	isNetworkOwner?: boolean;
 }>();

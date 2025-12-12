@@ -146,6 +146,7 @@ async def create_network(
 
     # Build response with ownership info
     response = NetworkResponse.model_validate(network)
+    response.owner_id = network.user_id
     response.is_owner = True
     response.permission = None
 
@@ -183,12 +184,14 @@ async def list_networks(
 
     for network in owned_networks:
         response = NetworkResponse.model_validate(network)
+        response.owner_id = network.user_id
         response.is_owner = True
         response.permission = None
         response_list.append(response)
 
     for network, role in shared_networks:
         response = NetworkResponse.model_validate(network)
+        response.owner_id = network.user_id
         response.is_owner = False
         response.permission = role
         response_list.append(response)
@@ -208,6 +211,7 @@ async def get_network(
     )
 
     response = NetworkResponse.model_validate(network)
+    response.owner_id = network.user_id
     response.is_owner = is_owner
     response.permission = permission
 
@@ -236,6 +240,7 @@ async def update_network(
     await db.refresh(network)
 
     response = NetworkResponse.model_validate(network)
+    response.owner_id = network.user_id
     response.is_owner = is_owner
     response.permission = permission
 
