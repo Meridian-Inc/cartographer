@@ -1055,25 +1055,50 @@ function onChangeRole() {
 	const root = parsed.value.root;
 	const node = findNodeById(root, selectedId.value);
 	if (!node) return;
+	
+	// Skip move logic if the selected node IS the root itself
+	const isRootNode = node.id === root.id;
+	
 	const oldRole = node.role;
 	node.role = editRole.value as any;
 	
 	// Track the version change
 	updateNodeVersion(node, [`Role changed from "${oldRole}" to "${node.role}"`]);
 	
-	// Move across tiers if needed
-	const role = node.role || 'unknown';
-	let targetPrefix = '';
-	if (role === 'firewall' || role === 'switch/ap') targetPrefix = 'infrastructure';
-	else if (role === 'server' || role === 'service' || role === 'nas') targetPrefix = 'servers';
-	else if (role === 'client' || role === 'unknown') targetPrefix = 'clients';
-	// gateway/router remains at root (no move)
-	if (targetPrefix) {
-		const existingParent = removeFromAllGroups(root, node.id);
-		const targetGroup = findGroupByPrefix(root, targetPrefix);
-		if (existingParent && targetGroup) {
-			targetGroup.children = targetGroup.children || [];
-			targetGroup.children.push(existingParent);
+	// Move across tiers if needed (only for non-root nodes)
+	if (!isRootNode) {
+		const role = node.role || 'unknown';
+		let targetPrefix = '';
+		let targetGroupName = '';
+		if (role === 'firewall' || role === 'switch/ap') {
+			targetPrefix = 'infrastructure';
+			targetGroupName = 'Infrastructure';
+		} else if (role === 'server' || role === 'service' || role === 'nas') {
+			targetPrefix = 'servers';
+			targetGroupName = 'Servers';
+		} else if (role === 'client' || role === 'unknown') {
+			targetPrefix = 'clients';
+			targetGroupName = 'Clients';
+		}
+		// gateway/router remains at root (no move)
+		if (targetPrefix) {
+			const removedNode = removeFromAllGroups(root, node.id);
+			if (removedNode) {
+				// Find or create the target group
+				let targetGroup = findGroupByPrefix(root, targetPrefix);
+				if (!targetGroup) {
+					targetGroup = {
+						id: targetPrefix,
+						name: targetGroupName,
+						role: 'group',
+						children: []
+					};
+					root.children = root.children || [];
+					root.children.push(targetGroup);
+				}
+				targetGroup.children = targetGroup.children || [];
+				targetGroup.children.push(removedNode);
+			}
 		}
 	}
 	// Refresh view and trigger auto-save
