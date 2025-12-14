@@ -1,23 +1,21 @@
 <template>
 	<Teleport to="body">
 		<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-			<div class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+			<div class="bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col border border-slate-200/80 dark:border-slate-800/80">
 				<!-- Header -->
-				<div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
-					<div class="flex items-center gap-3">
-						<div class="w-9 h-9 rounded-lg bg-cyan-100 dark:bg-cyan-900/30 flex items-center justify-center">
-							<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-cyan-600 dark:text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-								<path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-							</svg>
-						</div>
+				<div class="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/50 rounded-t-xl">
+					<div class="flex items-center gap-2">
+						<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-cyan-500 dark:text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+						</svg>
 						<div>
-							<h2 class="text-lg font-semibold text-slate-900 dark:text-white">User Management</h2>
+							<h2 class="font-semibold text-slate-800 dark:text-slate-100">User Management</h2>
 							<p class="text-xs text-slate-500 dark:text-slate-400">Manage users and invitations</p>
 						</div>
 					</div>
 					<button
 						@click="$emit('close')"
-						class="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+						class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
 					>
 						<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 							<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -26,13 +24,13 @@
 				</div>
 
 				<!-- Tabs -->
-				<div class="flex border-b border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30">
+				<div class="flex border-b border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/50">
 					<button
 						@click="switchTab('users')"
 						:class="[
 							'px-6 py-3 text-sm font-medium border-b-2 -mb-px transition-colors',
 							activeTab === 'users' 
-								? 'border-cyan-500 text-cyan-600 dark:text-cyan-400 bg-white dark:bg-slate-800' 
+								? 'border-cyan-500 text-cyan-600 dark:text-cyan-400 bg-white dark:bg-slate-900' 
 								: 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
 						]"
 					>
@@ -43,7 +41,7 @@
 						:class="[
 							'px-6 py-3 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-2',
 							activeTab === 'invites' 
-								? 'border-cyan-500 text-cyan-600 dark:text-cyan-400 bg-white dark:bg-slate-800' 
+								? 'border-cyan-500 text-cyan-600 dark:text-cyan-400 bg-white dark:bg-slate-900' 
 								: 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
 						]"
 					>
@@ -55,17 +53,17 @@
 				</div>
 
 				<!-- Content -->
-				<div class="flex-1 overflow-auto p-6">
+				<div class="flex-1 overflow-auto p-4">
 					<!-- Users Tab -->
 					<template v-if="activeTab === 'users'">
 						<!-- Add User Button -->
-						<div class="mb-6">
+						<div class="mb-4">
 							<button
 								@click="showAddUser = true"
-								class="inline-flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors"
+								class="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-lg hover:from-cyan-400 hover:to-blue-500 shadow-sm shadow-cyan-500/20 transition-all"
 							>
-								<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+								<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
 								</svg>
 								Add User
 							</button>
@@ -80,11 +78,11 @@
 					</div>
 
 					<!-- Users List -->
-					<div v-else class="space-y-3">
+					<div v-else class="space-y-2">
 						<div
 							v-for="u in users"
 							:key="u.id"
-							class="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700"
+							class="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/40 rounded-lg border border-slate-200/80 dark:border-slate-700/50"
 						>
 						<div class="flex items-center gap-4">
 							<!-- Avatar -->
@@ -114,33 +112,36 @@
 						</div>
 
 							<!-- Actions -->
-							<div v-if="u.role !== 'owner'" class="flex items-center gap-2">
+							<div v-if="u.role !== 'owner'" class="flex items-center gap-1">
 								<button
 									@click="editUser(u)"
-									class="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700"
+									class="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded hover:bg-slate-200 dark:hover:bg-slate-700/60 transition-colors"
 									title="Edit user"
 								>
-									<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+									<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
 									</svg>
 								</button>
 								<button
 									@click="confirmDelete(u)"
-									class="p-2 text-red-400 hover:text-red-600 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30"
+									class="p-1.5 text-red-400 hover:text-red-600 rounded hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
 									title="Delete user"
 								>
-									<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+									<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
 									</svg>
 								</button>
 							</div>
-							<div v-else class="text-xs text-slate-400 italic">
+							<div v-else class="text-xs text-slate-400 dark:text-slate-500 italic">
 								Cannot modify owner
 							</div>
 						</div>
 
-						<div v-if="users.length === 0" class="text-center py-12 text-slate-500">
-							No users found
+						<div v-if="users.length === 0" class="text-center py-8 text-slate-500 dark:text-slate-400">
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 mx-auto mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+							</svg>
+							<p class="text-sm">No users found</p>
 						</div>
 					</div>
 					</template>
@@ -148,13 +149,13 @@
 					<!-- Invitations Tab -->
 					<template v-else-if="activeTab === 'invites'">
 						<!-- Invite Button -->
-						<div class="mb-6">
+						<div class="mb-4">
 							<button
 								@click="openInviteForm"
-								class="inline-flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors"
+								class="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-lg hover:from-cyan-400 hover:to-blue-500 shadow-sm shadow-cyan-500/20 transition-all"
 							>
-								<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+								<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
 								</svg>
 								Send Invitation
 							</button>
@@ -170,23 +171,28 @@
 
 						<template v-else>
 							<!-- Pending Invitations -->
-							<div v-if="pendingInvites.length > 0" class="mb-6">
-								<h3 class="text-sm font-medium text-slate-600 dark:text-slate-400 mb-3">Pending Invitations</h3>
+							<div v-if="pendingInvites.length > 0" class="mb-4">
+								<h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+									<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+									</svg>
+									Pending Invitations
+								</h3>
 								<div class="space-y-2">
 									<div
 										v-for="invite in pendingInvites"
 										:key="invite.id"
-										class="flex items-center justify-between p-4 bg-amber-50 dark:bg-amber-900/10 rounded-lg border border-amber-200 dark:border-amber-800/30"
+										class="flex items-center justify-between p-3 bg-amber-50 dark:bg-amber-900/15 rounded-lg border border-amber-200/80 dark:border-amber-800/30"
 									>
 										<div class="flex items-center gap-3">
-											<div class="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white font-medium">
-												<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+											<div class="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white">
+												<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+													<path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
 												</svg>
 											</div>
 											<div>
 												<div class="flex items-center gap-2">
-													<span class="font-medium text-slate-900 dark:text-white">{{ invite.email }}</span>
+													<span class="text-sm font-medium text-slate-800 dark:text-slate-200">{{ invite.email }}</span>
 													<span :class="getRoleBadgeClass(invite.role)" class="text-xs px-2 py-0.5 rounded-full">
 														{{ getRoleLabel(invite.role) }}
 													</span>
@@ -196,23 +202,23 @@
 												</div>
 											</div>
 										</div>
-										<div class="flex items-center gap-2">
+										<div class="flex items-center gap-1">
 											<button
 												@click="onResendInvite(invite)"
-												class="p-2 text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 rounded-lg hover:bg-white dark:hover:bg-slate-800"
+												class="p-1.5 text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 rounded hover:bg-white dark:hover:bg-slate-800 transition-colors"
 												title="Resend invitation"
 											>
-												<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+												<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+													<path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
 												</svg>
 											</button>
 											<button
 												@click="confirmRevokeInvite(invite)"
-												class="p-2 text-red-400 hover:text-red-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20"
+												class="p-1.5 text-red-400 hover:text-red-600 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
 												title="Revoke invitation"
 											>
-												<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+												<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+													<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
 												</svg>
 											</button>
 										</div>
@@ -222,12 +228,17 @@
 
 							<!-- Past Invitations -->
 							<div v-if="pastInvites.length > 0">
-								<h3 class="text-sm font-medium text-slate-600 dark:text-slate-400 mb-3">History</h3>
+								<h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+									<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+									</svg>
+									History
+								</h3>
 								<div class="space-y-2">
 									<div
 										v-for="invite in pastInvites"
 										:key="invite.id"
-										class="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/30 rounded-lg border border-slate-200 dark:border-slate-700 opacity-60"
+										class="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/40 rounded-lg border border-slate-200/80 dark:border-slate-700/50 opacity-60"
 									>
 										<div class="flex items-center gap-3">
 											<div class="text-sm text-slate-600 dark:text-slate-400">{{ invite.email }}</div>
@@ -243,12 +254,12 @@
 							</div>
 
 							<!-- Empty State -->
-							<div v-if="invites.length === 0" class="text-center py-12 text-slate-500">
-								<svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto mb-3 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+							<div v-if="invites.length === 0" class="text-center py-8 text-slate-500 dark:text-slate-400">
+								<svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 mx-auto mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
 								</svg>
-								<p>No invitations sent yet</p>
-								<p class="text-sm mt-1">Click "Send Invitation" to invite users via email</p>
+								<p class="text-sm">No invitations sent yet</p>
+								<p class="text-xs mt-1">Click "Send Invitation" to invite users via email</p>
 							</div>
 						</template>
 					</template>
@@ -257,19 +268,35 @@
 		</div>
 
 		<!-- Add/Edit User Modal -->
-		<div v-if="showAddUser || editingUser" class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50">
-			<div class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
-				<h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">
-					{{ editingUser ? 'Edit User' : 'Add New User' }}
-				</h3>
+		<div v-if="showAddUser || editingUser" class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+			<div class="bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto border border-slate-200/80 dark:border-slate-800/80">
+				<!-- Modal Header -->
+				<div class="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/50 rounded-t-xl">
+					<div class="flex items-center gap-2">
+						<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-cyan-500 dark:text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+						</svg>
+						<h3 class="font-semibold text-slate-800 dark:text-slate-100">
+							{{ editingUser ? 'Edit User' : 'Add New User' }}
+						</h3>
+					</div>
+					<button
+						@click="closeUserForm"
+						class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
+					>
+						<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+						</svg>
+					</button>
+				</div>
 				
-				<form @submit.prevent="onSubmitUser" class="space-y-4">
+				<form @submit.prevent="onSubmitUser" class="p-4 space-y-4">
 					<!-- Send Invitation Toggle (only for new users) -->
-					<div v-if="!editingUser" class="p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
+					<div v-if="!editingUser" class="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-lg border border-slate-200/80 dark:border-slate-700/50">
 						<label class="flex items-center justify-between cursor-pointer">
 							<div class="flex items-center gap-2">
-								<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-cyan-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+								<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-cyan-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
 								</svg>
 								<span class="text-sm font-medium text-slate-700 dark:text-slate-300">Send invitation email</span>
 							</div>
@@ -282,7 +309,7 @@
 								<span class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform" :class="userForm.sendInvite ? 'translate-x-4' : ''"></span>
 							</button>
 						</label>
-						<p class="text-xs text-slate-500 mt-2">
+						<p class="text-xs text-slate-500 dark:text-slate-400 mt-2">
 							{{ userForm.sendInvite 
 								? 'User will receive an email to set up their account' 
 								: 'You will set the password for this user' 
@@ -292,26 +319,26 @@
 
 					<!-- Email (always required) -->
 					<div>
-						<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+						<label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
 							Email
 						</label>
 						<input
 							v-model="userForm.email"
 							type="email"
 							required
-							class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+							class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800/60 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-shadow"
 							placeholder="user@example.com"
 						/>
 					</div>
 
 					<!-- Role (always required) -->
 					<div>
-						<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+						<label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
 							Role
 						</label>
 						<select
 							v-model="userForm.role"
-							class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+							class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800/60 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-shadow"
 						>
 							<option value="member">Member - Can only view the network map</option>
 							<option value="admin">Admin - Can view and modify the network map</option>
@@ -321,7 +348,7 @@
 					<!-- Fields only shown when NOT sending invite (creating user directly) -->
 					<template v-if="!userForm.sendInvite || editingUser">
 						<div v-if="!editingUser">
-							<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+							<label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
 								Username
 							</label>
 							<input
@@ -329,7 +356,7 @@
 								type="text"
 								required
 								pattern="^[a-zA-Z][a-zA-Z0-9_-]*$"
-								class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+								class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800/60 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-shadow"
 								placeholder="username"
 							/>
 						</div>
@@ -337,33 +364,33 @@
 						<!-- First Name / Last Name -->
 						<div class="grid grid-cols-2 gap-3">
 							<div>
-								<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+								<label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
 									First Name
 								</label>
 								<input
 									v-model="userForm.firstName"
 									type="text"
 									required
-									class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+									class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800/60 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-shadow"
 									placeholder="John"
 								/>
 							</div>
 							<div>
-								<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+								<label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
 									Last Name
 								</label>
 								<input
 									v-model="userForm.lastName"
 									type="text"
 									required
-									class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+									class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800/60 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-shadow"
 									placeholder="Doe"
 								/>
 							</div>
 						</div>
 						
 						<div v-if="!editingUser">
-							<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+							<label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
 								Password
 							</label>
 							<input
@@ -371,27 +398,27 @@
 								type="password"
 								required
 								minlength="8"
-								class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+								class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800/60 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-shadow"
 								placeholder="••••••••"
 							/>
-							<p class="mt-1 text-xs text-slate-500">Minimum 8 characters</p>
+							<p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Minimum 8 characters</p>
 						</div>
 
 						<div v-if="editingUser">
-							<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-								New Password <span class="text-slate-400">(leave blank to keep current)</span>
+							<label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
+								New Password <span class="text-slate-400 normal-case">(leave blank to keep current)</span>
 							</label>
 							<input
 								v-model="userForm.password"
 								type="password"
 								minlength="8"
-								class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+								class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800/60 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-shadow"
 								placeholder="••••••••"
 							/>
 						</div>
 					</template>
 
-					<div v-if="formError" class="p-3 bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-500/50 rounded-lg">
+					<div v-if="formError" class="p-3 bg-red-50 dark:bg-red-900/15 border border-red-200 dark:border-red-800/50 rounded-lg">
 						<p class="text-sm text-red-600 dark:text-red-400">{{ formError }}</p>
 					</div>
 
@@ -399,14 +426,14 @@
 						<button
 							type="button"
 							@click="closeUserForm"
-							class="flex-1 px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
+							class="flex-1 px-4 py-2 text-sm border border-slate-300 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
 						>
 							Cancel
 						</button>
 						<button
 							type="submit"
 							:disabled="isSubmitting"
-							class="flex-1 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 disabled:opacity-50"
+							class="flex-1 px-4 py-2 text-sm font-medium bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-lg hover:from-cyan-400 hover:to-blue-500 shadow-sm shadow-cyan-500/20 disabled:opacity-50 transition-all"
 						>
 							<template v-if="isSubmitting">Saving...</template>
 							<template v-else-if="editingUser">Update User</template>
@@ -419,71 +446,96 @@
 		</div>
 
 		<!-- Delete Confirmation Modal -->
-		<div v-if="deletingUser" class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50">
-			<div class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md p-6">
-				<h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-2">Delete User</h3>
-				<p class="text-slate-600 dark:text-slate-400 mb-6">
-					Are you sure you want to delete <strong>{{ getFullName(deletingUser) }}</strong>? 
-					This action cannot be undone.
-				</p>
+		<div v-if="deletingUser" class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+			<div class="bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm rounded-xl shadow-2xl w-full max-w-md border border-slate-200/80 dark:border-slate-800/80">
+				<!-- Modal Header -->
+				<div class="flex items-center gap-2 px-4 py-3 border-b border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/50 rounded-t-xl">
+					<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+					</svg>
+					<h3 class="font-semibold text-slate-800 dark:text-slate-100">Delete User</h3>
+				</div>
 				
-				<div class="flex gap-3">
-					<button
-						@click="deletingUser = null"
-						class="flex-1 px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
-					>
-						Cancel
-					</button>
-					<button
-						@click="onDeleteUser"
-						:disabled="isSubmitting"
-						class="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
-					>
-						{{ isSubmitting ? 'Deleting...' : 'Delete User' }}
-					</button>
+				<div class="p-4">
+					<p class="text-sm text-slate-600 dark:text-slate-400 mb-4">
+						Are you sure you want to delete <strong class="text-slate-800 dark:text-slate-200">{{ getFullName(deletingUser) }}</strong>? 
+						This action cannot be undone.
+					</p>
+					
+					<div class="flex gap-3">
+						<button
+							@click="deletingUser = null"
+							class="flex-1 px-4 py-2 text-sm border border-slate-300 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+						>
+							Cancel
+						</button>
+						<button
+							@click="onDeleteUser"
+							:disabled="isSubmitting"
+							class="flex-1 px-4 py-2 text-sm font-medium bg-red-600 text-white rounded-lg hover:bg-red-500 shadow-sm shadow-red-500/20 disabled:opacity-50 transition-all"
+						>
+							{{ isSubmitting ? 'Deleting...' : 'Delete User' }}
+						</button>
+					</div>
 				</div>
 			</div>
 		</div>
 
 		<!-- Invite User Modal -->
-		<div v-if="showInviteForm" class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50">
-			<div class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md p-6">
-				<h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">Send Invitation</h3>
+		<div v-if="showInviteForm" class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+			<div class="bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm rounded-xl shadow-2xl w-full max-w-md border border-slate-200/80 dark:border-slate-800/80">
+				<!-- Modal Header -->
+				<div class="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/50 rounded-t-xl">
+					<div class="flex items-center gap-2">
+						<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-cyan-500 dark:text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+						</svg>
+						<h3 class="font-semibold text-slate-800 dark:text-slate-100">Send Invitation</h3>
+					</div>
+					<button
+						@click="closeInviteForm"
+						class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
+					>
+						<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+						</svg>
+					</button>
+				</div>
 				
-				<form @submit.prevent="onSubmitInvite" class="space-y-4">
+				<form @submit.prevent="onSubmitInvite" class="p-4 space-y-4">
 					<div>
-						<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+						<label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
 							Email Address
 						</label>
 						<input
 							v-model="inviteForm.email"
 							type="email"
 							required
-							class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+							class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800/60 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-shadow"
 							placeholder="user@example.com"
 						/>
 					</div>
 					
 					<div>
-						<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+						<label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
 							Role
 						</label>
 						<select
 							v-model="inviteForm.role"
-							class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+							class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800/60 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-shadow"
 						>
 							<option value="member">Member - Standard user of Cartographer</option>
 							<option value="admin">Admin - Can see statistics on networks in Cartographer</option>
 						</select>
 					</div>
 
-					<div class="p-3 bg-slate-100 dark:bg-slate-900 rounded-lg">
-						<p class="text-sm text-slate-600 dark:text-slate-400">
+					<div class="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-lg border border-slate-200/80 dark:border-slate-700/50">
+						<p class="text-xs text-slate-600 dark:text-slate-400">
 							An email will be sent with a link to create their account. The invitation expires in 72 hours.
 						</p>
 					</div>
 
-					<div v-if="inviteFormError" class="p-3 bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-500/50 rounded-lg">
+					<div v-if="inviteFormError" class="p-3 bg-red-50 dark:bg-red-900/15 border border-red-200 dark:border-red-800/50 rounded-lg">
 						<p class="text-sm text-red-600 dark:text-red-400">{{ inviteFormError }}</p>
 					</div>
 
@@ -491,14 +543,14 @@
 						<button
 							type="button"
 							@click="closeInviteForm"
-							class="flex-1 px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
+							class="flex-1 px-4 py-2 text-sm border border-slate-300 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
 						>
 							Cancel
 						</button>
 						<button
 							type="submit"
 							:disabled="isSubmittingInvite"
-							class="flex-1 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 disabled:opacity-50"
+							class="flex-1 px-4 py-2 text-sm font-medium bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-lg hover:from-cyan-400 hover:to-blue-500 shadow-sm shadow-cyan-500/20 disabled:opacity-50 transition-all"
 						>
 							{{ isSubmittingInvite ? 'Sending...' : 'Send Invitation' }}
 						</button>
@@ -508,28 +560,37 @@
 		</div>
 
 		<!-- Revoke Invitation Confirmation Modal -->
-		<div v-if="revokingInvite" class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50">
-			<div class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md p-6">
-				<h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-2">Revoke Invitation</h3>
-				<p class="text-slate-600 dark:text-slate-400 mb-6">
-					Are you sure you want to revoke the invitation for <strong>{{ revokingInvite.email }}</strong>? 
-					They will no longer be able to use the invitation link.
-				</p>
+		<div v-if="revokingInvite" class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+			<div class="bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm rounded-xl shadow-2xl w-full max-w-md border border-slate-200/80 dark:border-slate-800/80">
+				<!-- Modal Header -->
+				<div class="flex items-center gap-2 px-4 py-3 border-b border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/50 rounded-t-xl">
+					<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+					</svg>
+					<h3 class="font-semibold text-slate-800 dark:text-slate-100">Revoke Invitation</h3>
+				</div>
 				
-				<div class="flex gap-3">
-					<button
-						@click="revokingInvite = null"
-						class="flex-1 px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
-					>
-						Cancel
-					</button>
-					<button
-						@click="onRevokeInvite"
-						:disabled="isSubmittingInvite"
-						class="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
-					>
-						{{ isSubmittingInvite ? 'Revoking...' : 'Revoke Invitation' }}
-					</button>
+				<div class="p-4">
+					<p class="text-sm text-slate-600 dark:text-slate-400 mb-4">
+						Are you sure you want to revoke the invitation for <strong class="text-slate-800 dark:text-slate-200">{{ revokingInvite.email }}</strong>? 
+						They will no longer be able to use the invitation link.
+					</p>
+					
+					<div class="flex gap-3">
+						<button
+							@click="revokingInvite = null"
+							class="flex-1 px-4 py-2 text-sm border border-slate-300 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+						>
+							Cancel
+						</button>
+						<button
+							@click="onRevokeInvite"
+							:disabled="isSubmittingInvite"
+							class="flex-1 px-4 py-2 text-sm font-medium bg-red-600 text-white rounded-lg hover:bg-red-500 shadow-sm shadow-red-500/20 disabled:opacity-50 transition-all"
+						>
+							{{ isSubmittingInvite ? 'Revoking...' : 'Revoke Invitation' }}
+						</button>
+					</div>
 				</div>
 			</div>
 		</div>

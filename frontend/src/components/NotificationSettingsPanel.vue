@@ -1,23 +1,21 @@
 <template>
 	<Teleport to="body">
 		<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" @click.self="$emit('close')">
-			<div class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+			<div class="bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col border border-slate-200/80 dark:border-slate-800/80">
 				<!-- Header -->
-				<div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 rounded-t-xl">
-					<div class="flex items-center gap-3">
-						<div class="w-9 h-9 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
-							<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-violet-600 dark:text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-								<path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-							</svg>
-						</div>
+				<div class="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/50 rounded-t-xl">
+					<div class="flex items-center gap-2">
+						<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-violet-500 dark:text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+						</svg>
 						<div>
-							<h2 class="text-lg font-semibold text-slate-900 dark:text-white">Notification Settings</h2>
+							<h2 class="font-semibold text-slate-800 dark:text-slate-100">Notification Settings</h2>
 							<p class="text-xs text-slate-500 dark:text-slate-400">Configure how you receive alerts</p>
 						</div>
 					</div>
 					<button
 						@click="$emit('close')"
-						class="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+						class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
 					>
 						<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 							<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -26,13 +24,13 @@
 				</div>
 
 				<!-- Tab Navigation -->
-				<div class="flex border-b border-slate-200 dark:border-slate-700 px-6" v-if="networkId !== null">
+				<div class="flex border-b border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/50" v-if="networkId !== null">
 					<button
 						@click="activeTab = 'network'"
 						:class="[
 							'px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors',
 							activeTab === 'network'
-								? 'border-violet-500 text-violet-600 dark:text-violet-400'
+								? 'border-violet-500 text-violet-600 dark:text-violet-400 bg-white dark:bg-slate-900'
 								: 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
 						]"
 					>
@@ -48,7 +46,7 @@
 						:class="[
 							'px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors',
 							activeTab === 'global'
-								? 'border-blue-500 text-blue-600 dark:text-blue-400'
+								? 'border-blue-500 text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-900'
 								: 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
 						]"
 					>
@@ -62,7 +60,7 @@
 				</div>
 
 				<!-- Content -->
-				<div class="flex-1 overflow-auto p-6 space-y-6">
+				<div class="flex-1 overflow-auto p-4 space-y-4">
 				<!-- Loading State (only on initial load) -->
 				<div v-if="initialLoading" class="flex items-center justify-center py-12">
 					<svg class="animate-spin h-8 w-8 text-violet-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
