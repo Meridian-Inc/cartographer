@@ -5,6 +5,13 @@ All notable changes to Cartographer will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0](https://github.com/devartech/cartographer/compare/v0.8.20...v0.9.0) (2025-12-14)
+
+
+### ✨ Features
+
+* **auth:** move users from JSON to postgres ([87656d7](https://github.com/devartech/cartographer/commit/87656d7a448b81e27a9e092714df2b487854e3df))
+
 ### [0.8.20](https://github.com/devartech/cartographer/compare/v0.8.19...v0.8.20) (2025-12-14)
 
 
