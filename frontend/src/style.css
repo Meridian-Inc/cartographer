@@ -74,7 +74,7 @@ button {
 /* Glassmorphism card utility */
 @layer components {
 	.glass-card {
-		@apply bg-white/80 dark:bg-slate-800/40 backdrop-blur-xl border border-slate-200 dark:border-slate-700/50 rounded-2xl;
+		@apply bg-white/90 dark:bg-slate-800/40 backdrop-blur-xl border border-slate-200/80 dark:border-slate-700/50 rounded-2xl;
 	}
 	
 	.glass-card-hover {
@@ -99,7 +99,7 @@ button {
 	}
 
 	.text-gradient {
-		@apply bg-gradient-to-r from-cyan-500 to-blue-600 bg-clip-text text-transparent;
+		@apply bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent;
 	}
 }
 

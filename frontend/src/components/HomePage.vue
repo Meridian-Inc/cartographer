@@ -1,18 +1,10 @@
 <template>
 	<!-- Loading State (checking auth) -->
-	<div v-if="authLoading" class="h-screen flex items-center justify-center bg-slate-50 dark:bg-[#0a0f1a] relative overflow-hidden">
-		<!-- Light mode gradient orbs -->
-		<div class="absolute inset-0 overflow-hidden pointer-events-none dark:hidden">
-			<div class="absolute -top-[30%] left-1/2 -translate-x-1/2 w-[1000px] h-[800px] rounded-full opacity-40" style="background: radial-gradient(circle, rgba(6, 182, 212, 0.15) 0%, rgba(6, 182, 212, 0) 60%);" />
-			<div class="absolute top-[20%] -right-[10%] w-[600px] h-[600px] rounded-full opacity-30" style="background: radial-gradient(circle, rgba(37, 99, 235, 0.15) 0%, rgba(37, 99, 235, 0) 60%);" />
-		</div>
-		<!-- Dark mode gradient orbs -->
-		<div class="absolute inset-0 overflow-hidden pointer-events-none hidden dark:block">
-			<div class="absolute -top-[30%] left-1/2 -translate-x-1/2 w-[1000px] h-[800px] rounded-full opacity-50" style="background: radial-gradient(circle, rgba(6, 182, 212, 0.25) 0%, rgba(6, 182, 212, 0) 60%);" />
-			<div class="absolute top-[20%] -right-[10%] w-[600px] h-[600px] rounded-full opacity-35" style="background: radial-gradient(circle, rgba(37, 99, 235, 0.3) 0%, rgba(37, 99, 235, 0) 60%);" />
-		</div>
+	<div v-if="authLoading" class="h-screen flex items-center justify-center bg-white dark:bg-slate-950">
+		<!-- Background mesh gradient -->
+		<div class="fixed inset-0 bg-mesh-gradient-light dark:bg-mesh-gradient opacity-50 dark:opacity-30 pointer-events-none" />
 		<div class="relative text-center">
-			<svg class="animate-spin h-12 w-12 text-cyan-500 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+			<svg class="animate-spin h-12 w-12 text-cyan-500 dark:text-cyan-400 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
 				<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
 				<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
 			</svg>
@@ -27,186 +19,153 @@
 	<LoginScreen v-else-if="!isAuthenticated" @success="onLoginSuccess" />
 
 	<!-- Main Dashboard -->
-	<div v-else class="min-h-screen bg-slate-50 dark:bg-[#0a0f1a] transition-colors relative overflow-hidden">
-		<!-- Background gradient orbs - Light mode -->
-		<div class="fixed inset-0 overflow-hidden pointer-events-none dark:hidden">
-			<!-- Top cyan glow - subtle for light mode -->
-			<div class="absolute -top-[30%] left-1/2 -translate-x-1/2 w-[1200px] h-[900px] rounded-full opacity-30" style="background: radial-gradient(circle, rgba(6, 182, 212, 0.12) 0%, rgba(6, 182, 212, 0) 60%);" />
-			<!-- Left blue glow -->
-			<div class="absolute top-[15%] -left-[15%] w-[800px] h-[700px] rounded-full opacity-25" style="background: radial-gradient(circle, rgba(37, 99, 235, 0.12) 0%, rgba(37, 99, 235, 0) 60%);" />
-			<!-- Right cyan glow -->
-			<div class="absolute top-[30%] -right-[10%] w-[700px] h-[600px] rounded-full opacity-20" style="background: radial-gradient(circle, rgba(6, 182, 212, 0.12) 0%, rgba(6, 182, 212, 0) 60%);" />
-			<!-- Bottom indigo glow -->
-			<div class="absolute -bottom-[15%] left-[10%] w-[900px] h-[700px] rounded-full opacity-25" style="background: radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, rgba(99, 102, 241, 0) 60%);" />
-		</div>
-		
-		<!-- Background gradient orbs - Dark mode -->
-		<div class="fixed inset-0 overflow-hidden pointer-events-none hidden dark:block">
-			<!-- Top cyan glow - massive spread -->
-			<div class="absolute -top-[40%] left-1/2 -translate-x-1/2 w-[1400px] h-[1000px] rounded-full opacity-50" style="background: radial-gradient(circle, rgba(6, 182, 212, 0.35) 0%, rgba(6, 182, 212, 0) 60%);" />
-			<!-- Left blue glow - extended -->
-			<div class="absolute top-[10%] -left-[20%] w-[1000px] h-[900px] rounded-full opacity-40" style="background: radial-gradient(circle, rgba(37, 99, 235, 0.4) 0%, rgba(37, 99, 235, 0) 60%);" />
-			<!-- Right cyan glow - larger -->
-			<div class="absolute top-[20%] -right-[15%] w-[900px] h-[800px] rounded-full opacity-35" style="background: radial-gradient(circle, rgba(6, 182, 212, 0.35) 0%, rgba(6, 182, 212, 0) 60%);" />
-			<!-- Bottom left indigo glow - expanded -->
-			<div class="absolute -bottom-[20%] -left-[5%] w-[1100px] h-[800px] rounded-full opacity-40" style="background: radial-gradient(circle, rgba(99, 102, 241, 0.35) 0%, rgba(99, 102, 241, 0) 60%);" />
-			<!-- Bottom right blue glow - larger -->
-			<div class="absolute -bottom-[25%] right-[5%] w-[1000px] h-[800px] rounded-full opacity-35" style="background: radial-gradient(circle, rgba(37, 99, 235, 0.35) 0%, rgba(37, 99, 235, 0) 60%);" />
-			<!-- Center subtle teal glow -->
-			<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1200px] h-[800px] rounded-full opacity-20" style="background: radial-gradient(circle, rgba(20, 184, 166, 0.3) 0%, rgba(20, 184, 166, 0) 50%);" />
-		</div>
-
-		<!-- Noise texture overlay (dark mode only) -->
-		<svg class="absolute w-0 h-0" aria-hidden="true">
-			<filter id="grainy-noise">
-				<feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" />
-				<feBlend mode="screen" />
-			</filter>
-		</svg>
-		<div class="fixed inset-0 pointer-events-none opacity-0 dark:opacity-[0.5] mix-blend-overlay" style="filter: url(#grainy-noise);" />
+	<div v-else class="min-h-screen bg-white dark:bg-slate-950">
+		<!-- Background mesh gradient -->
+		<div class="fixed inset-0 bg-mesh-gradient-light dark:bg-mesh-gradient opacity-50 dark:opacity-30 pointer-events-none" />
 
 		<!-- Navigation Header -->
-		<header class="sticky top-0 z-50">
-			<div class="absolute inset-0 bg-white/80 dark:bg-[#0a0f1a]/80 backdrop-blur-lg border-b border-slate-200/80 dark:border-slate-800/50" />
-			<div class="relative flex items-center h-16 px-6 max-w-7xl mx-auto">
-				<!-- Left: Branding -->
-				<div class="flex items-center gap-3 mr-6">
-					<div class="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 shadow-lg shadow-cyan-500/20">
-						<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+		<header class="fixed top-0 left-0 right-0 z-50 flex items-center h-14 px-4 border-b border-slate-200 dark:border-slate-800/80 bg-white/95 dark:bg-slate-950/95 backdrop-blur-lg">
+			<!-- Left: Branding -->
+			<div class="flex items-center gap-3 mr-6">
+				<router-link to="/" class="flex items-center gap-3">
+					<div class="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 shadow-sm">
+						<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 							<path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
 						</svg>
 					</div>
-					<span class="text-lg font-bold text-slate-900 dark:text-white tracking-tight">Cartographer</span>
-				</div>
+					<div class="flex flex-col">
+						<span class="text-sm font-semibold text-slate-900 dark:text-white tracking-tight">Cartographer</span>
+						<span class="text-[10px] text-slate-400 dark:text-slate-500 -mt-0.5">Networks</span>
+					</div>
+				</router-link>
+			</div>
 
-				<!-- Center: Spacer -->
-				<div class="flex-1"></div>
+			<!-- Center: Spacer -->
+			<div class="flex-1"></div>
 
-				<!-- Right: Actions -->
-				<div class="flex items-center gap-2">
-					<!-- Dark Mode Toggle -->
-					<button
-						@click="toggleDarkMode"
-						class="p-2.5 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/80 dark:hover:bg-slate-800/60 transition-all duration-200"
-						:title="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
-					>
-						<!-- Sun icon (shown in dark mode - click to go light) -->
-						<svg v-if="isDark" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-							<path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-						</svg>
-						<!-- Moon icon (shown in light mode - click to go dark) -->
-						<svg v-else xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-							<path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-						</svg>
-					</button>
+			<!-- Right: Actions -->
+			<div class="flex items-center gap-2">
+				<!-- Dark Mode Toggle -->
+				<button
+					@click="toggleDarkMode"
+					class="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors"
+					:title="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
+				>
+					<!-- Sun icon (shown in dark mode - click to go light) -->
+					<svg v-if="isDark" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+					</svg>
+					<!-- Moon icon (shown in light mode - click to go dark) -->
+					<svg v-else xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+					</svg>
+				</button>
 
-					<!-- User Menu -->
-					<UserMenu 
-						@logout="onLogout" 
-						@manageUsers="showUserManagement = true"
-						@notifications="showNotificationSettings = true"
-					/>
-				</div>
+				<!-- User Menu -->
+				<UserMenu 
+					@logout="onLogout" 
+					@manageUsers="showUserManagement = true"
+					@notifications="showNotificationSettings = true"
+				/>
 			</div>
 		</header>
 
 		<!-- Main Content -->
-		<main class="relative z-10 pt-10 pb-16 px-6">
+		<main class="relative z-10 pt-20 pb-12 px-6">
 			<div class="max-w-6xl mx-auto">
 				<!-- Header -->
-				<div class="mb-12 animate-fade-in-up stagger-1">
-					<h1 class="text-4xl font-bold text-slate-900 dark:text-white mb-3 tracking-tight">
-						Your Networks
+				<div class="mb-10">
+					<h1 class="text-3xl font-display font-bold text-slate-900 dark:text-white mb-2">
+						Welcome back, {{ user?.first_name }}!
 					</h1>
-					<p class="text-lg text-slate-600 dark:text-slate-400">Select a network to view and manage, or create a new one.</p>
+					<p class="text-slate-600 dark:text-slate-400">Select a network to view and manage, or create a new one.</p>
 				</div>
 
 				<!-- Loading Networks -->
-				<div v-if="networksLoading" class="flex items-center justify-center py-24">
-					<svg class="w-10 h-10 text-cyan-500 animate-spin" fill="none" viewBox="0 0 24 24">
+				<div v-if="networksLoading" class="flex items-center justify-center py-20">
+					<svg class="w-8 h-8 text-cyan-500 dark:text-cyan-400 animate-spin" fill="none" viewBox="0 0 24 24">
 						<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
 						<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
 					</svg>
 				</div>
 
 				<!-- No Networks State -->
-				<div v-else-if="networks.length === 0" class="text-center py-24 animate-fade-in-up stagger-2">
-					<div class="w-24 h-24 mx-auto mb-8 rounded-2xl bg-gradient-to-br from-cyan-500/10 to-blue-600/10 dark:from-cyan-500/20 dark:to-blue-600/20 border border-slate-200 dark:border-slate-700/50 flex items-center justify-center">
-						<svg class="w-12 h-12 text-cyan-500 dark:text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<div v-else-if="networks.length === 0" class="text-center py-20">
+					<div class="w-20 h-20 mx-auto mb-6 rounded-2xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/50 flex items-center justify-center">
+						<svg class="w-10 h-10 text-slate-400 dark:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
 						</svg>
 					</div>
-					<h2 class="text-2xl font-bold text-slate-900 dark:text-white mb-4">No networks yet</h2>
-					<p class="text-lg text-slate-600 dark:text-slate-400 mb-10 max-w-md mx-auto">
+					<h2 class="text-xl font-display font-bold text-slate-900 dark:text-white mb-3">No networks yet</h2>
+					<p class="text-slate-600 dark:text-slate-400 mb-8 max-w-md mx-auto">
 						Create your first network to start mapping and monitoring your devices.
 					</p>
 					<button
 						@click="showCreateModal = true"
-						class="px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-lg font-semibold rounded-xl shadow-lg shadow-cyan-500/25 transition-all hover:shadow-cyan-500/40 hover:scale-[1.02] active:scale-[0.98]"
+						class="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold rounded-xl shadow-lg shadow-cyan-500/25 transition-all hover:shadow-cyan-500/40 hover:scale-[1.02] active:scale-[0.98]"
 					>
 						Create Network
 					</button>
 				</div>
 
 				<!-- Networks Grid -->
-				<div v-else class="animate-fade-in-up stagger-2">
-					<div class="flex items-center justify-between mb-8">
-						<h2 class="text-xl font-semibold text-slate-900 dark:text-white">{{ networks.length }} Network{{ networks.length !== 1 ? 's' : '' }}</h2>
+				<div v-else>
+					<div class="flex items-center justify-between mb-6">
+						<h2 class="text-xl font-display font-semibold text-slate-900 dark:text-white">Your Networks</h2>
 						<button
 							@click="showCreateModal = true"
-							class="px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-sm font-medium rounded-xl shadow-lg shadow-cyan-500/20 transition-all hover:shadow-cyan-500/30 hover:scale-[1.02] active:scale-[0.98]"
+							class="px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-sm font-medium rounded-lg shadow-lg shadow-cyan-500/20 transition-all hover:shadow-cyan-500/30 hover:scale-[1.02] active:scale-[0.98]"
 						>
 							+ New Network
 						</button>
 					</div>
 
-					<div class="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+					<div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
 						<div
-							v-for="(network, index) in networks"
+							v-for="network in networks"
 							:key="network.id"
-							class="relative glass-card-hover p-6 group"
-							:style="{ animationDelay: `${0.1 * index}s` }"
+							class="glass-card p-6 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-all group"
 						>
 							<router-link
 								:to="`/network/${network.id}`"
 								class="block"
 							>
 								<div class="flex items-start justify-between mb-4">
-									<div class="w-14 h-14 rounded-xl bg-gradient-to-br from-cyan-500/10 to-blue-600/10 dark:from-cyan-500/20 dark:to-blue-600/20 flex items-center justify-center group-hover:from-cyan-500/20 group-hover:to-blue-600/20 dark:group-hover:from-cyan-500/30 dark:group-hover:to-blue-600/30 transition-all duration-300 border border-slate-200/50 dark:border-slate-700/30">
-										<svg class="w-7 h-7 text-cyan-600 dark:text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<div class="w-12 h-12 rounded-xl bg-cyan-100 dark:bg-cyan-500/10 flex items-center justify-center">
+										<svg class="w-6 h-6 text-cyan-600 dark:text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
 										</svg>
 									</div>
 									<div class="flex flex-col items-end gap-2">
 										<span
 											v-if="network.is_owner"
-											class="px-2.5 py-1 text-xs font-medium rounded-full bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400"
+											class="px-2 py-0.5 text-xs rounded-full bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400"
 										>
 											Owner
 										</span>
 										<span
 											v-else-if="network.permission"
-											class="px-2.5 py-1 text-xs font-medium rounded-full bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-400"
+											class="px-2 py-0.5 text-xs rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400"
 										>
 											{{ network.permission }}
 										</span>
 										<!-- Edit & Delete Buttons -->
-										<div v-if="canWriteNetwork(network)" class="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+										<div v-if="canWriteNetwork(network)" class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
 											<button
 												@click.prevent.stop="openEditModal(network)"
-												class="p-2 rounded-lg bg-slate-100 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600/50 hover:text-slate-700 dark:hover:text-white transition-all"
+												class="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600/50 hover:text-slate-700 dark:hover:text-white transition-all"
 												title="Edit network"
 											>
-												<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+												<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
 												</svg>
 											</button>
 											<button
 												@click.prevent.stop="confirmDeleteNetwork(network)"
-												class="p-2 rounded-lg bg-slate-100 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400 transition-all"
+												class="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400 transition-all"
 												title="Delete network"
 											>
-												<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+												<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
 												</svg>
 											</button>
@@ -214,12 +173,12 @@
 									</div>
 								</div>
 
-								<h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-2 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors">{{ network.name }}</h3>
+								<h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-1">{{ network.name }}</h3>
 								<p class="text-sm text-slate-600 dark:text-slate-400 mb-4 line-clamp-2">{{ network.description || 'No description' }}</p>
 
 								<div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-500">
 									<span>Updated {{ formatDate(network.updated_at) }}</span>
-									<svg class="w-4 h-4 text-slate-400 dark:text-slate-600 group-hover:text-cyan-500 dark:group-hover:text-cyan-400 group-hover:translate-x-0.5 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<svg class="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-cyan-500 dark:group-hover:text-cyan-400 group-hover:translate-x-0.5 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
 									</svg>
 								</div>
@@ -240,7 +199,7 @@
 			leave-to-class="opacity-0"
 		>
 			<div v-if="showCreateModal" class="fixed inset-0 z-50 flex items-center justify-center p-6">
-				<div class="absolute inset-0 bg-slate-900/50 dark:bg-[#0a0f1a]/80 backdrop-blur-sm" @click="closeCreateModal" />
+				<div class="absolute inset-0 bg-black/40 dark:bg-slate-950/80 backdrop-blur-sm" @click="closeCreateModal" />
 
 				<Transition
 					enter-active-class="transition duration-200 delay-75"
@@ -250,12 +209,12 @@
 					leave-from-class="opacity-100 scale-100"
 					leave-to-class="opacity-0 scale-95"
 				>
-					<div v-if="showCreateModal" class="relative glass-card p-8 w-full max-w-md shadow-2xl shadow-black/20 dark:shadow-black/50 border-gradient">
-						<h2 class="text-xl font-bold text-slate-900 dark:text-white mb-6">Create Network</h2>
+					<div v-if="showCreateModal" class="relative glass-card p-8 w-full max-w-md border-gradient">
+						<h2 class="text-xl font-display font-bold text-slate-900 dark:text-white mb-6">Create Network</h2>
 
-						<form @submit.prevent="createNetwork" class="space-y-5">
+						<form @submit.prevent="createNetwork" class="space-y-4">
 							<div>
-								<label for="networkName" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+								<label for="networkName" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
 									Network Name
 								</label>
 								<input
@@ -263,20 +222,20 @@
 									v-model="newNetwork.name"
 									type="text"
 									required
-									class="w-full px-4 py-3 bg-slate-100/80 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600/50 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition"
+									class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
 									placeholder="Home Network"
 								/>
 							</div>
 
 							<div>
-								<label for="networkDescription" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+								<label for="networkDescription" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
 									Description (optional)
 								</label>
 								<textarea
 									id="networkDescription"
 									v-model="newNetwork.description"
 									rows="3"
-									class="w-full px-4 py-3 bg-slate-100/80 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600/50 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition resize-none"
+									class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition resize-none"
 									placeholder="Describe this network..."
 								></textarea>
 							</div>
@@ -286,16 +245,16 @@
 								enter-from-class="opacity-0"
 								enter-to-class="opacity-100"
 							>
-								<div v-if="createError" class="p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-500/30 rounded-xl">
+								<div v-if="createError" class="p-4 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-xl">
 									<p class="text-sm text-red-600 dark:text-red-400">{{ createError }}</p>
 								</div>
 							</Transition>
 
-							<div class="flex gap-3 pt-2">
+							<div class="flex gap-3 pt-4">
 								<button
 									type="button"
 									@click="closeCreateModal"
-									class="flex-1 py-3 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700/40 transition-all"
+									class="flex-1 py-3 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
 								>
 									Cancel
 								</button>
@@ -330,7 +289,7 @@
 			leave-to-class="opacity-0"
 		>
 			<div v-if="showEditModal" class="fixed inset-0 z-50 flex items-center justify-center p-6">
-				<div class="absolute inset-0 bg-slate-900/50 dark:bg-[#0a0f1a]/80 backdrop-blur-sm" @click="closeEditModal" />
+				<div class="absolute inset-0 bg-black/40 dark:bg-slate-950/80 backdrop-blur-sm" @click="closeEditModal" />
 
 				<Transition
 					enter-active-class="transition duration-200 delay-75"
@@ -340,12 +299,12 @@
 					leave-from-class="opacity-100 scale-100"
 					leave-to-class="opacity-0 scale-95"
 				>
-					<div v-if="showEditModal" class="relative glass-card p-8 w-full max-w-md shadow-2xl shadow-black/20 dark:shadow-black/50 border-gradient">
-						<h2 class="text-xl font-bold text-slate-900 dark:text-white mb-6">Edit Network</h2>
+					<div v-if="showEditModal" class="relative glass-card p-8 w-full max-w-md border-gradient">
+						<h2 class="text-xl font-display font-bold text-slate-900 dark:text-white mb-6">Edit Network</h2>
 
-						<form @submit.prevent="saveEditNetwork" class="space-y-5">
+						<form @submit.prevent="saveEditNetwork" class="space-y-4">
 							<div>
-								<label for="editNetworkName" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+								<label for="editNetworkName" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
 									Network Name
 								</label>
 								<input
@@ -353,20 +312,20 @@
 									v-model="editNetwork.name"
 									type="text"
 									required
-									class="w-full px-4 py-3 bg-slate-100/80 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600/50 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition"
+									class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
 									placeholder="Home Network"
 								/>
 							</div>
 
 							<div>
-								<label for="editNetworkDescription" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+								<label for="editNetworkDescription" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
 									Description (optional)
 								</label>
 								<textarea
 									id="editNetworkDescription"
 									v-model="editNetwork.description"
 									rows="3"
-									class="w-full px-4 py-3 bg-slate-100/80 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600/50 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition resize-none"
+									class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition resize-none"
 									placeholder="Describe this network..."
 								></textarea>
 							</div>
@@ -376,16 +335,16 @@
 								enter-from-class="opacity-0"
 								enter-to-class="opacity-100"
 							>
-								<div v-if="editError" class="p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-500/30 rounded-xl">
+								<div v-if="editError" class="p-4 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-xl">
 									<p class="text-sm text-red-600 dark:text-red-400">{{ editError }}</p>
 								</div>
 							</Transition>
 
-							<div class="flex gap-3 pt-2">
+							<div class="flex gap-3 pt-4">
 								<button
 									type="button"
 									@click="closeEditModal"
-									class="flex-1 py-3 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700/40 transition-all"
+									class="flex-1 py-3 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
 								>
 									Cancel
 								</button>
@@ -420,7 +379,7 @@
 			leave-to-class="opacity-0"
 		>
 			<div v-if="showDeleteModal" class="fixed inset-0 z-50 flex items-center justify-center p-6">
-				<div class="absolute inset-0 bg-slate-900/50 dark:bg-[#0a0f1a]/80 backdrop-blur-sm" @click="closeDeleteModal" />
+				<div class="absolute inset-0 bg-black/40 dark:bg-slate-950/80 backdrop-blur-sm" @click="closeDeleteModal" />
 
 				<Transition
 					enter-active-class="transition duration-200 delay-75"
@@ -430,20 +389,20 @@
 					leave-from-class="opacity-100 scale-100"
 					leave-to-class="opacity-0 scale-95"
 				>
-					<div v-if="showDeleteModal" class="relative glass-card p-8 w-full max-w-md shadow-2xl shadow-black/20 dark:shadow-black/50">
+					<div v-if="showDeleteModal" class="relative glass-card p-8 w-full max-w-md">
 						<div class="flex items-center gap-4 mb-6">
-							<div class="w-14 h-14 rounded-xl bg-red-100 dark:bg-red-500/20 flex items-center justify-center border border-red-200 dark:border-red-500/30">
-								<svg class="w-7 h-7 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<div class="w-12 h-12 rounded-xl bg-red-100 dark:bg-red-500/20 flex items-center justify-center">
+								<svg class="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
 								</svg>
 							</div>
 							<div>
-								<h2 class="text-xl font-bold text-slate-900 dark:text-white">Delete Network</h2>
+								<h2 class="text-xl font-display font-bold text-slate-900 dark:text-white">Delete Network</h2>
 								<p class="text-sm text-slate-500 dark:text-slate-400">This action cannot be undone</p>
 							</div>
 						</div>
 
-						<p class="text-slate-600 dark:text-slate-300 mb-6 leading-relaxed">
+						<p class="text-slate-600 dark:text-slate-300 mb-6">
 							Are you sure you want to delete <span class="font-semibold text-slate-900 dark:text-white">"{{ deletingNetwork?.name }}"</span>? All data associated with this network will be permanently removed.
 						</p>
 
@@ -452,7 +411,7 @@
 							enter-from-class="opacity-0"
 							enter-to-class="opacity-100"
 						>
-							<div v-if="deleteError" class="mb-4 p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-500/30 rounded-xl">
+							<div v-if="deleteError" class="mb-4 p-4 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-xl">
 								<p class="text-sm text-red-600 dark:text-red-400">{{ deleteError }}</p>
 							</div>
 						</Transition>
@@ -461,7 +420,7 @@
 							<button
 								type="button"
 								@click="closeDeleteModal"
-								class="flex-1 py-3 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700/40 transition-all"
+								class="flex-1 py-3 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
 							>
 								Cancel
 							</button>
@@ -508,7 +467,7 @@ import NotificationSettingsPanel from "./NotificationSettingsPanel.vue";
 import UserManagement from "./UserManagement.vue";
 
 const router = useRouter();
-const { isAuthenticated, checkSetupStatus, verifySession } = useAuth();
+const { isAuthenticated, user, checkSetupStatus, verifySession } = useAuth();
 const { networks, loading: networksLoading, clearNetworks, fetchNetworks, createNetwork: createNetworkApi, updateNetwork: updateNetworkApi, deleteNetwork: deleteNetworkApi, canWriteNetwork } = useNetworks();
 
 // Auth state
