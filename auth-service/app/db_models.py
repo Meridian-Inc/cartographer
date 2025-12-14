@@ -50,8 +50,14 @@ class User(Base):
     last_name: Mapped[str] = mapped_column(String(100))
     
     # Role for self-hosted permission management
+    # Use values_callable to ensure SQLAlchemy uses lowercase enum values matching PostgreSQL
     role: Mapped[UserRole] = mapped_column(
-        SQLEnum(UserRole, name="user_role", create_type=True),
+        SQLEnum(
+            UserRole, 
+            name="user_role", 
+            create_type=False,
+            values_callable=lambda x: [e.value for e in x]
+        ),
         default=UserRole.MEMBER
     )
 
@@ -82,11 +88,21 @@ class Invite(Base):
     )
     email: Mapped[str] = mapped_column(String(255), index=True)
     role: Mapped[UserRole] = mapped_column(
-        SQLEnum(UserRole, name="user_role", create_type=False),
+        SQLEnum(
+            UserRole, 
+            name="user_role", 
+            create_type=False,
+            values_callable=lambda x: [e.value for e in x]
+        ),
         default=UserRole.MEMBER
     )
     status: Mapped[InviteStatus] = mapped_column(
-        SQLEnum(InviteStatus, name="invite_status", create_type=True),
+        SQLEnum(
+            InviteStatus, 
+            name="invite_status", 
+            create_type=False,
+            values_callable=lambda x: [e.value for e in x]
+        ),
         default=InviteStatus.PENDING
     )
     
