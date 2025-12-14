@@ -122,13 +122,24 @@ export interface ScheduledBroadcast {
   message: string;
   event_type: NotificationType;
   priority: NotificationPriority;
+  network_id: number;
   scheduled_at: string;
+  timezone?: string;  // IANA timezone name for display
   created_at: string;
   created_by: string;
   status: ScheduledBroadcastStatus;
   sent_at?: string;
   users_notified: number;
   error_message?: string;
+}
+
+export interface ScheduledBroadcastUpdate {
+  title?: string;
+  message?: string;
+  event_type?: NotificationType;
+  priority?: NotificationPriority;
+  scheduled_at?: string;
+  timezone?: string;
 }
 
 export interface ScheduledBroadcastResponse {
@@ -301,7 +312,8 @@ export function useNotifications(networkId?: number) {
     message: string,
     scheduledAt: Date,
     eventType: NotificationType = 'scheduled_maintenance',
-    priority: NotificationPriority = 'medium'
+    priority: NotificationPriority = 'medium',
+    timezone?: string
   ): Promise<ScheduledBroadcast> {
     const response = await axios.post<ScheduledBroadcast>(
       `${API_BASE}/scheduled`,
@@ -312,7 +324,26 @@ export function useNotifications(networkId?: number) {
         event_type: eventType,
         priority,
         scheduled_at: scheduledAt.toISOString(),
+        timezone: timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
       }
+    );
+    return response.data;
+  }
+
+  // Update a scheduled broadcast (owner only, only pending broadcasts)
+  async function updateScheduledBroadcast(
+    broadcastId: string,
+    update: ScheduledBroadcastUpdate
+  ): Promise<ScheduledBroadcast> {
+    // Convert scheduled_at to ISO string if it's provided
+    const body: Record<string, unknown> = { ...update };
+    if (update.scheduled_at) {
+      body.scheduled_at = update.scheduled_at;
+    }
+    
+    const response = await axios.patch<ScheduledBroadcast>(
+      `${API_BASE}/scheduled/${broadcastId}`,
+      body
     );
     return response.data;
   }
@@ -392,6 +423,7 @@ export function useNotifications(networkId?: number) {
     sendBroadcastNotification,
     getScheduledBroadcasts,
     scheduleBroadcast,
+    updateScheduledBroadcast,
     cancelScheduledBroadcast,
     deleteScheduledBroadcast,
     getSilencedDevices,

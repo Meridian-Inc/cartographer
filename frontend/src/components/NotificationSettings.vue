@@ -1263,7 +1263,7 @@
 															<p class="font-medium text-slate-900 dark:text-white text-sm truncate">{{ broadcast.title }}</p>
 														</div>
 														<p class="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">{{ broadcast.message }}</p>
-														<div class="flex items-center gap-2 mt-2">
+														<div class="flex items-center gap-2 mt-2 flex-wrap">
 															<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">
 																<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 																	<path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -1281,21 +1281,150 @@
 															>
 																{{ broadcast.priority }}
 															</span>
+															<span v-if="broadcast.timezone" class="px-2 py-0.5 rounded text-xs font-medium bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+																{{ broadcast.timezone }}
+															</span>
 														</div>
 													</div>
-													<button
-														@click="cancelScheduledBroadcastHandler(broadcast.id)"
-														class="p-1.5 text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors flex-shrink-0"
-														title="Cancel scheduled broadcast"
-													>
-														<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-															<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-														</svg>
-													</button>
+													<div class="flex items-center gap-1 flex-shrink-0">
+														<button
+															@click="openEditBroadcast(broadcast)"
+															class="p-1.5 text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors"
+															title="Edit scheduled broadcast"
+														>
+															<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+																<path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+															</svg>
+														</button>
+														<button
+															@click="cancelScheduledBroadcastHandler(broadcast.id)"
+															class="p-1.5 text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+															title="Cancel scheduled broadcast"
+														>
+															<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+																<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+															</svg>
+														</button>
+													</div>
 												</div>
 											</div>
 										</div>
 									</div>
+
+									<!-- Edit Broadcast Modal -->
+									<Teleport to="body">
+										<Transition
+											enter-active-class="transition ease-out duration-200"
+											enter-from-class="opacity-0"
+											enter-to-class="opacity-100"
+											leave-active-class="transition ease-in duration-150"
+											leave-from-class="opacity-100"
+											leave-to-class="opacity-0"
+										>
+											<div v-if="editingBroadcast" class="fixed inset-0 z-[60] overflow-y-auto">
+												<div class="flex min-h-full items-center justify-center p-4">
+													<div class="fixed inset-0 bg-black/50" @click="closeEditBroadcast"></div>
+													<div class="relative w-full max-w-md bg-white dark:bg-slate-800 rounded-xl shadow-xl">
+														<div class="p-6">
+															<div class="flex items-center justify-between mb-4">
+																<h3 class="text-lg font-semibold text-slate-900 dark:text-white">Edit Scheduled Broadcast</h3>
+																<button @click="closeEditBroadcast" class="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+																	<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+																		<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+																	</svg>
+																</button>
+															</div>
+
+															<div class="space-y-4">
+																<!-- Title -->
+																<div>
+																	<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Title</label>
+																	<input
+																		v-model="editBroadcastTitle"
+																		type="text"
+																		class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+																		placeholder="Notification title"
+																	/>
+																</div>
+
+																<!-- Message -->
+																<div>
+																	<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Message</label>
+																	<textarea
+																		v-model="editBroadcastMessage"
+																		rows="3"
+																		class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none"
+																		placeholder="Notification message"
+																	></textarea>
+																</div>
+
+																<!-- Type & Priority -->
+																<div class="grid grid-cols-2 gap-3">
+																	<div>
+																		<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Type</label>
+																		<select
+																			v-model="editBroadcastType"
+																			class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+																		>
+																			<option v-for="(info, type) in networkNotificationTypes" :key="type" :value="type">
+																				{{ info.icon }} {{ info.label }}
+																			</option>
+																		</select>
+																	</div>
+																	<div>
+																		<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Priority</label>
+																		<select
+																			v-model="editBroadcastPriority"
+																			class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+																		>
+																			<option v-for="(info, priority) in PRIORITY_INFO" :key="priority" :value="priority">
+																				{{ info.label }}
+																			</option>
+																		</select>
+																	</div>
+																</div>
+
+																<!-- Scheduled Time -->
+																<div>
+																	<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Scheduled Time</label>
+																	<input
+																		v-model="editScheduledDateTime"
+																		type="datetime-local"
+																		:min="minScheduleDateTime"
+																		class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+																	/>
+																	<p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
+																		Time is in your local timezone ({{ detectedTimezone }})
+																	</p>
+																</div>
+
+																<!-- Actions -->
+																<div class="flex justify-end gap-3 pt-2">
+																	<button
+																		@click="closeEditBroadcast"
+																		class="px-4 py-2 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+																	>
+																		Cancel
+																	</button>
+																	<button
+																		@click="saveEditBroadcast"
+																		:disabled="savingEditBroadcast || !editBroadcastTitle.trim() || !editBroadcastMessage.trim() || !editScheduledDateTime"
+																		class="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+																	>
+																		<svg v-if="savingEditBroadcast" class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+																			<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+																			<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+																		</svg>
+																		{{ savingEditBroadcast ? 'Saving...' : 'Save Changes' }}
+																	</button>
+																</div>
+															</div>
+														</div>
+													</div>
+												</div>
+											</div>
+										</Transition>
+									</Teleport>
 								</div>
 							</div>
 						</template>
@@ -1347,6 +1476,7 @@ import {
 	type NotificationPriority,
 	type TestNotificationResult,
 	type ScheduledBroadcast,
+	type ScheduledBroadcastUpdate,
 } from "../composables/useNotifications";
 import { useAuth } from "../composables/useAuth";
 
@@ -1420,6 +1550,7 @@ const {
 	sendBroadcastNotification,
 	getScheduledBroadcasts,
 	scheduleBroadcast,
+	updateScheduledBroadcast,
 	cancelScheduledBroadcast,
 } = useNotifications(props.networkId);
 
@@ -1490,6 +1621,15 @@ const scheduleMode = ref(false);
 const scheduledDateTime = ref("");
 const scheduledBroadcasts = ref<ScheduledBroadcast[]>([]);
 const loadingScheduled = ref(false);
+
+// Edit scheduled broadcast state
+const editingBroadcast = ref<ScheduledBroadcast | null>(null);
+const editBroadcastTitle = ref("");
+const editBroadcastMessage = ref("");
+const editBroadcastType = ref<NotificationType>("scheduled_maintenance");
+const editBroadcastPriority = ref<NotificationPriority>("medium");
+const editScheduledDateTime = ref("");
+const savingEditBroadcast = ref(false);
 
 // Computed: minimum schedule datetime (5 minutes from now)
 const minScheduleDateTime = computed(() => {
@@ -2085,6 +2225,72 @@ async function cancelScheduledBroadcastHandler(broadcastId: string) {
 		console.error("Failed to cancel broadcast:", e);
 		broadcastResult.value = { success: false, error: e.message };
 		setTimeout(() => { broadcastResult.value = null; }, 5000);
+	}
+}
+
+// Open edit modal for a scheduled broadcast
+function openEditBroadcast(broadcast: ScheduledBroadcast) {
+	editingBroadcast.value = broadcast;
+	editBroadcastTitle.value = broadcast.title;
+	editBroadcastMessage.value = broadcast.message;
+	editBroadcastType.value = broadcast.event_type;
+	editBroadcastPriority.value = broadcast.priority;
+	// Convert UTC to local datetime-local format
+	const date = new Date(broadcast.scheduled_at);
+	editScheduledDateTime.value = new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
+
+// Close edit modal
+function closeEditBroadcast() {
+	editingBroadcast.value = null;
+	editBroadcastTitle.value = "";
+	editBroadcastMessage.value = "";
+	editBroadcastType.value = "scheduled_maintenance";
+	editBroadcastPriority.value = "medium";
+	editScheduledDateTime.value = "";
+}
+
+// Save edited broadcast
+async function saveEditBroadcast() {
+	if (!editingBroadcast.value) return;
+	
+	savingEditBroadcast.value = true;
+	try {
+		const update: ScheduledBroadcastUpdate = {};
+		
+		if (editBroadcastTitle.value !== editingBroadcast.value.title) {
+			update.title = editBroadcastTitle.value;
+		}
+		if (editBroadcastMessage.value !== editingBroadcast.value.message) {
+			update.message = editBroadcastMessage.value;
+		}
+		if (editBroadcastType.value !== editingBroadcast.value.event_type) {
+			update.event_type = editBroadcastType.value;
+		}
+		if (editBroadcastPriority.value !== editingBroadcast.value.priority) {
+			update.priority = editBroadcastPriority.value;
+		}
+		
+		// Check if scheduled time changed
+		const newScheduledDate = new Date(editScheduledDateTime.value);
+		const originalDate = new Date(editingBroadcast.value.scheduled_at);
+		if (newScheduledDate.getTime() !== originalDate.getTime()) {
+			update.scheduled_at = newScheduledDate.toISOString();
+			update.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+		}
+		
+		await updateScheduledBroadcast(editingBroadcast.value.id, update);
+		await loadScheduledBroadcasts();
+		closeEditBroadcast();
+		
+		broadcastResult.value = { success: true, error: "Broadcast updated successfully" };
+		setTimeout(() => { broadcastResult.value = null; }, 3000);
+	} catch (e: any) {
+		console.error("Failed to update broadcast:", e);
+		broadcastResult.value = { success: false, error: e.message };
+		setTimeout(() => { broadcastResult.value = null; }, 5000);
+	} finally {
+		savingEditBroadcast.value = false;
 	}
 }
 

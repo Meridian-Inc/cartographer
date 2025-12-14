@@ -403,6 +403,24 @@ async def get_scheduled_broadcast(broadcast_id: str, user: AuthenticatedUser = D
     return await proxy_request("GET", f"/scheduled/{broadcast_id}")
 
 
+@router.patch("/scheduled/{broadcast_id}")
+async def update_scheduled_broadcast(broadcast_id: str, request: Request, user: AuthenticatedUser = Depends(require_owner)):
+    """
+    Update a scheduled broadcast. Owner only.
+    Only pending broadcasts can be updated.
+    
+    Expects a JSON body with any of:
+    - title: str - The notification title
+    - message: str - The notification message
+    - event_type: str - The type of notification
+    - priority: str - The priority level
+    - scheduled_at: str - ISO datetime when to send the broadcast
+    - timezone: str - IANA timezone name for display
+    """
+    body = await request.json()
+    return await proxy_request("PATCH", f"/scheduled/{broadcast_id}", json_body=body)
+
+
 @router.post("/scheduled/{broadcast_id}/cancel")
 async def cancel_scheduled_broadcast(broadcast_id: str, user: AuthenticatedUser = Depends(require_owner)):
     """Cancel a scheduled broadcast. Owner only."""

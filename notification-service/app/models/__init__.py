@@ -40,7 +40,7 @@ if os.path.exists(_models_py_path):
         'DiscordGuildsResponse', 'DiscordChannelsResponse',
         'AnomalyType', 'DeviceBaseline', 'AnomalyDetectionResult',
         'MLModelStatus', 'ScheduledBroadcastStatus', 'ScheduledBroadcast',
-        'ScheduledBroadcastCreate', 'ScheduledBroadcastResponse',
+        'ScheduledBroadcastCreate', 'ScheduledBroadcastUpdate', 'ScheduledBroadcastResponse',
         'DiscordOAuthState', 'DiscordUserInfo',
         'DEFAULT_NOTIFICATION_TYPE_PRIORITIES', 'get_default_priority_for_type',
     ]

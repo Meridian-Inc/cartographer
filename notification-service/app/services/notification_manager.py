@@ -35,6 +35,7 @@ from ..models import (
     ScheduledBroadcast,
     ScheduledBroadcastStatus,
     ScheduledBroadcastCreate,
+    ScheduledBroadcastUpdate,
     ScheduledBroadcastResponse,
 )
 from .email_service import send_notification_email, send_test_email, is_email_configured
@@ -326,30 +327,51 @@ class NotificationManager:
     
     async def _scheduler_loop(self):
         """Background loop to check and send scheduled broadcasts"""
+        logger.info("Scheduler loop started - checking for due broadcasts every 30 seconds")
         while True:
             try:
                 await self._process_due_broadcasts()
                 await asyncio.sleep(30)  # Check every 30 seconds
             except asyncio.CancelledError:
+                logger.info("Scheduler loop cancelled")
                 break
             except Exception as e:
-                logger.error(f"Error in scheduler loop: {e}")
+                logger.error(f"Error in scheduler loop: {e}", exc_info=True)
                 await asyncio.sleep(60)  # Wait longer on error
     
     async def _process_due_broadcasts(self):
         """Process any broadcasts that are due to be sent"""
         now = datetime.utcnow()
+        pending_count = sum(1 for b in self._scheduled_broadcasts.values() if b.status == ScheduledBroadcastStatus.PENDING)
+        
+        if pending_count > 0:
+            logger.debug(f"Checking {pending_count} pending broadcast(s) at {now.isoformat()}")
         
         for broadcast_id, broadcast in list(self._scheduled_broadcasts.items()):
             if broadcast.status != ScheduledBroadcastStatus.PENDING:
                 continue
             
             # Handle both timezone-aware and naive datetimes
+            # scheduled_at is stored as UTC, so we compare with utcnow()
             scheduled_time = broadcast.scheduled_at
+            
+            # If the datetime is timezone-aware, convert to UTC naive for comparison
             if scheduled_time.tzinfo is not None:
-                scheduled_time = scheduled_time.replace(tzinfo=None)
+                # Convert to UTC then make naive
+                from datetime import timezone as dt_timezone
+                scheduled_time = scheduled_time.astimezone(dt_timezone.utc).replace(tzinfo=None)
+            
+            # Log the comparison for debugging
+            time_until = (scheduled_time - now).total_seconds()
+            if time_until <= 60:  # Log if within 1 minute of sending
+                logger.info(
+                    f"Broadcast '{broadcast.title}' ({broadcast_id[:8]}...): "
+                    f"scheduled for {scheduled_time.isoformat()}Z, now is {now.isoformat()}Z, "
+                    f"{'SENDING NOW' if time_until <= 0 else f'sending in {int(time_until)}s'}"
+                )
             
             if scheduled_time <= now:
+                logger.info(f"Sending scheduled broadcast: {broadcast.title} ({broadcast_id})")
                 await self._send_scheduled_broadcast(broadcast_id)
     
     async def _send_scheduled_broadcast(self, broadcast_id: str, user_ids: Optional[List[str]] = None):
@@ -419,6 +441,7 @@ class NotificationManager:
         network_id: int,
         event_type: NotificationType = NotificationType.SCHEDULED_MAINTENANCE,
         priority: NotificationPriority = NotificationPriority.MEDIUM,
+        timezone: str = None,
     ) -> ScheduledBroadcast:
         """
         Create a new scheduled broadcast for a specific network.
@@ -426,11 +449,12 @@ class NotificationManager:
         Args:
             title: Broadcast title
             message: Broadcast message
-            scheduled_at: When to send the broadcast
+            scheduled_at: When to send the broadcast (should be in UTC)
             created_by: Username of the owner creating the broadcast
             network_id: The network this broadcast belongs to (required)
             event_type: Type of notification event
             priority: Notification priority
+            timezone: User's timezone for display purposes (e.g., "America/New_York")
         """
         broadcast_id = str(uuid.uuid4())
         
@@ -442,13 +466,17 @@ class NotificationManager:
             priority=priority,
             network_id=network_id,
             scheduled_at=scheduled_at,
+            timezone=timezone,
             created_by=created_by,
         )
         
         self._scheduled_broadcasts[broadcast_id] = broadcast
         self._save_scheduled_broadcasts()
         
-        logger.info(f"Scheduled broadcast created: {broadcast_id} for network {network_id} at {scheduled_at}")
+        logger.info(
+            f"Scheduled broadcast created: {broadcast_id} for network {network_id} "
+            f"at {scheduled_at.isoformat()} (timezone: {timezone or 'UTC'})"
+        )
         return broadcast
     
     def get_scheduled_broadcasts(
@@ -502,6 +530,51 @@ class NotificationManager:
         
         logger.info(f"Scheduled broadcast deleted: {broadcast_id}")
         return True
+    
+    def update_scheduled_broadcast(
+        self,
+        broadcast_id: str,
+        update: ScheduledBroadcastUpdate,
+    ) -> Optional[ScheduledBroadcast]:
+        """
+        Update a scheduled broadcast. Only pending broadcasts can be updated.
+        
+        Args:
+            broadcast_id: The broadcast ID to update
+            update: The update data (only provided fields will be updated)
+        
+        Returns:
+            The updated broadcast, or None if not found or not pending
+        """
+        broadcast = self._scheduled_broadcasts.get(broadcast_id)
+        if not broadcast:
+            logger.warning(f"Broadcast {broadcast_id} not found for update")
+            return None
+        
+        if broadcast.status != ScheduledBroadcastStatus.PENDING:
+            logger.warning(f"Cannot update broadcast {broadcast_id}: status is {broadcast.status}")
+            return None
+        
+        # Update only the fields that were provided
+        update_data = update.model_dump(exclude_unset=True)
+        
+        if "title" in update_data and update_data["title"] is not None:
+            broadcast.title = update_data["title"]
+        if "message" in update_data and update_data["message"] is not None:
+            broadcast.message = update_data["message"]
+        if "event_type" in update_data and update_data["event_type"] is not None:
+            broadcast.event_type = update_data["event_type"]
+        if "priority" in update_data and update_data["priority"] is not None:
+            broadcast.priority = update_data["priority"]
+        if "scheduled_at" in update_data and update_data["scheduled_at"] is not None:
+            broadcast.scheduled_at = update_data["scheduled_at"]
+        if "timezone" in update_data:
+            broadcast.timezone = update_data["timezone"]
+        
+        self._save_scheduled_broadcasts()
+        
+        logger.info(f"Scheduled broadcast updated: {broadcast_id}")
+        return broadcast
     
     # ==================== Preferences Management (per-network) ====================
     

@@ -390,6 +390,7 @@ class ScheduledBroadcast(BaseModel):
     priority: NotificationPriority = NotificationPriority.MEDIUM
     network_id: int  # The network this broadcast belongs to (required)
     scheduled_at: datetime
+    timezone: Optional[str] = None  # IANA timezone name (e.g., "America/New_York") for display
     created_at: datetime = Field(default_factory=datetime.utcnow)
     created_by: str  # Username of the owner who created it
     status: ScheduledBroadcastStatus = ScheduledBroadcastStatus.PENDING
@@ -406,6 +407,17 @@ class ScheduledBroadcastCreate(BaseModel):
     priority: NotificationPriority = NotificationPriority.MEDIUM
     network_id: int  # The network this broadcast belongs to (required)
     scheduled_at: datetime
+    timezone: Optional[str] = None  # IANA timezone name for display purposes
+
+
+class ScheduledBroadcastUpdate(BaseModel):
+    """Request to update a scheduled broadcast (only pending broadcasts can be updated)"""
+    title: Optional[str] = None
+    message: Optional[str] = None
+    event_type: Optional[NotificationType] = None
+    priority: Optional[NotificationPriority] = None
+    scheduled_at: Optional[datetime] = None
+    timezone: Optional[str] = None
 
 
 class ScheduledBroadcastResponse(BaseModel):

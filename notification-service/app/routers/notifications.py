@@ -28,6 +28,7 @@ from ..models import (
     NotificationPriority,
     ScheduledBroadcast,
     ScheduledBroadcastCreate,
+    ScheduledBroadcastUpdate,
     ScheduledBroadcastResponse,
     get_default_priority_for_type,
 )
@@ -466,10 +467,16 @@ async def create_scheduled_broadcast(
     
     # If scheduled_time is timezone-aware, convert to naive UTC for comparison
     if scheduled_time.tzinfo is not None:
-        scheduled_time = scheduled_time.replace(tzinfo=None)
+        from datetime import timezone as dt_timezone
+        scheduled_time = scheduled_time.astimezone(dt_timezone.utc).replace(tzinfo=None)
     
     if scheduled_time <= now:
         raise HTTPException(status_code=400, detail="Scheduled time must be in the future")
+    
+    logger.info(
+        f"Creating scheduled broadcast: title='{request.title}', "
+        f"scheduled_at={request.scheduled_at.isoformat()}, timezone={request.timezone}"
+    )
     
     return notification_manager.create_scheduled_broadcast(
         title=request.title,
@@ -479,6 +486,7 @@ async def create_scheduled_broadcast(
         network_id=request.network_id,
         event_type=request.event_type,
         priority=request.priority,
+        timezone=request.timezone,
     )
 
 
@@ -488,6 +496,39 @@ async def get_scheduled_broadcast(broadcast_id: str):
     broadcast = notification_manager.get_scheduled_broadcast(broadcast_id)
     if not broadcast:
         raise HTTPException(status_code=404, detail="Scheduled broadcast not found")
+    return broadcast
+
+
+@router.patch("/scheduled/{broadcast_id}", response_model=ScheduledBroadcast)
+async def update_scheduled_broadcast(
+    broadcast_id: str,
+    request: ScheduledBroadcastUpdate,
+):
+    """
+    Update a scheduled broadcast (only pending broadcasts can be updated).
+    
+    Only the fields provided in the request will be updated.
+    """
+    # If updating scheduled_at, validate it's in the future
+    if request.scheduled_at is not None:
+        scheduled_time = request.scheduled_at
+        now = datetime.utcnow()
+        
+        if scheduled_time.tzinfo is not None:
+            from datetime import timezone as dt_timezone
+            scheduled_time = scheduled_time.astimezone(dt_timezone.utc).replace(tzinfo=None)
+        
+        if scheduled_time <= now:
+            raise HTTPException(status_code=400, detail="Scheduled time must be in the future")
+    
+    broadcast = notification_manager.update_scheduled_broadcast(broadcast_id, request)
+    if not broadcast:
+        raise HTTPException(
+            status_code=400, 
+            detail="Cannot update broadcast (not found or not pending)"
+        )
+    
+    logger.info(f"Updated scheduled broadcast: {broadcast_id}")
     return broadcast
 
 
