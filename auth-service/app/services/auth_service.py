@@ -294,6 +294,7 @@ class AuthService:
         # Update last login
         user.last_login_at = datetime.now(timezone.utc)
         await db.commit()
+        await db.refresh(user)  # Refresh to reload all attributes after commit
         
         logger.info(f"User authenticated: {username}")
         return user
