@@ -1,6 +1,16 @@
 <template>
-	<div class="w-full h-full">
-		<svg ref="svgRef" class="w-full h-full transition-colors" :class="isDark ? 'bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900' : 'bg-gradient-to-br from-slate-50 to-blue-50'"></svg>
+	<div class="w-full h-full relative">
+		<!-- Subtle background pattern -->
+		<div class="absolute inset-0 overflow-hidden">
+			<!-- Base gradient -->
+			<div class="absolute inset-0 transition-colors" :class="isDark ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950' : 'bg-gradient-to-br from-slate-50 via-white to-slate-100/50'"></div>
+			<!-- Subtle grid pattern -->
+			<div class="absolute inset-0" :class="isDark ? 'opacity-[0.15]' : 'opacity-[0.4]'" style="background-image: radial-gradient(circle, rgb(148 163 184 / 0.4) 1px, transparent 1px); background-size: 24px 24px;"></div>
+			<!-- Subtle glow accents -->
+			<div class="absolute -top-32 -right-32 w-96 h-96 rounded-full blur-3xl pointer-events-none" :class="isDark ? 'bg-cyan-500/5' : 'bg-cyan-400/5'"></div>
+			<div class="absolute -bottom-32 -left-32 w-96 h-96 rounded-full blur-3xl pointer-events-none" :class="isDark ? 'bg-blue-500/5' : 'bg-blue-400/5'"></div>
+		</div>
+		<svg ref="svgRef" class="relative w-full h-full transition-colors"></svg>
 	</div>
 </template>
 
@@ -348,10 +358,10 @@ function render() {
 		.join("path")
 		.attr("class", "link animated-link")
 		.attr("fill", "none")
-		.attr("stroke", "#60a5fa")
+		.attr("stroke", dark ? "#38bdf8" : "#0ea5e9")
 		.attr("stroke-width", 2)
 		.attr("stroke-dasharray", "8,4")
-		.attr("opacity", dark ? 0.8 : 0.6)
+		.attr("opacity", dark ? 0.6 : 0.5)
 		.attr("d", (d: any) => linkPath(d.source, d.target));
 
 	// Draw nodes
@@ -375,7 +385,7 @@ function render() {
 	// Main node circle with shadow effect
 	node.append("circle")
 		.attr("r", 18)
-		.attr("fill", dark ? "#1e293b" : "#ffffff")
+		.attr("fill", dark ? "#0f172a" : "#ffffff")
 		.attr("stroke", (d: any) => {
 			switch (d.role) {
 				case "gateway/router": return "#ef4444";
@@ -389,7 +399,7 @@ function render() {
 			}
 		})
 		.attr("stroke-width", 3)
-		.style("filter", dark ? "drop-shadow(0 2px 8px rgba(0,0,0,0.5))" : "drop-shadow(0 2px 4px rgba(0,0,0,0.1))");
+		.style("filter", dark ? "drop-shadow(0 3px 10px rgba(0,0,0,0.6))" : "drop-shadow(0 2px 6px rgba(0,0,0,0.12))");
 
 	// Icon
 	node.append("text")
@@ -403,8 +413,8 @@ function render() {
 		.attr("dy", "2.8em")
 		.attr("text-anchor", "middle")
 		.attr("class", "node-label")
-		.attr("fill", dark ? "#e2e8f0" : "#334155")
-		.attr("font-weight", "500")
+		.attr("fill", dark ? "#cbd5e1" : "#1e293b")
+		.attr("font-weight", "600")
 		.attr("font-size", "11px")
 		.text((d: any) => d.name);
 
@@ -428,8 +438,8 @@ function render() {
 			.attr("font-size", "10px")
 			.attr("font-weight", "600")
 			.attr("font-style", "italic")
-			.attr("fill", dark ? "#93c5fd" : "#1e40af")
-			.attr("opacity", dark ? 0.8 : 0.6)
+			.attr("fill", dark ? "#7dd3fc" : "#0369a1")
+			.attr("opacity", dark ? 0.7 : 0.6)
 			.attr("transform", (d: any) => {
 				const angle = getBezierAngle(d.source, d.target);
 				const centerX = (d.source.x + d.target.x) / 2;
