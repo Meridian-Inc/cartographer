@@ -115,7 +115,8 @@ class MetricsAggregator:
         
         Args:
             network_id: The network ID to fetch layout for. If None, falls back to
-                       the legacy single-file endpoint (for backwards compatibility).
+                       the legacy single-file endpoint, then tries to find the first
+                       available network (for backwards compatibility).
         """
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
@@ -135,17 +136,36 @@ class MetricsAggregator:
                         logger.warning(f"Network {network_id} not found")
                     return None
                 else:
-                    # Fallback to legacy single-file endpoint for backwards compatibility
+                    # First try legacy single-file endpoint for backwards compatibility
                     response = await client.get(
                         f"{BACKEND_SERVICE_URL}/api/load-layout",
                         headers=SERVICE_AUTH_HEADER
                     )
                     if response.status_code == 200:
                         data = response.json()
-                        if data.get("exists"):
+                        if data.get("exists") and data.get("layout"):
+                            logger.debug("Using legacy single-file layout")
                             return data.get("layout")
                     elif response.status_code == 401:
                         logger.error("Authentication failed fetching layout - check JWT_SECRET")
+                        return None
+                    
+                    # Legacy file doesn't exist, try to find first available network
+                    logger.debug("No legacy layout file, trying to find first available network...")
+                    networks_response = await client.get(
+                        f"{BACKEND_SERVICE_URL}/api/networks",
+                        headers=SERVICE_AUTH_HEADER
+                    )
+                    if networks_response.status_code == 200:
+                        networks = networks_response.json()
+                        if networks and len(networks) > 0:
+                            first_network_id = networks[0].get("id")
+                            if first_network_id:
+                                logger.info(f"Using first available network: {first_network_id}")
+                                # Recursively call with the found network_id
+                                return await self._fetch_network_layout(first_network_id)
+                    
+                    logger.warning("No networks available")
                     return None
         except httpx.ConnectError:
             logger.warning("Backend service unavailable - cannot fetch network layout")
@@ -819,13 +839,23 @@ class MetricsAggregator:
         
         Args:
             network_id: The network ID to get snapshot for. If None, returns
-                       the legacy single-network snapshot for backwards compatibility.
+                       the legacy single-network snapshot or any available snapshot
+                       for backwards compatibility.
         """
+        # First, try to get exact match
         if network_id in self._snapshots:
             return self._snapshots[network_id]
-        # Fallback to legacy snapshot if network_id not found but None exists
+        
+        # If specific network_id requested but not found, try legacy snapshot
         if network_id is not None and None in self._snapshots:
             return self._snapshots[None]
+        
+        # If network_id=None and no legacy snapshot, return any available snapshot
+        # This provides backwards compatibility when no network_id is specified
+        if network_id is None and self._snapshots:
+            # Return the first available snapshot (any network)
+            return next(iter(self._snapshots.values()))
+        
         return None
 
 

@@ -82,11 +82,19 @@ class MetricsContextService:
                     data = response.json()
                     if data.get("success") and data.get("snapshot"):
                         self._snapshot_available[network_id] = True
+                        logger.debug(f"Successfully fetched snapshot for network_id={network_id}")
                         return data["snapshot"]
+                    else:
+                        # Log why we didn't get a snapshot
+                        logger.warning(
+                            f"Metrics service returned 200 but no valid snapshot for network_id={network_id}: "
+                            f"success={data.get('success')}, has_snapshot={data.get('snapshot') is not None}, "
+                            f"message={data.get('message', 'no message')}"
+                        )
                 
                 # Snapshot not yet available (service may be starting up)
                 self._snapshot_available[network_id] = False
-                logger.info(f"Snapshot not yet available for network_id={network_id}: {response.status_code}")
+                logger.info(f"Snapshot not yet available for network_id={network_id}: status={response.status_code}")
                 return None
                 
         except httpx.ConnectError:
