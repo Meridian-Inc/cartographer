@@ -1,25 +1,25 @@
 <template>
-	<header class="flex items-center h-14 px-4 border-b border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-900">
+	<header class="flex items-center h-14 px-4 border-b border-slate-200 dark:border-slate-800/80 bg-white/95 dark:bg-slate-950/95 backdrop-blur-lg">
 		<!-- Left: Branding + Network Name -->
 		<div class="flex items-center gap-3 mr-6">
 			<!-- Back button (when viewing a specific network) -->
 			<router-link
 				v-if="networkId"
 				to="/"
-				class="flex items-center justify-center w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+				class="flex items-center justify-center w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800/60 hover:bg-slate-200 dark:hover:bg-slate-700/60 transition-colors"
 				title="Back to Networks"
 			>
 				<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-600 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 					<path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
 				</svg>
 			</router-link>
-			<div class="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-cyan-600 shadow-sm">
+			<div class="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 shadow-sm">
 				<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 					<path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
 				</svg>
 			</div>
 			<div class="flex flex-col">
-				<span class="text-sm font-semibold text-slate-800 dark:text-white tracking-tight">
+				<span class="text-sm font-semibold text-slate-900 dark:text-white tracking-tight">
 					{{ networkName || 'Cartographer' }}
 				</span>
 				<span class="text-[10px] text-slate-400 dark:text-slate-500 -mt-0.5">
@@ -38,7 +38,7 @@
 				leave-from-class="opacity-100 translate-y-0"
 				leave-to-class="opacity-0 -translate-y-1"
 			>
-				<div v-if="message" class="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+				<div v-if="message" class="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/50">
 					<div v-if="loading" class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
 					<div v-else class="w-2 h-2 rounded-full bg-emerald-500"></div>
 					<span class="text-xs text-slate-600 dark:text-slate-300">{{ message }}</span>
@@ -49,12 +49,12 @@
 		<!-- Right: Actions -->
 		<div class="flex items-center gap-1">
 			<!-- Primary Actions Group -->
-			<div class="flex items-center gap-1 p-1 rounded-lg bg-slate-100/80 dark:bg-slate-800/80">
+			<div class="flex items-center gap-1 p-1 rounded-lg bg-slate-100/80 dark:bg-slate-800/50">
 				<!-- Scan Button (hidden when loading) -->
 				<button 
 					v-if="!loading"
 					@click="runMapper" 
-					class="group flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all bg-blue-600 text-white hover:bg-blue-500 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+					class="group flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:from-cyan-400 hover:to-blue-500 shadow-sm shadow-cyan-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
 					:disabled="!props.canEdit"
 					:title="props.canEdit ? 'Scan network and generate map' : 'Write permission required'"
 				>
@@ -66,7 +66,7 @@
 				
 				<!-- Scanning in progress (shown when loading) -->
 				<div v-else class="flex items-center gap-1">
-					<div class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium bg-amber-500 text-white">
+					<div class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium bg-amber-500 text-white shadow-sm shadow-amber-500/20">
 						<svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
 							<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
 							<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -75,7 +75,7 @@
 					</div>
 					<button 
 						@click="cancelScan"
-						class="flex items-center gap-1 px-2 py-1.5 rounded-md text-sm font-medium bg-red-600 text-white hover:bg-red-500 transition-colors"
+						class="flex items-center gap-1 px-2 py-1.5 rounded-md text-sm font-medium bg-red-600 text-white hover:bg-red-500 transition-colors shadow-sm shadow-red-500/20"
 						title="Cancel network scan"
 					>
 						<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -89,8 +89,8 @@
 					@click="saveLayout" 
 					class="group flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed"
 					:class="props.hasUnsavedChanges && !saving
-						? 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-sm' 
-						: 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'"
+						? 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-sm shadow-emerald-500/20' 
+						: 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700/60'"
 					:disabled="!props.root.children?.length || !props.hasUnsavedChanges || saving || !props.canEdit"
 					:title="props.canEdit ? (props.hasUnsavedChanges ? 'Save changes' : 'No unsaved changes') : 'Write permission required'"
 				>
@@ -106,13 +106,13 @@
 			</div>
 
 			<!-- Divider -->
-			<div class="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-1"></div>
+			<div class="w-px h-6 bg-slate-200 dark:bg-slate-700/50 mx-1"></div>
 
 			<!-- File Operations Group -->
 			<div class="flex items-center gap-0.5">
 				<button 
 					@click="exportJSON" 
-					class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+					class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
 					:disabled="!props.root.children?.length"
 					title="Export as JSON file"
 				>
@@ -125,7 +125,7 @@
 				<label 
 					class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs transition-colors"
 					:class="props.canEdit 
-						? 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer' 
+						? 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/60 cursor-pointer' 
 						: 'text-slate-400 dark:text-slate-600 cursor-not-allowed'"
 					:title="props.canEdit ? 'Import JSON file' : 'Write permission required'"
 				>
@@ -138,7 +138,7 @@
 				
 				<button 
 					@click="showEmbedGenerator = true" 
-					class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+					class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
 					:disabled="!props.root.children?.length"
 					title="Generate embeddable map link"
 				>
@@ -150,12 +150,12 @@
 			</div>
 
 			<!-- Divider -->
-			<div class="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-1"></div>
+			<div class="w-px h-6 bg-slate-200 dark:bg-slate-700/50 mx-1"></div>
 
 			<!-- Layout Action -->
 			<button 
 				@click="cleanUpLayout" 
-				class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+				class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
 				:disabled="!props.canEdit || !props.root.children?.length"
 				:title="props.canEdit ? 'Auto-arrange nodes in clean layout' : 'Write permission required'"
 			>
@@ -166,7 +166,7 @@
 			</button>
 
 			<!-- Divider -->
-			<div class="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-1"></div>
+			<div class="w-px h-6 bg-slate-200 dark:bg-slate-700/50 mx-1"></div>
 
 			<!-- Settings Group -->
 			<div class="flex items-center gap-0.5">
@@ -177,7 +177,7 @@
 						class="flex items-center justify-center w-8 h-8 rounded-md transition-colors"
 						:class="showHealthSettings 
 							? 'bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400' 
-							: 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'"
+							: 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60'"
 						title="Health monitoring settings"
 					>
 						<svg xmlns="http://www.w3.org/2000/svg" class="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -196,9 +196,9 @@
 					>
 						<div 
 							v-if="showHealthSettings" 
-							class="absolute right-0 top-full mt-2 w-72 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-50 overflow-hidden"
+							class="absolute right-0 top-full mt-2 w-72 bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg border border-slate-200/80 dark:border-slate-700/50 rounded-xl shadow-xl z-50 overflow-hidden"
 						>
-							<div class="px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700">
+							<div class="px-4 py-3 bg-slate-50 dark:bg-slate-950/50 border-b border-slate-200/80 dark:border-slate-700/50">
 								<h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2">
 									<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 										<path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
@@ -223,7 +223,7 @@
 										@click="toggleMonitoring"
 										class="relative w-11 h-6 rounded-full transition-colors"
 										:class="[
-											healthConfig.enabled ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600',
+											healthConfig.enabled ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-700',
 											!props.canEdit ? 'opacity-50 cursor-not-allowed' : ''
 										]"
 										:disabled="!props.canEdit"
@@ -242,7 +242,7 @@
 										v-model="healthConfig.check_interval_seconds"
 										@change="updateHealthConfig"
 										:disabled="!props.canEdit"
-										class="w-full text-sm border border-slate-200 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-cyan-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+										class="w-full text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-slate-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-cyan-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
 									>
 										<option :value="10">10 seconds</option>
 										<option :value="30">30 seconds</option>
@@ -263,7 +263,7 @@
 										@click="toggleDns"
 										class="relative w-11 h-6 rounded-full transition-colors"
 										:class="[
-											healthConfig.include_dns ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600',
+											healthConfig.include_dns ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-700',
 											!props.canEdit ? 'opacity-50 cursor-not-allowed' : ''
 										]"
 										:disabled="!props.canEdit"
@@ -277,7 +277,7 @@
 							</div>
 							
 							<!-- Status Footer -->
-							<div class="px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700 text-xs text-slate-500 dark:text-slate-400">
+							<div class="px-4 py-3 bg-slate-50 dark:bg-slate-950/50 border-t border-slate-200/80 dark:border-slate-700/50 text-xs text-slate-500 dark:text-slate-400">
 								<div class="flex items-center justify-between">
 									<span v-if="healthStatus?.monitored_devices?.length">
 										{{ healthStatus.monitored_devices.length }} devices
@@ -295,7 +295,7 @@
 				<!-- Dark Mode Toggle -->
 				<button 
 					@click="toggleDarkMode" 
-					class="flex items-center justify-center w-8 h-8 rounded-md text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+					class="flex items-center justify-center w-8 h-8 rounded-md text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors"
 					title="Toggle dark mode"
 				>
 					<svg v-if="!isDark" xmlns="http://www.w3.org/2000/svg" class="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -308,7 +308,7 @@
 			</div>
 
 			<!-- Divider -->
-			<div class="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-1"></div>
+			<div class="w-px h-6 bg-slate-200 dark:bg-slate-700/50 mx-1"></div>
 
 			<!-- User Menu -->
 			<slot name="user-menu"></slot>
