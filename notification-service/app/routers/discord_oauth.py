@@ -90,10 +90,12 @@ async def discord_oauth_callback(
             global_prefs.discord_enabled = True
         else:
             # Create global preferences if they don't exist
+            # Use string value directly to match PostgreSQL enum (lowercase)
             new_prefs = UserGlobalNotificationPrefs(
                 user_id=user_id,
                 discord_user_id=discord_id,
                 discord_enabled=True,
+                minimum_priority="medium",
             )
             db.add(new_prefs)
         
