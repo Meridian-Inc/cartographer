@@ -738,12 +738,23 @@ async def test_user_global_notification(
 
 @router.get("/auth/discord/link")
 async def initiate_discord_oauth(
+    context_type: str = Query("global", description="Context type: 'network' or 'global'"),
+    network_id: Optional[int] = Query(None, description="Network ID if context_type is 'network'"),
     user: AuthenticatedUser = Depends(require_auth),
 ):
-    """Initiate Discord OAuth flow for current user."""
+    """
+    Initiate Discord OAuth flow for current user.
+    
+    Args:
+        context_type: "network" for per-network Discord link, "global" for global link
+        network_id: The network_id if context_type is "network"
+    """
+    params = f"user_id={user.user_id}&context_type={context_type}"
+    if network_id is not None:
+        params += f"&network_id={network_id}"
     return await proxy_request(
         "GET",
-        f"/auth/discord/link?user_id={user.user_id}",
+        f"/auth/discord/link?{params}",
         use_user_path=True,
     )
 
@@ -792,24 +803,48 @@ async def discord_oauth_callback(
 
 @router.delete("/users/me/discord/link")
 async def unlink_discord(
+    context_type: str = Query("global", description="Context type: 'network' or 'global'"),
+    network_id: Optional[int] = Query(None, description="Network ID if context_type is 'network'"),
     user: AuthenticatedUser = Depends(require_auth),
 ):
-    """Unlink Discord account from current user."""
+    """
+    Unlink Discord account from current user for a specific context.
+    
+    Args:
+        context_type: "network" for per-network Discord link, "global" for global link
+        network_id: The network_id if context_type is "network"
+    """
+    params = {"context_type": context_type}
+    if network_id is not None:
+        params["network_id"] = network_id
     return await proxy_request(
         "DELETE",
         f"/users/{user.user_id}/discord/link",
+        params=params,
         use_user_path=True,
     )
 
 
 @router.get("/users/me/discord")
 async def get_discord_info(
+    context_type: str = Query("global", description="Context type: 'network' or 'global'"),
+    network_id: Optional[int] = Query(None, description="Network ID if context_type is 'network'"),
     user: AuthenticatedUser = Depends(require_auth),
 ):
-    """Get linked Discord account info for current user."""
+    """
+    Get linked Discord account info for current user in a specific context.
+    
+    Args:
+        context_type: "network" for per-network Discord link, "global" for global link
+        network_id: The network_id if context_type is "network"
+    """
+    params = {"context_type": context_type}
+    if network_id is not None:
+        params["network_id"] = network_id
     return await proxy_request(
         "GET",
         f"/users/{user.user_id}/discord",
+        params=params,
         use_user_path=True,
     )
 

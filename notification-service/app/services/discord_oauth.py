@@ -1,13 +1,14 @@
 """
 Discord OAuth service for linking user accounts.
+Supports per-network and global Discord linking.
 """
 
 import os
 import logging
 import secrets
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Tuple
 from datetime import datetime, timedelta
-from sqlalchemy import select
+from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from urllib.parse import urlencode, quote
 import httpx
@@ -30,10 +31,22 @@ _oauth_states: Dict[str, Dict[str, Any]] = {}
 
 
 class DiscordOAuthService:
-    """Service for handling Discord OAuth flow"""
+    """Service for handling Discord OAuth flow with per-network and global context support"""
     
-    def get_authorization_url(self, user_id: str) -> str:
-        """Generate Discord OAuth authorization URL"""
+    def get_authorization_url(
+        self, 
+        user_id: str, 
+        context_type: str = "global",
+        context_id: Optional[int] = None
+    ) -> str:
+        """
+        Generate Discord OAuth authorization URL.
+        
+        Args:
+            user_id: The user initiating the OAuth flow
+            context_type: "network" or "global"
+            context_id: The network_id if context_type is "network", None for "global"
+        """
         if not DISCORD_CLIENT_ID:
             logger.error("DISCORD_CLIENT_ID not configured")
             raise ValueError("DISCORD_CLIENT_ID not configured. Please set DISCORD_CLIENT_ID environment variable.")
@@ -42,6 +55,8 @@ class DiscordOAuthService:
         state_token = secrets.token_urlsafe(32)
         _oauth_states[state_token] = {
             "user_id": user_id,
+            "context_type": context_type,
+            "context_id": context_id,
             "created_at": datetime.utcnow(),
         }
         
@@ -49,7 +64,7 @@ class DiscordOAuthService:
         scopes = ["identify", "email"]
         params = {
             "client_id": DISCORD_CLIENT_ID,
-            "redirect_uri": DISCORD_REDIRECT_URI,  # Will be URL-encoded by urlencode
+            "redirect_uri": DISCORD_REDIRECT_URI,
             "response_type": "code",
             "scope": " ".join(scopes),
             "state": state_token,
@@ -59,8 +74,13 @@ class DiscordOAuthService:
         query_string = urlencode(params)
         return f"https://discord.com/api/oauth2/authorize?{query_string}"
     
-    def validate_state(self, state_token: str) -> Optional[str]:
-        """Validate OAuth state token and return user_id"""
+    def validate_state(self, state_token: str) -> Optional[Tuple[str, str, Optional[int]]]:
+        """
+        Validate OAuth state token and return context information.
+        
+        Returns:
+            Tuple of (user_id, context_type, context_id) or None if invalid
+        """
         if state_token not in _oauth_states:
             return None
         
@@ -72,8 +92,10 @@ class DiscordOAuthService:
             return None
         
         user_id = state_data["user_id"]
+        context_type = state_data.get("context_type", "global")
+        context_id = state_data.get("context_id")
         del _oauth_states[state_token]  # One-time use
-        return user_id
+        return (user_id, context_type, context_id)
     
     async def exchange_code_for_tokens(self, code: str) -> Dict[str, Any]:
         """Exchange OAuth code for access token"""
@@ -124,13 +146,25 @@ class DiscordOAuthService:
         access_token: str,
         refresh_token: Optional[str],
         expires_in: int,
+        context_type: str = "global",
+        context_id: Optional[int] = None,
     ) -> DiscordUserLink:
-        """Create or update Discord user link"""
-        # Check if link exists
-        result = await db.execute(
-            select(DiscordUserLink).where(DiscordUserLink.user_id == user_id)
-        )
-        existing_link = result.scalar_one_or_none()
+        """
+        Create or update Discord user link for a specific context.
+        
+        Args:
+            user_id: The user's ID
+            discord_id: The Discord user ID
+            discord_username: The Discord username
+            discord_avatar: The Discord avatar URL
+            access_token: OAuth access token
+            refresh_token: OAuth refresh token
+            expires_in: Token expiration time in seconds
+            context_type: "network" or "global"
+            context_id: The network_id if context_type is "network", None for "global"
+        """
+        # Check if link exists for this context
+        existing_link = await self.get_link(db, user_id, context_type, context_id)
         
         expires_at = datetime.utcnow() + timedelta(seconds=expires_in) if expires_in else None
         
@@ -156,22 +190,66 @@ class DiscordOAuthService:
                 access_token=access_token,
                 refresh_token=refresh_token,
                 expires_at=expires_at,
+                context_type=context_type,
+                context_id=context_id,
             )
             db.add(new_link)
             await db.commit()
             await db.refresh(new_link)
             return new_link
     
-    async def get_link(self, db: AsyncSession, user_id: str) -> Optional[DiscordUserLink]:
-        """Get Discord link for user"""
-        result = await db.execute(
-            select(DiscordUserLink).where(DiscordUserLink.user_id == user_id)
-        )
+    async def get_link(
+        self, 
+        db: AsyncSession, 
+        user_id: str,
+        context_type: str = "global",
+        context_id: Optional[int] = None
+    ) -> Optional[DiscordUserLink]:
+        """
+        Get Discord link for user in a specific context.
+        
+        Args:
+            user_id: The user's ID
+            context_type: "network" or "global"
+            context_id: The network_id if context_type is "network", None for "global"
+        """
+        if context_type == "global" or context_id is None:
+            result = await db.execute(
+                select(DiscordUserLink).where(
+                    and_(
+                        DiscordUserLink.user_id == user_id,
+                        DiscordUserLink.context_type == "global"
+                    )
+                )
+            )
+        else:
+            result = await db.execute(
+                select(DiscordUserLink).where(
+                    and_(
+                        DiscordUserLink.user_id == user_id,
+                        DiscordUserLink.context_type == context_type,
+                        DiscordUserLink.context_id == context_id
+                    )
+                )
+            )
         return result.scalar_one_or_none()
     
-    async def delete_link(self, db: AsyncSession, user_id: str) -> bool:
-        """Delete Discord link for user"""
-        link = await self.get_link(db, user_id)
+    async def delete_link(
+        self, 
+        db: AsyncSession, 
+        user_id: str,
+        context_type: str = "global",
+        context_id: Optional[int] = None
+    ) -> bool:
+        """
+        Delete Discord link for user in a specific context.
+        
+        Args:
+            user_id: The user's ID
+            context_type: "network" or "global"
+            context_id: The network_id if context_type is "network", None for "global"
+        """
+        link = await self.get_link(db, user_id, context_type, context_id)
         if link:
             await db.delete(link)
             await db.commit()

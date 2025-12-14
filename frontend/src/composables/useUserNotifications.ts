@@ -180,12 +180,20 @@ export function useUserNotifications() {
     }
   }
 
-  // Discord OAuth
-  async function initiateDiscordOAuth(): Promise<{ authorization_url: string }> {
+  // Discord OAuth - Context-aware (per-network or global)
+  async function initiateDiscordOAuth(
+    contextType: 'network' | 'global' = 'global',
+    networkId?: number
+  ): Promise<{ authorization_url: string }> {
     error.value = null;
     try {
+      const params: Record<string, string | number> = { context_type: contextType };
+      if (contextType === 'network' && networkId !== undefined) {
+        params.network_id = networkId;
+      }
       const response = await axios.get<{ authorization_url: string }>(
-        `${API_BASE}/auth/discord/link`
+        `${API_BASE}/auth/discord/link`,
+        { params }
       );
       return response.data;
     } catch (e: any) {
@@ -194,11 +202,19 @@ export function useUserNotifications() {
     }
   }
 
-  async function getDiscordLink(): Promise<DiscordLinkInfo> {
+  async function getDiscordLink(
+    contextType: 'network' | 'global' = 'global',
+    networkId?: number
+  ): Promise<DiscordLinkInfo> {
     error.value = null;
     try {
+      const params: Record<string, string | number> = { context_type: contextType };
+      if (contextType === 'network' && networkId !== undefined) {
+        params.network_id = networkId;
+      }
       const response = await axios.get<DiscordLinkInfo>(
-        `${API_BASE}/users/me/discord`
+        `${API_BASE}/users/me/discord`,
+        { params }
       );
       return response.data;
     } catch (e: any) {
@@ -207,10 +223,17 @@ export function useUserNotifications() {
     }
   }
 
-  async function unlinkDiscord(): Promise<void> {
+  async function unlinkDiscord(
+    contextType: 'network' | 'global' = 'global',
+    networkId?: number
+  ): Promise<void> {
     error.value = null;
     try {
-      await axios.delete(`${API_BASE}/users/me/discord/link`);
+      const params: Record<string, string | number> = { context_type: contextType };
+      if (contextType === 'network' && networkId !== undefined) {
+        params.network_id = networkId;
+      }
+      await axios.delete(`${API_BASE}/users/me/discord/link`, { params });
     } catch (e: any) {
       error.value = e.response?.data?.detail || e.message;
       throw e;

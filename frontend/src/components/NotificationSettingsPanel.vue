@@ -78,13 +78,13 @@
 								:network-id="networkId"
 								:preferences="networkPrefs"
 								:service-status="serviceStatus"
-								:discord-link="discordLink"
+								:discord-link="networkDiscordLink"
 								:anomaly-stats="anomalyStats"
 								@update="handleNetworkUpdate"
 								@test-email="handleTestEmail"
 								@test-discord="handleTestDiscord"
-								@link-discord="handleLinkDiscord"
-								@unlink-discord="handleUnlinkDiscord"
+								@link-discord="handleLinkNetworkDiscord"
+								@unlink-discord="handleUnlinkNetworkDiscord"
 							/>
 						</template>
 
@@ -93,12 +93,12 @@
 							<GlobalSettings
 								:preferences="globalPrefs"
 								:service-status="serviceStatus"
-								:discord-link="discordLink"
+								:discord-link="globalDiscordLink"
 								@update="handleGlobalUpdate"
 								@test-email="handleTestGlobalEmail"
 								@test-discord="handleTestGlobalDiscord"
-								@link-discord="handleLinkDiscord"
-								@unlink-discord="handleUnlinkDiscord"
+								@link-discord="handleLinkGlobalDiscord"
+								@unlink-discord="handleUnlinkGlobalDiscord"
 							/>
 						</template>
 					</template>
@@ -160,7 +160,9 @@ const {
 const networkPrefs = ref<any>(null);
 const globalPrefs = ref<any>(null);
 const serviceStatus = ref<any>(null);
-const discordLink = ref<any>(null);
+// Separate Discord links for network and global contexts
+const networkDiscordLink = ref<any>(null);
+const globalDiscordLink = ref<any>(null);
 const anomalyStats = ref<any>(null);
 // Use our own loading state for initial load only
 const initialLoading = ref(true);
@@ -177,20 +179,26 @@ async function loadData(showLoading = false) {
 		initialLoading.value = true;
 	}
 	try {
-		// Load all data in parallel for speed
-		const [status, link, globalP] = await Promise.all([
+		// Load global data in parallel
+		const [status, globalLink, globalP] = await Promise.all([
 			getServiceStatus(),
-			getDiscordLink(),
+			getDiscordLink('global'),
 			getGlobalPreferences(),
 		]);
 		
 		serviceStatus.value = status;
-		discordLink.value = link;
+		globalDiscordLink.value = globalLink;
 		globalPrefs.value = globalP;
 		
-		// Load network preferences if in network
+		// Load network-specific data if in network context
 		if (props.networkId !== null) {
-			networkPrefs.value = await getNetworkPreferences(props.networkId);
+			const [networkP, networkLink] = await Promise.all([
+				getNetworkPreferences(props.networkId),
+				getDiscordLink('network', props.networkId),
+			]);
+			networkPrefs.value = networkP;
+			networkDiscordLink.value = networkLink;
+			
 			try {
 				anomalyStats.value = await getAnomalyStats(props.networkId);
 			} catch (e) {
@@ -260,9 +268,30 @@ async function handleTestGlobalDiscord() {
 	}
 }
 
-async function handleLinkDiscord() {
+// Network-specific Discord link handlers
+async function handleLinkNetworkDiscord() {
+	if (props.networkId === null) return;
+	await handleLinkDiscordWithContext('network', props.networkId);
+}
+
+async function handleUnlinkNetworkDiscord() {
+	if (props.networkId === null) return;
+	await handleUnlinkDiscordWithContext('network', props.networkId);
+}
+
+// Global Discord link handlers
+async function handleLinkGlobalDiscord() {
+	await handleLinkDiscordWithContext('global');
+}
+
+async function handleUnlinkGlobalDiscord() {
+	await handleUnlinkDiscordWithContext('global');
+}
+
+// Generic context-aware Discord link handler
+async function handleLinkDiscordWithContext(contextType: 'network' | 'global', networkId?: number) {
 	try {
-		const { authorization_url } = await initiateDiscordOAuth();
+		const { authorization_url } = await initiateDiscordOAuth(contextType, networkId);
 		const popup = window.open(authorization_url, 'discord_oauth', 'width=600,height=700');
 		
 		if (!popup) {
@@ -283,9 +312,14 @@ async function handleLinkDiscord() {
 				linkCompleted = true;
 				
 				if (event.data.status === 'success') {
-					// Reload all data once
-					await loadData();
-					showToast(true, 'Discord account linked successfully!');
+					// Reload data for the specific context
+					if (contextType === 'network' && networkId !== undefined) {
+						networkDiscordLink.value = await getDiscordLink('network', networkId);
+					} else {
+						globalDiscordLink.value = await getDiscordLink('global');
+					}
+					const contextLabel = contextType === 'network' ? 'network' : 'global';
+					showToast(true, `Discord account linked successfully for ${contextLabel}!`);
 				} else {
 					showToast(false, 'Discord linking failed', event.data.message || 'Unknown error');
 				}
@@ -302,7 +336,11 @@ async function handleLinkDiscord() {
 				
 				// Only reload if we haven't already handled via postMessage
 				if (!linkCompleted) {
-					await loadData();
+					if (contextType === 'network' && networkId !== undefined) {
+						networkDiscordLink.value = await getDiscordLink('network', networkId);
+					} else {
+						globalDiscordLink.value = await getDiscordLink('global');
+					}
 				}
 			}
 		}, 500);
@@ -317,16 +355,22 @@ async function handleLinkDiscord() {
 	}
 }
 
-async function handleUnlinkDiscord() {
-	if (!confirm('Are you sure you want to unlink your Discord account?')) {
+// Generic context-aware Discord unlink handler
+async function handleUnlinkDiscordWithContext(contextType: 'network' | 'global', networkId?: number) {
+	const contextLabel = contextType === 'network' ? 'this network' : 'global settings';
+	if (!confirm(`Are you sure you want to unlink your Discord account from ${contextLabel}?`)) {
 		return;
 	}
 	
 	try {
-		await unlinkDiscord();
-		// Reload all data to get updated preferences and discord link status
-		await loadData();
-		showToast(true, 'Discord account unlinked successfully');
+		await unlinkDiscord(contextType, networkId);
+		// Update the specific discord link status
+		if (contextType === 'network' && networkId !== undefined) {
+			networkDiscordLink.value = { linked: false };
+		} else {
+			globalDiscordLink.value = { linked: false };
+		}
+		showToast(true, `Discord account unlinked from ${contextLabel} successfully`);
 	} catch (e: any) {
 		showToast(false, 'Failed to unlink Discord', e.message || 'Unknown error');
 	}

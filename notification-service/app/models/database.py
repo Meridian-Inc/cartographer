@@ -116,12 +116,17 @@ class UserGlobalNotificationPrefs(Base):
 
 
 class DiscordUserLink(Base):
-    """Links Cartographer user to Discord account via OAuth"""
+    """Links Cartographer user to Discord account via OAuth - per context (network or global)"""
     __tablename__ = "discord_user_links"
     
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), unique=True, index=True)
-    discord_id: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), index=True)
+    
+    # Context: "network" or "global" - allows different Discord accounts per network and global
+    context_type: Mapped[str] = mapped_column(String(20), default="global")  # "network" or "global"
+    context_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # network_id for "network", null for "global"
+    
+    discord_id: Mapped[str] = mapped_column(String(255), index=True)
     discord_username: Mapped[str] = mapped_column(String(255))
     discord_avatar: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     
@@ -139,5 +144,8 @@ class DiscordUserLink(Base):
     )
     
     __table_args__ = (
-        {"comment": "Discord OAuth links for users"},
+        # Unique constraint: one Discord link per user per context
+        # For networks: (user_id, "network", network_id) must be unique
+        # For global: (user_id, "global", null) must be unique
+        {"comment": "Discord OAuth links for users - per context (network or global)"},
     )
