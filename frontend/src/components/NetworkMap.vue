@@ -20,6 +20,8 @@
 					oklch(0.21 0.018 255) 75%, 
 					oklch(0.22 0.025 260) 100%
 				);"></div>
+			<!-- Blue noise dither overlay - prevents color banding -->
+			<div class="absolute inset-0 blue-noise-dither"></div>
 			<!-- Subtle radial accent glow -->
 			<div class="absolute inset-0 opacity-40 dark:opacity-25" style="background: radial-gradient(ellipse 100% 80% at 50% 30%, rgba(56, 189, 248, 0.08) 0%, rgba(56, 189, 248, 0.02) 35%, transparent 55%)"></div>
 			<!-- Bottom corner accent -->

@@ -21,6 +21,8 @@
 						oklch(1 0 0) 100%
 					)`"
 			></div>
+			<!-- Blue noise dither overlay - prevents color banding -->
+			<div class="absolute inset-0 blue-noise-dither"></div>
 			<!-- Subtle radial accent glow with smoother falloff -->
 			<div 
 				class="absolute inset-0"
