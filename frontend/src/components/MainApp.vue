@@ -1588,16 +1588,6 @@ function onRemoveNode() {
 }
 
 function onAddNode() {
-	// Initialize an empty map if none exists
-	if (!parsed.value) {
-		parsed.value = {
-			raw: '',
-			devices: [],
-			root: { id: 'root', name: 'Network', role: 'group', children: [] }
-		};
-	}
-	const root = parsed.value.root;
-	
 	// Generate a unique ID for the new node
 	const timestamp = Date.now();
 	const randomSuffix = Math.random().toString(36).substring(2, 6);
@@ -1606,14 +1596,36 @@ function onAddNode() {
 	// Create a new node with default values
 	const newNode: TreeNode = {
 		id: newId,
-		name: `New Device (${newId.slice(-8)})`,
+		name: `New Device`,
 		role: 'unknown',
 		ip: '',
 		hostname: 'New Device',
+		children: [],
 	};
 	
 	// Initialize version tracking for the new node
 	initializeNodeVersion(newNode, 'manual');
+	
+	// Initialize an empty map if none exists - the first node becomes the root
+	if (!parsed.value) {
+		// First node becomes the root (gateway/central device)
+		parsed.value = {
+			raw: '',
+			devices: [],
+			root: newNode
+		};
+		
+		// Select the new node so user can immediately configure it
+		selectedId.value = newId;
+		
+		// Trigger re-render and auto-save
+		parsed.value = { ...parsed.value };
+		triggerAutoSave();
+		return;
+	}
+	
+	// Existing map - add node as a child
+	const root = parsed.value.root;
 	
 	// Set parent to root by default
 	(newNode as any).parentId = root.id;

@@ -129,7 +129,7 @@
 										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
 									</svg>
 								</div>
-								<div class="flex items-center gap-2">
+								<div class="flex flex-col items-end gap-2">
 									<span
 										v-if="network.is_owner"
 										class="px-2 py-0.5 text-xs rounded-full bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400"
@@ -142,6 +142,27 @@
 									>
 										{{ network.permission }}
 									</span>
+									<!-- Edit & Delete Buttons -->
+									<div v-if="canWriteNetwork(network)" class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+										<button
+											@click.prevent.stop="openEditModal(network)"
+											class="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600/50 hover:text-slate-700 dark:hover:text-white transition-all"
+											title="Edit network"
+										>
+											<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+											</svg>
+										</button>
+										<button
+											@click.prevent.stop="confirmDeleteNetwork(network)"
+											class="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400 transition-all"
+											title="Delete network"
+										>
+											<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+											</svg>
+										</button>
+									</div>
 								</div>
 							</div>
 
@@ -155,18 +176,6 @@
 								</svg>
 							</div>
 						</router-link>
-
-							<!-- Edit Button -->
-							<button
-								v-if="canWriteNetwork(network)"
-								@click.stop="openEditModal(network)"
-								class="absolute top-4 right-4 p-2 rounded-lg bg-slate-100 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 opacity-0 group-hover:opacity-100 hover:bg-slate-200 dark:hover:bg-slate-600/50 hover:text-slate-700 dark:hover:text-white transition-all"
-								title="Edit network"
-							>
-								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-								</svg>
-							</button>
 						</div>
 					</div>
 				</div>
@@ -353,6 +362,82 @@
 			</div>
 		</Transition>
 
+		<!-- Delete Network Confirmation Modal -->
+		<Transition
+			enter-active-class="transition duration-200"
+			enter-from-class="opacity-0"
+			enter-to-class="opacity-100"
+			leave-active-class="transition duration-150"
+			leave-from-class="opacity-100"
+			leave-to-class="opacity-0"
+		>
+			<div v-if="showDeleteModal" class="fixed inset-0 z-50 flex items-center justify-center p-6">
+				<div class="absolute inset-0 bg-black/50 dark:bg-slate-950/80 backdrop-blur-sm" @click="closeDeleteModal" />
+
+				<Transition
+					enter-active-class="transition duration-200 delay-75"
+					enter-from-class="opacity-0 scale-95"
+					enter-to-class="opacity-100 scale-100"
+					leave-active-class="transition duration-150"
+					leave-from-class="opacity-100 scale-100"
+					leave-to-class="opacity-0 scale-95"
+				>
+					<div v-if="showDeleteModal" class="relative bg-white dark:bg-slate-800/90 backdrop-blur-xl border border-slate-200 dark:border-slate-700/50 rounded-2xl p-8 w-full max-w-md shadow-2xl">
+						<div class="flex items-center gap-4 mb-6">
+							<div class="w-12 h-12 rounded-xl bg-red-100 dark:bg-red-500/20 flex items-center justify-center">
+								<svg class="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+								</svg>
+							</div>
+							<div>
+								<h2 class="text-xl font-bold text-slate-900 dark:text-white">Delete Network</h2>
+								<p class="text-sm text-slate-500 dark:text-slate-400">This action cannot be undone</p>
+							</div>
+						</div>
+
+						<p class="text-slate-600 dark:text-slate-300 mb-6">
+							Are you sure you want to delete <span class="font-semibold text-slate-900 dark:text-white">"{{ deletingNetwork?.name }}"</span>? All data associated with this network will be permanently removed.
+						</p>
+
+						<Transition
+							enter-active-class="transition duration-200"
+							enter-from-class="opacity-0"
+							enter-to-class="opacity-100"
+						>
+							<div v-if="deleteError" class="mb-4 p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-500/50 rounded-xl">
+								<p class="text-sm text-red-600 dark:text-red-400">{{ deleteError }}</p>
+							</div>
+						</Transition>
+
+						<div class="flex gap-3">
+							<button
+								type="button"
+								@click="closeDeleteModal"
+								class="flex-1 py-3 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+							>
+								Cancel
+							</button>
+							<button
+								type="button"
+								@click="executeDeleteNetwork"
+								:disabled="isDeleting"
+								class="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl shadow-lg shadow-red-500/25 transition-all hover:shadow-red-500/40 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+							>
+								<span v-if="isDeleting" class="flex items-center justify-center gap-2">
+									<svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+										<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+										<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+									</svg>
+									Deleting...
+								</span>
+								<span v-else>Delete Network</span>
+							</button>
+						</div>
+					</div>
+				</Transition>
+			</div>
+		</Transition>
+
 		<!-- User Management Modal -->
 		<UserManagement v-if="showUserManagement" @close="showUserManagement = false" />
 		<NotificationSettingsPanel 
@@ -376,7 +461,7 @@ import UserManagement from "./UserManagement.vue";
 
 const router = useRouter();
 const { isAuthenticated, checkSetupStatus, verifySession } = useAuth();
-const { networks, loading: networksLoading, clearNetworks, fetchNetworks, createNetwork: createNetworkApi, updateNetwork: updateNetworkApi, canWriteNetwork } = useNetworks();
+const { networks, loading: networksLoading, clearNetworks, fetchNetworks, createNetwork: createNetworkApi, updateNetwork: updateNetworkApi, deleteNetwork: deleteNetworkApi, canWriteNetwork } = useNetworks();
 
 // Auth state
 const authLoading = ref(true);
@@ -407,6 +492,12 @@ const editNetwork = reactive({
 	name: "",
 	description: "",
 });
+
+// Delete Modal state
+const showDeleteModal = ref(false);
+const isDeleting = ref(false);
+const deleteError = ref("");
+const deletingNetwork = ref<Network | null>(null);
 
 // Check auth status on mount
 async function initAuth() {
@@ -523,6 +614,34 @@ async function saveEditNetwork() {
 		editError.value = e.message || "Failed to update network";
 	} finally {
 		isEditing.value = false;
+	}
+}
+
+function confirmDeleteNetwork(network: Network) {
+	deletingNetwork.value = network;
+	deleteError.value = "";
+	showDeleteModal.value = true;
+}
+
+function closeDeleteModal() {
+	showDeleteModal.value = false;
+	deleteError.value = "";
+	deletingNetwork.value = null;
+}
+
+async function executeDeleteNetwork() {
+	if (!deletingNetwork.value) return;
+
+	isDeleting.value = true;
+	deleteError.value = "";
+
+	try {
+		await deleteNetworkApi(deletingNetwork.value.id);
+		closeDeleteModal();
+	} catch (e: any) {
+		deleteError.value = e.message || "Failed to delete network";
+	} finally {
+		isDeleting.value = false;
 	}
 }
 
