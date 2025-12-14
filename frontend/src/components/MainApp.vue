@@ -526,7 +526,7 @@
 				v-if="showAssistant" 
 				class="fixed right-0 top-0 bottom-0 w-[420px] z-50 shadow-2xl"
 			>
-				<AssistantChat @close="showAssistant = false" />
+				<AssistantChat :networkId="props.networkId" @close="showAssistant = false" />
 			</div>
 		</Transition>
 

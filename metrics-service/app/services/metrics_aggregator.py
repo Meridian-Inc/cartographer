@@ -114,14 +114,14 @@ class MetricsAggregator:
         """Fetch the saved network layout from the backend.
         
         Args:
-            network_id: The network ID to fetch layout for. If None, falls back to
-                       the legacy single-file endpoint, then tries to find the first
-                       available network (for backwards compatibility).
+            network_id: The network ID to fetch layout for. Required for multi-tenant
+                       mode. If None, falls back to the legacy single-file endpoint
+                       for backwards compatibility only.
         """
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 if network_id is not None:
-                    # Use multi-tenant endpoint
+                    # Use multi-tenant endpoint - requires explicit network_id
                     response = await client.get(
                         f"{BACKEND_SERVICE_URL}/api/networks/{network_id}/layout",
                         headers=SERVICE_AUTH_HEADER
@@ -129,14 +129,16 @@ class MetricsAggregator:
                     if response.status_code == 200:
                         data = response.json()
                         if data.get("exists"):
+                            logger.debug(f"Fetched layout for network {network_id}")
                             return data.get("layout")
                     elif response.status_code == 401:
                         logger.error("Authentication failed fetching layout - check JWT_SECRET")
                     elif response.status_code == 404:
-                        logger.warning(f"Network {network_id} not found")
+                        logger.warning(f"Network {network_id} not found or no layout exists")
                     return None
                 else:
-                    # First try legacy single-file endpoint for backwards compatibility
+                    # Legacy single-file endpoint for backwards compatibility only
+                    # This should only be used for non-multi-tenant deployments
                     response = await client.get(
                         f"{BACKEND_SERVICE_URL}/api/load-layout",
                         headers=SERVICE_AUTH_HEADER
@@ -148,24 +150,10 @@ class MetricsAggregator:
                             return data.get("layout")
                     elif response.status_code == 401:
                         logger.error("Authentication failed fetching layout - check JWT_SECRET")
-                        return None
                     
-                    # Legacy file doesn't exist, try to find first available network
-                    logger.debug("No legacy layout file, trying to find first available network...")
-                    networks_response = await client.get(
-                        f"{BACKEND_SERVICE_URL}/api/networks",
-                        headers=SERVICE_AUTH_HEADER
-                    )
-                    if networks_response.status_code == 200:
-                        networks = networks_response.json()
-                        if networks and len(networks) > 0:
-                            first_network_id = networks[0].get("id")
-                            if first_network_id:
-                                logger.info(f"Using first available network: {first_network_id}")
-                                # Recursively call with the found network_id
-                                return await self._fetch_network_layout(first_network_id)
-                    
-                    logger.warning("No networks available")
+                    # No legacy layout - this is expected in multi-tenant mode
+                    # Clients must provide network_id
+                    logger.debug("No legacy layout found - network_id required for multi-tenant mode")
                     return None
         except httpx.ConnectError:
             logger.warning("Backend service unavailable - cannot fetch network layout")
@@ -838,23 +826,22 @@ class MetricsAggregator:
         """Get the last generated snapshot for a specific network.
         
         Args:
-            network_id: The network ID to get snapshot for. If None, returns
-                       the legacy single-network snapshot or any available snapshot
-                       for backwards compatibility.
+            network_id: The network ID to get snapshot for. Required for multi-tenant
+                       mode. If None, returns the legacy single-network snapshot
+                       for backwards compatibility only.
         """
-        # First, try to get exact match
+        # Try to get exact match for the requested network_id
         if network_id in self._snapshots:
             return self._snapshots[network_id]
         
-        # If specific network_id requested but not found, try legacy snapshot
-        if network_id is not None and None in self._snapshots:
-            return self._snapshots[None]
+        # If specific network_id requested but not found, don't fall back
+        # This is intentional for security - users should only see their own networks
+        if network_id is not None:
+            return None
         
-        # If network_id=None and no legacy snapshot, return any available snapshot
-        # This provides backwards compatibility when no network_id is specified
-        if network_id is None and self._snapshots:
-            # Return the first available snapshot (any network)
-            return next(iter(self._snapshots.values()))
+        # Legacy mode only: if network_id=None and we have a legacy snapshot
+        if None in self._snapshots:
+            return self._snapshots[None]
         
         return None
 

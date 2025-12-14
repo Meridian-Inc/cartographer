@@ -289,6 +289,11 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import axios from 'axios';
 import { marked } from 'marked';
 
+// Props for network context
+const props = defineProps<{
+	networkId?: number;
+}>();
+
 const emit = defineEmits(['close']);
 
 interface ChatMessage {
@@ -500,7 +505,11 @@ function formatModelName(model: string): string {
 
 async function fetchContext() {
 	try {
-		const response = await axios.get('/api/assistant/context');
+		const params: Record<string, any> = {};
+		if (props.networkId !== undefined) {
+			params.network_id = props.networkId;
+		}
+		const response = await axios.get('/api/assistant/context', { params });
 		contextSummary.value = response.data;
 		
 		// Check if context is actually available or loading
@@ -521,7 +530,11 @@ async function fetchContext() {
 
 async function fetchContextStatus() {
 	try {
-		const response = await axios.get('/api/assistant/context/status');
+		const params: Record<string, any> = {};
+		if (props.networkId !== undefined) {
+			params.network_id = props.networkId;
+		}
+		const response = await axios.get('/api/assistant/context/status', { params });
 		const status: ContextStatus = response.data;
 		
 		if (status.ready && status.snapshot_available) {
@@ -555,8 +568,12 @@ async function refreshContext() {
 	
 	contextRefreshing.value = true;
 	try {
+		const params: Record<string, any> = {};
+		if (props.networkId !== undefined) {
+			params.network_id = props.networkId;
+		}
 		// Call the refresh endpoint
-		await axios.post('/api/assistant/context/refresh');
+		await axios.post('/api/assistant/context/refresh', null, { params });
 		// Then fetch the updated context
 		await fetchContext();
 	} catch (err) {
@@ -623,6 +640,7 @@ async function handleSubmit() {
 				model: selectedModel.value || undefined,
 				conversation_history: history,
 				include_network_context: includeContext.value,
+				network_id: props.networkId,
 			}),
 		});
 
