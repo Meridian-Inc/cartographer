@@ -26,6 +26,10 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 # Application code
 COPY app/ /app/app/
 
+# Database migrations (for automatic schema setup on startup)
+COPY alembic.ini /app/alembic.ini
+COPY migrations/ /app/migrations/
+
 # Create data directory for persistent storage
 RUN mkdir -p /app/data
 
