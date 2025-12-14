@@ -1,12 +1,14 @@
 <template>
 	<!-- Loading State (only when not in network mode) -->
-	<div v-if="!isNetworkMode && authLoading" class="h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-		<div class="text-center">
-			<svg class="animate-spin h-12 w-12 text-cyan-500 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+	<div v-if="!isNetworkMode && authLoading" class="h-screen flex items-center justify-center bg-white dark:bg-slate-950 relative">
+		<!-- Background mesh gradient -->
+		<div class="absolute inset-0 bg-mesh-gradient-light dark:bg-mesh-gradient opacity-50 dark:opacity-30 pointer-events-none" />
+		<div class="relative text-center">
+			<svg class="animate-spin h-12 w-12 text-cyan-500 dark:text-cyan-400 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
 				<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
 				<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
 			</svg>
-			<p class="text-slate-400">Loading Cartographer...</p>
+			<p class="text-slate-600 dark:text-slate-400">Loading Cartographer...</p>
 		</div>
 	</div>
 
@@ -17,7 +19,7 @@
 	<LoginScreen v-else-if="!isNetworkMode && !isAuthenticated" @success="onLoginSuccess" />
 
 	<!-- Main Application -->
-	<div v-else class="h-screen flex flex-col bg-slate-50 dark:bg-slate-900">
+	<div v-else class="h-screen flex flex-col bg-white dark:bg-slate-950 relative">
 		<!-- Version Update Banner -->
 		<VersionBanner />
 		
@@ -62,8 +64,11 @@
 				</div>
 			</template>
 		</MapControls>
-		<div class="flex flex-1 min-h-0">
-			<aside class="w-80 border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+		<!-- Background mesh gradient overlay -->
+		<div class="absolute inset-0 bg-mesh-gradient-light dark:bg-mesh-gradient opacity-30 dark:opacity-20 pointer-events-none" />
+		
+		<div class="flex flex-1 min-h-0 relative z-10">
+			<aside class="w-80 border-r border-slate-200 dark:border-slate-800/80 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm">
 				<DeviceList
 					v-if="parsed"
 					:root="parsed.root"
@@ -74,14 +79,14 @@
 					Run the mapper to generate a network map, or load a saved layout.
 				</div>
 			</aside>
-			<main class="flex-1 p-3 relative bg-slate-50 dark:bg-slate-900">
+			<main class="flex-1 p-3 relative bg-slate-50/50 dark:bg-slate-950/50">
 				<!-- Unified top toolbar -->
 				<div class="absolute top-3 left-3 right-3 z-10 flex items-center justify-between pointer-events-none">
 					<!-- Left: Navigation controls (horizontal) -->
-					<div class="flex items-center h-8 bg-white/95 dark:bg-slate-800/95 backdrop-blur border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm px-1 pointer-events-auto">
+					<div class="flex items-center h-8 bg-white/90 dark:bg-slate-900/90 backdrop-blur-lg border border-slate-200/80 dark:border-slate-700/50 rounded-lg shadow-sm px-1 pointer-events-auto">
 						<button
 							@click="networkMapRef?.zoomIn()"
-							class="h-6 w-6 flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors text-slate-600 dark:text-slate-400"
+							class="h-6 w-6 flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors text-slate-600 dark:text-slate-400"
 							title="Zoom in"
 						>
 							<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -90,17 +95,17 @@
 						</button>
 						<button
 							@click="networkMapRef?.zoomOut()"
-							class="h-6 w-6 flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors text-slate-600 dark:text-slate-400"
+							class="h-6 w-6 flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors text-slate-600 dark:text-slate-400"
 							title="Zoom out"
 						>
 							<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 								<path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7" />
 							</svg>
 						</button>
-						<div class="w-px h-4 bg-slate-200 dark:bg-slate-600 mx-0.5"></div>
+						<div class="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-0.5"></div>
 						<button
 							@click="networkMapRef?.fitToView()"
-							class="h-6 w-6 flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors text-slate-600 dark:text-slate-400"
+							class="h-6 w-6 flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors text-slate-600 dark:text-slate-400"
 							title="Fit all nodes in view"
 						>
 							<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -109,7 +114,7 @@
 						</button>
 						<button
 							@click="networkMapRef?.resetView()"
-							class="h-6 w-6 flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors text-slate-600 dark:text-slate-400"
+							class="h-6 w-6 flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors text-slate-600 dark:text-slate-400"
 							title="Reset view to origin"
 						>
 							<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -124,7 +129,7 @@
 						<button
 							v-if="mode === 'edit'"
 							@click="onAddNode"
-							class="flex items-center gap-1.5 px-2.5 h-8 text-xs font-medium rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm transition-colors"
+							class="flex items-center gap-1.5 px-2.5 h-8 text-xs font-medium rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm shadow-emerald-500/20 transition-colors"
 							title="Add a new node to the network map"
 						>
 							<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
@@ -134,11 +139,11 @@
 						</button>
 
 						<!-- Mode toggle -->
-						<div class="flex items-center h-8 bg-white/95 dark:bg-slate-800/95 backdrop-blur border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm px-0.5">
+						<div class="flex items-center h-8 bg-white/90 dark:bg-slate-900/90 backdrop-blur-lg border border-slate-200/80 dark:border-slate-700/50 rounded-lg shadow-sm px-0.5">
 							<button
 								class="px-2.5 h-6 text-xs font-medium rounded-md transition-colors flex items-center gap-1.5"
 								:class="mode === 'pan' 
-									? 'bg-cyan-500 text-white shadow-sm' 
+									? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-sm' 
 									: 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'"
 								@click="mode = 'pan'"
 								title="Pan mode - drag to navigate"
@@ -152,7 +157,7 @@
 								class="px-2.5 h-6 text-xs font-medium rounded-md transition-colors flex items-center gap-1.5"
 								:class="[
 									mode === 'edit' 
-										? 'bg-cyan-500 text-white shadow-sm' 
+										? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-sm' 
 										: 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200',
 									!effectiveCanWrite ? 'opacity-40 cursor-not-allowed' : ''
 								]"
@@ -172,8 +177,8 @@
 							@click="toggleHistoryPanel"
 							class="h-8 w-8 flex items-center justify-center rounded-lg border transition-colors"
 							:class="showHistoryPanel 
-								? 'bg-amber-500 text-white border-amber-500 shadow-sm' 
-								: 'bg-white/95 dark:bg-slate-800/95 backdrop-blur border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:border-amber-300 dark:hover:border-amber-600'"
+								? 'bg-amber-500 text-white border-amber-500 shadow-sm shadow-amber-500/20' 
+								: 'bg-white/90 dark:bg-slate-900/90 backdrop-blur-lg border-slate-200/80 dark:border-slate-700/50 text-slate-600 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:border-amber-300 dark:hover:border-amber-600'"
 							title="View change history"
 						>
 							<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -193,13 +198,13 @@
 					leave-to-class="opacity-0 translate-y-2"
 				>
 					<div v-if="mode === 'edit' && selectedNode" class="absolute bottom-3 left-1/2 -translate-x-1/2 z-10">
-						<div class="bg-white/95 dark:bg-slate-800/95 backdrop-blur border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg p-2">
+						<div class="bg-white/90 dark:bg-slate-900/90 backdrop-blur-lg border border-slate-200/80 dark:border-slate-700/50 rounded-xl shadow-lg p-2">
 							<div class="flex items-center gap-3">
 								<!-- Node type selector -->
 								<div class="flex items-center gap-1.5">
 									<span class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-medium">Type</span>
 									<select 
-										class="text-xs bg-slate-100 dark:bg-slate-700 border-0 rounded-md px-2 py-1 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-cyan-500"
+										class="text-xs bg-slate-100 dark:bg-slate-800 border-0 rounded-md px-2 py-1 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-cyan-500"
 										v-model="editRole"
 										@change="onChangeRole"
 									>
@@ -214,13 +219,13 @@
 									</select>
 								</div>
 
-								<div class="w-px h-6 bg-slate-200 dark:bg-slate-600"></div>
+								<div class="w-px h-6 bg-slate-200 dark:bg-slate-700"></div>
 
 								<!-- IP input -->
 								<div class="flex items-center gap-1.5">
 									<span class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-medium">IP</span>
 									<input 
-										class="text-xs bg-slate-100 dark:bg-slate-700 border-0 rounded-md px-2 py-1 w-28 text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:ring-2 focus:ring-cyan-500"
+										class="text-xs bg-slate-100 dark:bg-slate-800 border-0 rounded-md px-2 py-1 w-28 text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:ring-2 focus:ring-cyan-500"
 										v-model="editIp"
 										@change="onChangeIp"
 										placeholder="192.168.1.x"
@@ -231,20 +236,20 @@
 								<div class="flex items-center gap-1.5">
 									<span class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-medium">Name</span>
 									<input 
-										class="text-xs bg-slate-100 dark:bg-slate-700 border-0 rounded-md px-2 py-1 w-32 text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:ring-2 focus:ring-cyan-500"
+										class="text-xs bg-slate-100 dark:bg-slate-800 border-0 rounded-md px-2 py-1 w-32 text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:ring-2 focus:ring-cyan-500"
 										v-model="editHostname"
 										@change="onChangeHostname"
 										placeholder="hostname"
 									/>
 								</div>
 
-								<div class="w-px h-6 bg-slate-200 dark:bg-slate-600"></div>
+								<div class="w-px h-6 bg-slate-200 dark:bg-slate-700"></div>
 
 								<!-- Parent selector -->
 								<div class="flex items-center gap-1.5">
 									<span class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-medium">Parent</span>
 									<select 
-										class="text-xs bg-slate-100 dark:bg-slate-700 border-0 rounded-md px-2 py-1 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-cyan-500 max-w-32"
+										class="text-xs bg-slate-100 dark:bg-slate-800 border-0 rounded-md px-2 py-1 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-cyan-500 max-w-32"
 										v-model="connectParent"
 										@change="onChangeParent"
 									>
@@ -259,7 +264,7 @@
 									<span class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-medium">Speed</span>
 									<select 
 										v-if="!showCustomSpeed"
-										class="text-xs bg-slate-100 dark:bg-slate-700 border-0 rounded-md px-2 py-1 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-cyan-500"
+										class="text-xs bg-slate-100 dark:bg-slate-800 border-0 rounded-md px-2 py-1 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-cyan-500"
 										v-model="editConnectionSpeed"
 										@change="onSpeedSelectChange"
 									>
@@ -277,7 +282,7 @@
 									</select>
 									<input 
 										v-else
-										class="text-xs bg-slate-100 dark:bg-slate-700 border-0 rounded-md px-2 py-1 w-16 text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:ring-2 focus:ring-cyan-500"
+										class="text-xs bg-slate-100 dark:bg-slate-800 border-0 rounded-md px-2 py-1 w-16 text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:ring-2 focus:ring-cyan-500"
 										v-model="editConnectionSpeed"
 										@blur="onCustomSpeedBlur"
 										@keyup.enter="onCustomSpeedBlur"
@@ -312,7 +317,7 @@
 						@nodeSelected="onNodeSelected"
 						@nodePositionChanged="onNodePositionChanged"
 					/>
-					<div v-else class="h-full rounded border border-dashed border-slate-300 dark:border-slate-600 flex items-center justify-center text-slate-500 dark:text-slate-400">
+					<div v-else class="h-full rounded-xl border border-dashed border-slate-300 dark:border-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-400 bg-white/50 dark:bg-slate-900/50">
 						No map loaded yet.
 					</div>
 				</div>
@@ -320,9 +325,9 @@
 			<!-- History Panel (Right Side) -->
 			<aside 
 				v-if="showHistoryPanel"
-				class="w-96 border-l border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex flex-col overflow-hidden"
+				class="w-96 border-l border-slate-200 dark:border-slate-800/80 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm flex flex-col overflow-hidden"
 			>
-				<div class="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
+				<div class="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/50">
 					<div class="flex items-center gap-2">
 						<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 							<path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -331,7 +336,7 @@
 					</div>
 					<button 
 						@click="showHistoryPanel = false"
-						class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400"
+						class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400"
 						title="Close history panel"
 					>
 						<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -341,12 +346,12 @@
 				</div>
 				
 				<!-- Filter tabs -->
-				<div class="flex border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+				<div class="flex border-b border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/50">
 					<button
 						@click="historyFilter = 'selected'"
 						class="flex-1 px-3 py-2 text-xs font-medium transition-colors"
 						:class="historyFilter === 'selected' 
-							? 'text-amber-600 dark:text-amber-400 border-b-2 border-amber-500 bg-white dark:bg-slate-800' 
+							? 'text-amber-600 dark:text-amber-400 border-b-2 border-amber-500 bg-white dark:bg-slate-900' 
 							: 'text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'"
 					>
 						Selected Node
@@ -355,7 +360,7 @@
 						@click="historyFilter = 'all'"
 						class="flex-1 px-3 py-2 text-xs font-medium transition-colors"
 						:class="historyFilter === 'all' 
-							? 'text-amber-600 dark:text-amber-400 border-b-2 border-amber-500 bg-white dark:bg-slate-800' 
+							? 'text-amber-600 dark:text-amber-400 border-b-2 border-amber-500 bg-white dark:bg-slate-900' 
 							: 'text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'"
 					>
 						All Nodes
@@ -367,7 +372,7 @@
 					<!-- Selected node history -->
 					<div v-if="historyFilter === 'selected'">
 						<div v-if="selectedNode && selectedNode.history?.length" class="space-y-3">
-							<div class="mb-3 p-2 rounded bg-slate-100 dark:bg-slate-700/50">
+							<div class="mb-3 p-2 rounded-lg bg-slate-100 dark:bg-slate-800/50">
 								<div class="text-xs font-medium text-slate-700 dark:text-slate-300">{{ selectedNode.name }}</div>
 								<div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
 									Version {{ selectedNode.version || 1 }} • {{ selectedNode.history?.length || 0 }} changes
@@ -376,9 +381,9 @@
 							<div 
 								v-for="(entry, idx) in [...(selectedNode.history || [])].reverse()" 
 								:key="idx"
-								class="relative pl-4 pb-3 border-l-2 border-slate-200 dark:border-slate-600 last:pb-0"
+								class="relative pl-4 pb-3 border-l-2 border-slate-200 dark:border-slate-700 last:pb-0"
 							>
-								<div class="absolute -left-1.5 top-0 w-3 h-3 rounded-full bg-amber-400 dark:bg-amber-500 border-2 border-white dark:border-slate-800"></div>
+								<div class="absolute -left-1.5 top-0 w-3 h-3 rounded-full bg-amber-400 dark:bg-amber-500 border-2 border-white dark:border-slate-900"></div>
 								<div class="text-xs text-slate-500 dark:text-slate-400 mb-1">
 									v{{ entry.version }} • {{ formatTimestamp(entry.timestamp) }}
 								</div>
@@ -411,10 +416,10 @@
 							<div 
 								v-for="(item, idx) in allNodesHistory" 
 								:key="idx"
-								class="relative pl-4 pb-3 border-l-2 border-slate-200 dark:border-slate-600 last:pb-0 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/30 -ml-1 pl-5 py-1 rounded-r"
+								class="relative pl-4 pb-3 border-l-2 border-slate-200 dark:border-slate-700 last:pb-0 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/30 -ml-1 pl-5 py-1 rounded-r"
 								@click="selectNodeFromHistory(item.nodeId)"
 							>
-								<div class="absolute left-0 top-1.5 w-3 h-3 rounded-full border-2 border-white dark:border-slate-800"
+								<div class="absolute left-0 top-1.5 w-3 h-3 rounded-full border-2 border-white dark:border-slate-900"
 									:class="getNodeRoleColor(item.role)"
 								></div>
 								<div class="flex items-center gap-2 mb-0.5">
@@ -458,15 +463,15 @@
 		<!-- Terminal / Logs Panel -->
 		<div 
 			v-if="logs.length" 
-			class="flex flex-col border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 transition-all ease-linear duration-75"
+			class="flex flex-col border-t border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/80 transition-all ease-linear duration-75 relative z-20"
 			:style="{ height: logsHeight + 'px' }"
 		>
 			<!-- Resize Handle -->
 			<div 
-				class="h-1 bg-slate-200 dark:bg-slate-700 cursor-row-resize hover:bg-blue-400 active:bg-blue-600 flex justify-center"
+				class="h-1 bg-slate-200 dark:bg-slate-800 cursor-row-resize hover:bg-cyan-400 active:bg-cyan-600 flex justify-center"
 				@mousedown.prevent="startResize"
 			>
-				<div class="w-12 h-0.5 bg-slate-400 dark:bg-slate-500 rounded my-auto"></div>
+				<div class="w-12 h-0.5 bg-slate-400 dark:bg-slate-600 rounded my-auto"></div>
 			</div>
 
 			<!-- Logs Content -->
@@ -478,7 +483,7 @@
 					<template v-if="downloadHref(line)">
 						<button 
 							@click="downloadNetworkMap(downloadHref(line)!)"
-							class="text-blue-600 hover:text-blue-500 underline cursor-pointer"
+							class="text-cyan-600 dark:text-cyan-400 hover:text-cyan-500 dark:hover:text-cyan-300 underline cursor-pointer"
 						>
 							Download network_map.txt
 						</button>
@@ -534,7 +539,7 @@
 		<button
 			v-if="!showAssistant"
 			@click="showAssistant = true"
-			class="fixed bottom-4 right-4 z-40 p-3 bg-gradient-to-br from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 rounded-xl shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200"
+			class="fixed bottom-4 right-4 z-40 p-3 bg-gradient-to-br from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 rounded-xl shadow-lg shadow-cyan-500/25 hover:shadow-xl hover:shadow-cyan-500/40 hover:scale-105 transition-all duration-200"
 			title="Open Network Assistant"
 		>
 			<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
