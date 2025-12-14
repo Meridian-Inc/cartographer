@@ -1,8 +1,8 @@
 <template>
 	<div class="w-full h-full relative">
 		<!-- Clean gradient background with noise dithering to prevent color banding -->
-		<div class="absolute inset-0 rounded-lg overflow-hidden pointer-events-none network-map-bg gradient-noise">
-			<!-- Light mode: Multi-stop gradient with subtle hue shifts for smooth banding-free transitions -->
+		<div class="absolute inset-0 rounded-lg overflow-hidden pointer-events-none network-map-bg">
+			<!-- Light mode gradient -->
 			<div class="absolute inset-0 dark:hidden" style="background: 
 				linear-gradient(135deg, 
 					hsl(214, 32%, 96%) 0%, 
@@ -15,7 +15,7 @@
 					hsl(228, 6%, 99.5%) 87%, 
 					hsl(0, 0%, 100%) 100%
 				);"></div>
-			<!-- Dark mode: More color stops with slight blue/purple hue variation to prevent banding -->
+			<!-- Dark mode gradient -->
 			<div class="absolute inset-0 hidden dark:block" style="background: 
 				linear-gradient(135deg, 
 					hsl(222, 47%, 9%) 0%, 
@@ -29,6 +29,8 @@
 					hsl(224, 44%, 11.5%) 88%, 
 					hsl(222, 47%, 11%) 100%
 				);"></div>
+			<!-- Noise overlay for dithering - prevents color banding -->
+			<div class="absolute inset-0 noise-overlay"></div>
 			<!-- Subtle radial accent glow -->
 			<div class="absolute inset-0 opacity-40 dark:opacity-25" style="background: radial-gradient(ellipse 100% 80% at 50% 30%, rgba(56, 189, 248, 0.08) 0%, rgba(56, 189, 248, 0.02) 35%, transparent 55%)"></div>
 			<!-- Bottom corner accent -->

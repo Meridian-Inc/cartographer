@@ -1,8 +1,8 @@
 <template>
 	<div class="w-full h-full relative">
 		<!-- Clean gradient background with noise dithering to prevent color banding -->
-		<div class="absolute inset-0 overflow-hidden pointer-events-none gradient-noise">
-			<!-- Multi-stop gradient with subtle hue shifts for smooth banding-free transitions -->
+		<div class="absolute inset-0 overflow-hidden pointer-events-none">
+			<!-- Gradient background -->
 			<div 
 				class="absolute inset-0 transition-colors"
 				:style="isDark 
@@ -29,6 +29,11 @@
 						hsl(228, 6%, 99.5%) 87%, 
 						hsl(0, 0%, 100%) 100%
 					)`"
+			></div>
+			<!-- Noise overlay for dithering - prevents color banding -->
+			<div 
+				class="absolute inset-0 noise-overlay"
+				:class="isDark ? 'noise-overlay-dark' : ''"
 			></div>
 			<!-- Subtle radial accent glow with smoother falloff -->
 			<div 
