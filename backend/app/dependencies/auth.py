@@ -8,6 +8,7 @@ from typing import Optional
 from enum import Enum
 
 import httpx
+import jwt
 from fastapi import HTTPException, Depends, Header, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
@@ -15,6 +16,10 @@ from pydantic import BaseModel
 logger = logging.getLogger(__name__)
 
 AUTH_SERVICE_URL = os.environ.get("AUTH_SERVICE_URL", "http://localhost:8002")
+
+# JWT Configuration for service token validation (must match metrics service)
+JWT_SECRET = os.environ.get("JWT_SECRET", "cartographer-dev-secret-change-in-production")
+JWT_ALGORITHM = "HS256"
 
 # Security scheme for JWT
 security = HTTPBearer(auto_error=False)
@@ -39,6 +44,35 @@ class AuthenticatedUser(BaseModel):
     @property
     def can_write(self) -> bool:
         return self.role in [UserRole.OWNER, UserRole.ADMIN]
+
+
+def verify_service_token(token: str) -> Optional[AuthenticatedUser]:
+    """Verify a service-to-service JWT token locally.
+    
+    Service tokens are self-signed with the shared JWT_SECRET and have 'service: true' in the payload.
+    """
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        
+        # Check if this is a service token
+        if not payload.get("service"):
+            return None
+        
+        # Service tokens have full owner access
+        return AuthenticatedUser(
+            user_id=payload.get("sub", "service"),
+            username=payload.get("username", "service"),
+            role=UserRole.OWNER  # Services have owner-level access
+        )
+    except jwt.ExpiredSignatureError:
+        logger.debug("Service token expired")
+        return None
+    except jwt.InvalidTokenError as e:
+        logger.debug(f"Invalid service token: {e}")
+        return None
+    except Exception as e:
+        logger.debug(f"Error verifying service token: {e}")
+        return None
 
 
 async def verify_token_with_auth_service(token: str) -> Optional[AuthenticatedUser]:
@@ -89,16 +123,29 @@ async def get_current_user(
     Supports both:
     - Authorization header (standard approach)
     - Query parameter 'token' (for EventSource/SSE which doesn't support custom headers)
+    
+    Also supports service-to-service tokens (validated locally without auth service).
     """
+    actual_token = None
+    
     # Try Authorization header first
     if credentials:
-        return await verify_token_with_auth_service(credentials.credentials)
-    
+        actual_token = credentials.credentials
     # Fall back to query parameter (for SSE/EventSource)
-    if token:
-        return await verify_token_with_auth_service(token)
+    elif token:
+        actual_token = token
     
-    return None
+    if not actual_token:
+        return None
+    
+    # Try service token validation first (for internal service-to-service calls)
+    service_user = verify_service_token(actual_token)
+    if service_user:
+        logger.debug("Authenticated as service")
+        return service_user
+    
+    # Fall back to auth service validation for user tokens
+    return await verify_token_with_auth_service(actual_token)
 
 
 async def require_auth(

@@ -689,12 +689,12 @@ based on the information you provide directly.
         if network_id is not None:
             # Status for specific network
             cache_entry = self._context_cache.get(network_id)
-            return {
+        return {
                 "network_id": network_id,
                 "snapshot_available": self._snapshot_available.get(network_id, False),
                 "cached": cache_entry is not None,
-                "last_check": self._last_check_time.isoformat() if self._last_check_time else None,
-                "cache_age_seconds": (
+            "last_check": self._last_check_time.isoformat() if self._last_check_time else None,
+            "cache_age_seconds": (
                     (datetime.utcnow() - cache_entry[2]).total_seconds()
                     if cache_entry else None
                 ),
@@ -709,7 +709,7 @@ based on the information you provide directly.
                 "cached_networks": list(self._context_cache.keys()),
                 "available_networks": [k for k, v in self._snapshot_available.items() if v],
                 "last_check": self._last_check_time.isoformat() if self._last_check_time else None,
-            }
+        }
 
 
 # Singleton instance

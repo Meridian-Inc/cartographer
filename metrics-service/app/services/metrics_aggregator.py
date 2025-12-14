@@ -110,6 +110,35 @@ class MetricsAggregator:
     
     # ==================== Data Fetching ====================
     
+    async def _fetch_all_network_ids(self) -> List[int]:
+        """Fetch all network IDs from the backend for multi-tenant snapshot generation.
+        
+        Returns:
+            List of network IDs that have layouts configured.
+        """
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(
+                    f"{BACKEND_SERVICE_URL}/api/networks",
+                    headers=SERVICE_AUTH_HEADER
+                )
+                if response.status_code == 200:
+                    networks = response.json()
+                    # Extract network IDs from the response
+                    network_ids = [n.get("id") for n in networks if n.get("id") is not None]
+                    logger.info(f"Found {len(network_ids)} networks to generate snapshots for")
+                    return network_ids
+                elif response.status_code == 401:
+                    logger.error("Authentication failed fetching networks - check JWT_SECRET")
+                else:
+                    logger.warning(f"Failed to fetch networks: {response.status_code}")
+        except httpx.ConnectError:
+            logger.warning("Backend service unavailable - cannot fetch networks list")
+        except Exception as e:
+            logger.error(f"Failed to fetch networks: {e}")
+        
+        return []
+    
     async def _fetch_network_layout(self, network_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
         """Fetch the saved network layout from the backend.
         
@@ -686,6 +715,45 @@ class MetricsAggregator:
     
     # ==================== Publishing ====================
     
+    async def generate_all_snapshots(self) -> Dict[int, NetworkTopologySnapshot]:
+        """Generate snapshots for all networks in the system.
+        
+        This fetches the list of all networks and generates a snapshot for each.
+        Used at startup and in the background publish loop.
+        
+        Returns:
+            Dict mapping network_id to generated snapshot.
+        """
+        snapshots: Dict[int, NetworkTopologySnapshot] = {}
+        
+        # Fetch all network IDs
+        network_ids = await self._fetch_all_network_ids()
+        
+        if not network_ids:
+            # Fallback to legacy mode if no networks found
+            logger.debug("No networks found, trying legacy single-network mode")
+            legacy_snapshot = await self.generate_snapshot(None)
+            if legacy_snapshot:
+                logger.info("Generated legacy snapshot (no network_id)")
+            return snapshots
+        
+        # Generate snapshot for each network
+        for network_id in network_ids:
+            try:
+                snapshot = await self.generate_snapshot(network_id)
+                if snapshot:
+                    snapshots[network_id] = snapshot
+                    logger.debug(f"Generated snapshot for network {network_id}")
+            except Exception as e:
+                logger.error(f"Failed to generate snapshot for network {network_id}: {e}")
+        
+        if snapshots:
+            logger.info(f"Generated snapshots for {len(snapshots)} networks: {list(snapshots.keys())}")
+        else:
+            logger.warning("No snapshots generated for any network")
+        
+        return snapshots
+    
     async def publish_snapshot(self, network_id: Optional[int] = None) -> bool:
         """Generate and publish a network topology snapshot.
         
@@ -706,8 +774,28 @@ class MetricsAggregator:
         
         return success
     
+    async def publish_all_snapshots(self) -> int:
+        """Generate and publish snapshots for all networks.
+        
+        Returns:
+            Number of snapshots successfully published.
+        """
+        snapshots = await self.generate_all_snapshots()
+        published_count = 0
+        
+        for network_id, snapshot in snapshots.items():
+            try:
+                success = await redis_publisher.publish_topology_snapshot(snapshot)
+                if success:
+                    await redis_publisher.store_last_snapshot(snapshot)
+                    published_count += 1
+            except Exception as e:
+                logger.error(f"Failed to publish snapshot for network {network_id}: {e}")
+        
+        return published_count
+    
     async def _publish_loop(self, skip_initial: bool = False):
-        """Background loop that periodically publishes snapshots."""
+        """Background loop that periodically publishes snapshots for all networks."""
         logger.info(f"Starting metrics publish loop (interval: {self._publish_interval}s)")
         
         # If skip_initial is True, wait before first publish (initial was already done at startup)
@@ -718,7 +806,8 @@ class MetricsAggregator:
         while True:
             try:
                 if self._publishing_enabled:
-                    await self.publish_snapshot()
+                    # Generate and publish snapshots for ALL networks
+                    await self.publish_all_snapshots()
                 
                 await asyncio.sleep(self._publish_interval)
                 

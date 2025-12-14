@@ -57,20 +57,24 @@ async def lifespan(app: FastAPI):
     else:
         logger.warning("Failed to connect to Redis - will retry on publish")
     
-    # Generate initial snapshot IMMEDIATELY (before starting background loop)
-    # This ensures snapshot is available as soon as the service starts accepting requests
-    logger.info("Generating initial snapshot...")
+    # Generate initial snapshots for ALL networks IMMEDIATELY (before starting background loop)
+    # This ensures snapshots are available as soon as the service starts accepting requests
+    logger.info("Generating initial snapshots for all networks...")
     try:
-        initial_snapshot = await metrics_aggregator.generate_snapshot()
-        if initial_snapshot:
-            logger.info(f"Initial snapshot ready with {initial_snapshot.total_nodes} nodes")
+        # Generate snapshots for all networks in the system
+        initial_snapshots = await metrics_aggregator.generate_all_snapshots()
+        if initial_snapshots:
+            total_nodes = sum(s.total_nodes for s in initial_snapshots.values())
+            logger.info(f"Initial snapshots ready for {len(initial_snapshots)} networks with {total_nodes} total nodes")
             if redis_connected:
-                await redis_publisher.store_last_snapshot(initial_snapshot)
-                await redis_publisher.publish_topology_snapshot(initial_snapshot)
+                for network_id, snapshot in initial_snapshots.items():
+                    await redis_publisher.store_last_snapshot(snapshot)
+                    await redis_publisher.publish_topology_snapshot(snapshot)
+                    logger.debug(f"Published initial snapshot for network {network_id}")
         else:
-            logger.warning("No initial snapshot generated - layout may not exist yet")
+            logger.warning("No initial snapshots generated - networks may not exist yet or have no layouts")
     except Exception as e:
-        logger.warning(f"Failed to generate initial snapshot: {e}")
+        logger.warning(f"Failed to generate initial snapshots: {e}")
     
     # Start background publishing loop (will wait for interval before first publish)
     metrics_aggregator.start_publishing(skip_initial=True)

@@ -158,8 +158,34 @@ async def list_networks(
     current_user: AuthenticatedUser = Depends(require_auth),
     db: AsyncSession = Depends(get_db),
 ):
-    """List all networks accessible to the current user."""
-    # Get networks owned by user
+    """List all networks accessible to the current user.
+    
+    For service tokens (internal service-to-service calls), returns ALL active networks
+    in the system to support metrics generation across all networks.
+    """
+    # Check if this is a service token (user_id will be 'service' or 'metrics-service')
+    is_service = current_user.user_id in ("service", "metrics-service")
+    
+    if is_service:
+        # Service tokens get access to ALL networks for metrics generation
+        result = await db.execute(
+            select(Network)
+            .where(Network.is_active == True)
+            .order_by(Network.created_at.desc())
+        )
+        all_networks = result.scalars().all()
+        
+        response_list = []
+        for network in all_networks:
+            response = NetworkResponse.model_validate(network)
+            response.owner_id = network.user_id
+            response.is_owner = False  # Service is not the owner
+            response.permission = PermissionRole.EDITOR  # Service has editor access
+            response_list.append(response)
+        
+        return response_list
+    
+    # Regular user: Get networks owned by user
     owned_result = await db.execute(
         select(Network)
         .where(Network.user_id == current_user.user_id, Network.is_active == True)
