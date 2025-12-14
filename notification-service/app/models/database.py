@@ -3,8 +3,8 @@ SQLAlchemy database models for notification service.
 Uses the same PostgreSQL database as the main application.
 """
 
-from sqlalchemy import String, Boolean, DateTime, Integer, ForeignKey, JSON, Enum as SQLEnum, Text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import String, Boolean, DateTime, Integer, ForeignKey, JSON, Text
+from sqlalchemy.dialects.postgresql import UUID, ENUM as PgEnum
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 from datetime import datetime
@@ -20,6 +20,9 @@ class NotificationPriorityEnum(str, enum.Enum):
     MEDIUM = "medium"
     HIGH = "high"
     CRITICAL = "critical"
+    
+    def __str__(self):
+        return self.value
 
 
 class UserNetworkNotificationPrefs(Base):
@@ -43,15 +46,15 @@ class UserNetworkNotificationPrefs(Base):
     
     # Filters
     minimum_priority: Mapped[str] = mapped_column(
-        SQLEnum(NotificationPriorityEnum, name="notification_priority"),
-        default=NotificationPriorityEnum.MEDIUM
+        PgEnum('low', 'medium', 'high', 'critical', name='notification_priority', create_type=False),
+        default="medium"
     )
     quiet_hours_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     quiet_hours_start: Mapped[Optional[str]] = mapped_column(String(5), nullable=True)  # HH:MM
     quiet_hours_end: Mapped[Optional[str]] = mapped_column(String(5), nullable=True)  # HH:MM
     quiet_hours_timezone: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)  # IANA timezone
     quiet_hours_bypass_priority: Mapped[Optional[str]] = mapped_column(
-        SQLEnum(NotificationPriorityEnum, name="notification_priority"),
+        PgEnum('low', 'medium', 'high', 'critical', name='notification_priority', create_type=False),
         nullable=True
     )
     
@@ -87,15 +90,15 @@ class UserGlobalNotificationPrefs(Base):
     
     # Filters
     minimum_priority: Mapped[str] = mapped_column(
-        SQLEnum(NotificationPriorityEnum, name="notification_priority"),
-        default=NotificationPriorityEnum.MEDIUM
+        PgEnum('low', 'medium', 'high', 'critical', name='notification_priority', create_type=False),
+        default="medium"
     )
     quiet_hours_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     quiet_hours_start: Mapped[Optional[str]] = mapped_column(String(5), nullable=True)  # HH:MM
     quiet_hours_end: Mapped[Optional[str]] = mapped_column(String(5), nullable=True)  # HH:MM
     quiet_hours_timezone: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)  # IANA timezone
     quiet_hours_bypass_priority: Mapped[Optional[str]] = mapped_column(
-        SQLEnum(NotificationPriorityEnum, name="notification_priority"),
+        PgEnum('low', 'medium', 'high', 'critical', name='notification_priority', create_type=False),
         nullable=True
     )
     

@@ -77,7 +77,7 @@ class UserPreferencesService:
                 discord_enabled=False,
                 enabled_types=[t.value for t in default_types],
                 type_priorities={},
-                minimum_priority=NotificationPriorityEnum.MEDIUM,
+                minimum_priority="medium",
                 quiet_hours_enabled=False,
             )
             db.add(prefs)
@@ -149,7 +149,7 @@ class UserPreferencesService:
                 discord_enabled=False,
                 cartographer_up_enabled=True,
                 cartographer_down_enabled=True,
-                minimum_priority=NotificationPriorityEnum.MEDIUM,
+                minimum_priority="medium",
                 quiet_hours_enabled=False,
             )
             db.add(prefs)
