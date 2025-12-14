@@ -1,15 +1,13 @@
 <template>
 	<div class="w-full h-full relative">
-		<!-- Subtle background pattern -->
-		<div class="absolute inset-0 overflow-hidden">
-			<!-- Base gradient -->
+		<!-- Base background gradient -->
+		<div class="absolute inset-0 overflow-hidden pointer-events-none">
 			<div class="absolute inset-0 transition-colors" :class="isDark ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950' : 'bg-gradient-to-br from-slate-50 via-white to-slate-100/50'"></div>
-			<!-- Subtle grid pattern -->
-			<div class="absolute inset-0" :class="isDark ? 'opacity-[0.15]' : 'opacity-[0.4]'" style="background-image: radial-gradient(circle, rgb(148 163 184 / 0.4) 1px, transparent 1px); background-size: 24px 24px;"></div>
 			<!-- Subtle glow accents -->
-			<div class="absolute -top-32 -right-32 w-96 h-96 rounded-full blur-3xl pointer-events-none" :class="isDark ? 'bg-cyan-500/5' : 'bg-cyan-400/5'"></div>
-			<div class="absolute -bottom-32 -left-32 w-96 h-96 rounded-full blur-3xl pointer-events-none" :class="isDark ? 'bg-blue-500/5' : 'bg-blue-400/5'"></div>
+			<div class="absolute -top-32 -right-32 w-96 h-96 rounded-full blur-3xl" :class="isDark ? 'bg-cyan-500/5' : 'bg-cyan-400/5'"></div>
+			<div class="absolute -bottom-32 -left-32 w-96 h-96 rounded-full blur-3xl" :class="isDark ? 'bg-blue-500/5' : 'bg-blue-400/5'"></div>
 		</div>
+		<!-- SVG with grid pattern that pans with content -->
 		<svg ref="svgRef" class="relative w-full h-full transition-colors"></svg>
 	</div>
 </template>
@@ -112,8 +110,33 @@ function render() {
 
 	const width = (svgRef.value?.clientWidth || 800);
 	const height = (svgRef.value?.clientHeight || 600);
+	const dark = props.isDark !== false; // Default to dark if not specified
+	
+	// Define grid pattern
+	const defs = svg.append("defs");
+	const gridSize = 24;
+	const pattern = defs.append("pattern")
+		.attr("id", "grid-pattern-embed")
+		.attr("width", gridSize)
+		.attr("height", gridSize)
+		.attr("patternUnits", "userSpaceOnUse");
+	
+	pattern.append("circle")
+		.attr("cx", gridSize / 2)
+		.attr("cy", gridSize / 2)
+		.attr("r", 1)
+		.attr("fill", dark ? "rgba(148, 163, 184, 0.15)" : "rgba(148, 163, 184, 0.35)");
 
 	const g = svg.attr("viewBox", [0, 0, width, height].join(" ")).append("g").attr("class", "zoom-layer");
+	
+	// Add grid background that pans with content (large enough for any pan/zoom)
+	g.insert("rect", ":first-child")
+		.attr("class", "grid-bg")
+		.attr("x", -5000)
+		.attr("y", -5000)
+		.attr("width", 10000)
+		.attr("height", 10000)
+		.attr("fill", "url(#grid-pattern-embed)");
 
 	// ─────────────────────────────────────────────────────────────────────────────
 	// Depth-based layout (left → right)
@@ -349,9 +372,7 @@ function render() {
 		return angle;
 	};
 
-	// Theme-aware colors
-	const dark = props.isDark !== false; // Default to dark if not specified
-	
+	// Theme-aware colors (dark already defined at top of render)
 	g.append("g")
 		.selectAll("path.link")
 		.data(links)

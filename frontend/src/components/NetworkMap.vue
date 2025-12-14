@@ -1,15 +1,13 @@
 <template>
 	<div class="w-full h-full relative">
-		<!-- Subtle background pattern -->
-		<div class="absolute inset-0 rounded-lg overflow-hidden">
-			<!-- Base gradient -->
+		<!-- Base background gradient -->
+		<div class="absolute inset-0 rounded-lg overflow-hidden pointer-events-none">
 			<div class="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-slate-100/50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950"></div>
-			<!-- Subtle grid pattern -->
-			<div class="absolute inset-0 opacity-[0.4] dark:opacity-[0.15]" style="background-image: radial-gradient(circle, rgb(148 163 184 / 0.4) 1px, transparent 1px); background-size: 24px 24px;"></div>
 			<!-- Subtle glow accents -->
-			<div class="absolute -top-32 -right-32 w-96 h-96 bg-cyan-400/5 dark:bg-cyan-500/5 rounded-full blur-3xl pointer-events-none"></div>
-			<div class="absolute -bottom-32 -left-32 w-96 h-96 bg-blue-400/5 dark:bg-blue-500/5 rounded-full blur-3xl pointer-events-none"></div>
+			<div class="absolute -top-32 -right-32 w-96 h-96 bg-cyan-400/5 dark:bg-cyan-500/5 rounded-full blur-3xl"></div>
+			<div class="absolute -bottom-32 -left-32 w-96 h-96 bg-blue-400/5 dark:bg-blue-500/5 rounded-full blur-3xl"></div>
 		</div>
+		<!-- SVG with grid pattern that pans with content -->
 		<svg ref="svgRef" class="relative w-full h-full rounded-lg border border-slate-200/60 dark:border-slate-800/60"></svg>
 	</div>
 </template>
@@ -102,8 +100,33 @@ function roleIcon(role?: string): string {
 
 	const width = (svgRef.value?.clientWidth || 800);
 	const height = (svgRef.value?.clientHeight || 600);
+	const dark = isDarkMode();
+	
+	// Define grid pattern
+	const defs = svg.append("defs");
+	const gridSize = 24;
+	const pattern = defs.append("pattern")
+		.attr("id", "grid-pattern")
+		.attr("width", gridSize)
+		.attr("height", gridSize)
+		.attr("patternUnits", "userSpaceOnUse");
+	
+	pattern.append("circle")
+		.attr("cx", gridSize / 2)
+		.attr("cy", gridSize / 2)
+		.attr("r", 1)
+		.attr("fill", dark ? "rgba(148, 163, 184, 0.15)" : "rgba(148, 163, 184, 0.35)");
 
 	const g = svg.attr("viewBox", [0, 0, width, height].join(" ")).append("g").attr("class", "zoom-layer").attr("transform", "translate(24,24)");
+	
+	// Add grid background that pans with content (large enough for any pan/zoom)
+	g.insert("rect", ":first-child")
+		.attr("class", "grid-bg")
+		.attr("x", -5000)
+		.attr("y", -5000)
+		.attr("width", 10000)
+		.attr("height", 10000)
+		.attr("fill", "url(#grid-pattern)");
 
 	const zoom = d3.zoom<SVGSVGElement, unknown>()
 		.scaleExtent([0.1, 4])
@@ -346,7 +369,6 @@ function roleIcon(role?: string): string {
 		
 		return angle;
 	};
-	const dark = isDarkMode();
 	g.append("g")
 		.selectAll("path.link")
 		.data(links)
