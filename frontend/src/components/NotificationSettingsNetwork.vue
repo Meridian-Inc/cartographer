@@ -88,43 +88,41 @@
 		
 		<!-- Notification Types -->
 		<div class="space-y-4">
-			<h3 class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-				Notification Types
-			</h3>
-			<div class="p-4 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 space-y-3">
+			<div>
+				<h3 class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+					<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+					</svg>
+					Notification Types
+				</h3>
+				<p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Enable/disable notification types and customize their priority. Click the priority badge to change it.</p>
+			</div>
+			<div class="grid grid-cols-2 gap-3">
 				<div
 					v-for="type in networkNotificationTypes"
 					:key="type.value"
-					class="flex items-center justify-between p-3 rounded-lg border border-slate-200 dark:border-slate-700"
+					@click="toggleType(type.value)"
+					class="relative p-4 rounded-lg border cursor-pointer transition-all duration-200"
+					:class="isTypeEnabled(type.value) 
+						? 'bg-slate-800 border-slate-600 hover:border-slate-500' 
+						: 'bg-slate-900/50 border-slate-700/50 opacity-60 hover:opacity-80'"
 				>
-					<div class="flex-1">
-						<div class="flex items-center gap-2">
-							<span class="text-lg">{{ type.icon }}</span>
-							<span class="font-medium text-slate-900 dark:text-white">{{ type.label }}</span>
+					<!-- Priority Badge -->
+					<button
+						@click.stop="cycleTypePriority(type.value)"
+						class="absolute top-3 right-3 px-2.5 py-1 text-xs font-medium rounded-md transition-colors"
+						:class="getPriorityBadgeClass(getTypePriority(type.value))"
+					>
+						{{ capitalizeFirst(getTypePriority(type.value)) }}
+					</button>
+					
+					<!-- Content -->
+					<div class="flex items-start gap-3 pr-16">
+						<span class="text-xl flex-shrink-0">{{ type.icon }}</span>
+						<div class="min-w-0">
+							<p class="font-medium text-white truncate">{{ type.label }}</p>
+							<p class="text-xs text-slate-400 mt-0.5 line-clamp-2">{{ type.description }}</p>
 						</div>
-						<p class="text-xs text-slate-500 dark:text-slate-400 mt-1">{{ type.description }}</p>
-					</div>
-					<div class="flex items-center gap-3">
-						<select
-							:value="getTypePriority(type.value)"
-							@change="updateTypePriority(type.value, ($event.target as HTMLSelectElement).value)"
-							class="px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
-						>
-							<option value="low">Low</option>
-							<option value="medium">Medium</option>
-							<option value="high">High</option>
-							<option value="critical">Critical</option>
-						</select>
-						<button
-							@click="toggleType(type.value)"
-							class="relative w-11 h-6 rounded-full transition-colors"
-							:class="isTypeEnabled(type.value) ? 'bg-violet-500' : 'bg-slate-300 dark:bg-slate-600'"
-						>
-							<span
-								class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform"
-								:class="isTypeEnabled(type.value) ? 'translate-x-5' : ''"
-							></span>
-						</button>
 					</div>
 				</div>
 			</div>
@@ -133,24 +131,30 @@
 		<!-- Filters -->
 		<div class="space-y-4">
 			<h3 class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+				<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+				</svg>
 				Filters & Limits
 			</h3>
 			<div class="p-4 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 space-y-4">
 				<!-- Minimum Priority -->
 				<div>
-					<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+					<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
 						Minimum Priority
 					</label>
-					<select
-						:value="preferences?.minimum_priority || 'medium'"
-						@change="updateMinimumPriority(($event.target as HTMLSelectElement).value)"
-						class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
-					>
-						<option value="low">Low</option>
-						<option value="medium">Medium</option>
-						<option value="high">High</option>
-						<option value="critical">Critical</option>
-					</select>
+					<div class="grid grid-cols-4 gap-2">
+						<button
+							v-for="priority in priorityOptions"
+							:key="priority.value"
+							@click="updateMinimumPriority(priority.value)"
+							class="px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 border"
+							:class="(preferences?.minimum_priority || 'low') === priority.value
+								? getPriorityButtonActiveClass(priority.value)
+								: 'bg-slate-700/50 border-slate-600 text-slate-400 hover:bg-slate-700 hover:text-slate-300'"
+						>
+							{{ priority.label }}
+						</button>
+					</div>
 				</div>
 				
 				<!-- Quiet Hours -->
@@ -254,8 +258,6 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
-
 const props = defineProps<{
 	networkId: number;
 	preferences: any;
@@ -272,6 +274,13 @@ const emit = defineEmits<{
 	'unlink-discord': [];
 }>();
 
+const priorityOptions = [
+	{ value: 'low', label: 'Low' },
+	{ value: 'medium', label: 'Medium' },
+	{ value: 'high', label: 'High' },
+	{ value: 'critical', label: 'Critical' },
+];
+
 const networkNotificationTypes = [
 	{ value: 'device_offline', label: 'Device Offline', icon: '🔴', description: 'When a device stops responding', defaultPriority: 'high' },
 	{ value: 'device_online', label: 'Device Online', icon: '🟢', description: 'When a device comes back online', defaultPriority: 'low' },
@@ -285,6 +294,40 @@ const networkNotificationTypes = [
 	{ value: 'system_status', label: 'System Status', icon: 'ℹ️', description: 'General system updates', defaultPriority: 'low' },
 ];
 
+function capitalizeFirst(str: string): string {
+	return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+function getPriorityBadgeClass(priority: string): string {
+	switch (priority) {
+		case 'low':
+			return 'bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30';
+		case 'medium':
+			return 'bg-violet-500/20 text-violet-400 hover:bg-violet-500/30';
+		case 'high':
+			return 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30';
+		case 'critical':
+			return 'bg-rose-500/20 text-rose-400 hover:bg-rose-500/30';
+		default:
+			return 'bg-slate-500/20 text-slate-400 hover:bg-slate-500/30';
+	}
+}
+
+function getPriorityButtonActiveClass(priority: string): string {
+	switch (priority) {
+		case 'low':
+			return 'bg-cyan-500/30 border-cyan-500 text-cyan-300';
+		case 'medium':
+			return 'bg-violet-500/30 border-violet-500 text-violet-300';
+		case 'high':
+			return 'bg-amber-500/30 border-amber-500 text-amber-300';
+		case 'critical':
+			return 'bg-rose-500/30 border-rose-500 text-rose-300';
+		default:
+			return 'bg-slate-500/30 border-slate-500 text-slate-300';
+	}
+}
+
 function isTypeEnabled(type: string): boolean {
 	return props.preferences?.enabled_types?.includes(type) ?? true;
 }
@@ -292,6 +335,14 @@ function isTypeEnabled(type: string): boolean {
 function getTypePriority(type: string): string {
 	const priorities = props.preferences?.type_priorities || {};
 	return priorities[type] || networkNotificationTypes.find(t => t.value === type)?.defaultPriority || 'medium';
+}
+
+function cycleTypePriority(type: string) {
+	const currentPriority = getTypePriority(type);
+	const priorities = ['low', 'medium', 'high', 'critical'];
+	const currentIndex = priorities.indexOf(currentPriority);
+	const nextIndex = (currentIndex + 1) % priorities.length;
+	updateTypePriority(type, priorities[nextIndex]);
 }
 
 function toggleEmail() {
