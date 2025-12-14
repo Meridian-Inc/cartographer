@@ -1588,7 +1588,14 @@ function onRemoveNode() {
 }
 
 function onAddNode() {
-	if (!parsed.value) return;
+	// Initialize an empty map if none exists
+	if (!parsed.value) {
+		parsed.value = {
+			raw: '',
+			devices: [],
+			root: { id: 'root', name: 'Network', role: 'group', children: [] }
+		};
+	}
 	const root = parsed.value.root;
 	
 	// Generate a unique ID for the new node
