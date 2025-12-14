@@ -63,15 +63,15 @@
 
 				<!-- Content -->
 				<div class="flex-1 overflow-auto p-6 space-y-6">
-					<!-- Loading State -->
-					<div v-if="isLoading" class="flex items-center justify-center py-12">
-						<svg class="animate-spin h-8 w-8 text-violet-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-							<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-							<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-						</svg>
-					</div>
+				<!-- Loading State (only on initial load) -->
+				<div v-if="initialLoading" class="flex items-center justify-center py-12">
+					<svg class="animate-spin h-8 w-8 text-violet-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+						<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+						<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+					</svg>
+				</div>
 
-					<template v-else>
+					<template v-if="!initialLoading">
 						<!-- Network Tab -->
 						<template v-if="activeTab === 'network' && networkId !== null">
 							<NetworkSettings
@@ -124,7 +124,6 @@ const emit = defineEmits<{
 
 const activeTab = ref<'network' | 'global'>(props.networkId !== null ? 'network' : 'global');
 const {
-	isLoading,
 	error,
 	getNetworkPreferences,
 	updateNetworkPreferences,
@@ -144,14 +143,24 @@ const globalPrefs = ref<any>(null);
 const serviceStatus = ref<any>(null);
 const discordLink = ref<any>(null);
 const anomalyStats = ref<any>(null);
+// Use our own loading state for initial load only
+const initialLoading = ref(true);
 
-async function loadData() {
+async function loadData(showLoading = false) {
+	if (showLoading) {
+		initialLoading.value = true;
+	}
 	try {
-		// Load service status
-		serviceStatus.value = await getServiceStatus();
+		// Load all data in parallel for speed
+		const [status, link, globalP] = await Promise.all([
+			getServiceStatus(),
+			getDiscordLink(),
+			getGlobalPreferences(),
+		]);
 		
-		// Load Discord link
-		discordLink.value = await getDiscordLink();
+		serviceStatus.value = status;
+		discordLink.value = link;
+		globalPrefs.value = globalP;
 		
 		// Load network preferences if in network
 		if (props.networkId !== null) {
@@ -163,11 +172,10 @@ async function loadData() {
 				console.warn('Could not load anomaly stats:', e);
 			}
 		}
-		
-		// Always load global preferences
-		globalPrefs.value = await getGlobalPreferences();
 	} catch (e) {
 		console.error('Failed to load notification settings:', e);
+	} finally {
+		initialLoading.value = false;
 	}
 }
 
@@ -300,6 +308,6 @@ async function handleUnlinkDiscord() {
 // This watch is kept for backwards compatibility but shouldn't be needed
 
 onMounted(() => {
-	loadData();
+	loadData(true); // Show loading spinner on initial load
 });
 </script>
