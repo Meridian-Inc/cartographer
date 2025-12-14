@@ -21,61 +21,90 @@ class MetricsContextService:
     
     def __init__(self):
         self.timeout = 10.0
-        self._cached_context: Optional[str] = None
-        self._cached_summary: Optional[Dict[str, Any]] = None
-        self._cache_timestamp: Optional[datetime] = None
+        # Multi-tenant cache: network_id -> (context, summary, timestamp)
+        self._context_cache: Dict[Optional[int], tuple[str, Dict[str, Any], datetime]] = {}
         self._cache_ttl_seconds = 30  # Cache for 30 seconds
         
-        # Loading state tracking
-        self._snapshot_available = False
+        # Loading state tracking (per network_id)
+        self._snapshot_available: Dict[Optional[int], bool] = {}
         self._last_check_time: Optional[datetime] = None
         self._check_interval_seconds = 5  # Recheck every 5 seconds when no snapshot
         self._max_wait_attempts = 6  # Max attempts when waiting for snapshot (30 seconds total)
     
-    async def fetch_network_snapshot(self, force_refresh: bool = False) -> Optional[Dict[str, Any]]:
+    # Backwards compatibility properties
+    @property
+    def _cached_context(self) -> Optional[str]:
+        """Backwards compatibility: get legacy cached context."""
+        if None in self._context_cache:
+            return self._context_cache[None][0]
+        return None
+    
+    @property
+    def _cached_summary(self) -> Optional[Dict[str, Any]]:
+        """Backwards compatibility: get legacy cached summary."""
+        if None in self._context_cache:
+            return self._context_cache[None][1]
+        return None
+    
+    @property
+    def _cache_timestamp(self) -> Optional[datetime]:
+        """Backwards compatibility: get legacy cache timestamp."""
+        if None in self._context_cache:
+            return self._context_cache[None][2]
+        return None
+    
+    async def fetch_network_snapshot(self, force_refresh: bool = False, network_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
         """Fetch the current network topology snapshot
         
         Args:
             force_refresh: If True, ask the metrics service to generate a fresh snapshot
                           instead of returning the cached one. Use this after data changes
                           (like a speed test) to get the latest data.
+            network_id: The network ID to fetch snapshot for (multi-tenant support).
+                       If None, uses legacy single-network mode for backwards compatibility.
         """
         self._last_check_time = datetime.utcnow()
+        
+        # Build query params for network_id
+        params = {}
+        if network_id is not None:
+            params["network_id"] = network_id
         
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 if force_refresh:
                     # Ask metrics service to generate a fresh snapshot with latest data
-                    response = await client.post(f"{METRICS_SERVICE_URL}/api/metrics/snapshot/generate")
+                    response = await client.post(f"{METRICS_SERVICE_URL}/api/metrics/snapshot/generate", params=params)
                 else:
-                    response = await client.get(f"{METRICS_SERVICE_URL}/api/metrics/snapshot")
+                    response = await client.get(f"{METRICS_SERVICE_URL}/api/metrics/snapshot", params=params)
                 
                 if response.status_code == 200:
                     data = response.json()
                     if data.get("success") and data.get("snapshot"):
-                        self._snapshot_available = True
+                        self._snapshot_available[network_id] = True
                         return data["snapshot"]
                 
                 # Snapshot not yet available (service may be starting up)
-                self._snapshot_available = False
-                logger.info(f"Snapshot not yet available: {response.status_code}")
+                self._snapshot_available[network_id] = False
+                logger.info(f"Snapshot not yet available for network_id={network_id}: {response.status_code}")
                 return None
                 
         except httpx.ConnectError:
-            self._snapshot_available = False
+            self._snapshot_available[network_id] = False
             logger.warning(f"Cannot connect to metrics service at {METRICS_SERVICE_URL}")
             return None
         except Exception as e:
-            self._snapshot_available = False
+            self._snapshot_available[network_id] = False
             logger.error(f"Error fetching network snapshot: {e}")
             return None
     
-    async def wait_for_snapshot(self, max_attempts: Optional[int] = None) -> Optional[Dict[str, Any]]:
+    async def wait_for_snapshot(self, max_attempts: Optional[int] = None, network_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
         """
         Wait for a snapshot to become available, retrying periodically.
         
         Args:
             max_attempts: Maximum number of attempts (defaults to self._max_wait_attempts)
+            network_id: The network ID to wait for snapshot (multi-tenant support).
             
         Returns:
             The snapshot if available, None if max attempts exceeded
@@ -83,21 +112,21 @@ class MetricsContextService:
         attempts = max_attempts or self._max_wait_attempts
         
         for attempt in range(attempts):
-            snapshot = await self.fetch_network_snapshot()
+            snapshot = await self.fetch_network_snapshot(network_id=network_id)
             if snapshot:
-                logger.info(f"Snapshot available after {attempt + 1} attempt(s)")
+                logger.info(f"Snapshot for network_id={network_id} available after {attempt + 1} attempt(s)")
                 return snapshot
             
             if attempt < attempts - 1:
-                logger.debug(f"Waiting for snapshot (attempt {attempt + 1}/{attempts})...")
+                logger.debug(f"Waiting for snapshot network_id={network_id} (attempt {attempt + 1}/{attempts})...")
                 await asyncio.sleep(self._check_interval_seconds)
         
-        logger.warning(f"Snapshot not available after {attempts} attempts")
+        logger.warning(f"Snapshot for network_id={network_id} not available after {attempts} attempts")
         return None
     
-    def is_snapshot_available(self) -> bool:
-        """Check if a snapshot has ever been successfully fetched"""
-        return self._snapshot_available
+    def is_snapshot_available(self, network_id: Optional[int] = None) -> bool:
+        """Check if a snapshot has ever been successfully fetched for a network"""
+        return self._snapshot_available.get(network_id, False)
     
     def should_recheck(self) -> bool:
         """Check if we should try fetching the snapshot again"""
@@ -110,11 +139,19 @@ class MetricsContextService:
         elapsed = (datetime.utcnow() - self._last_check_time).total_seconds()
         return elapsed >= self._check_interval_seconds
     
-    async def fetch_network_summary(self) -> Optional[Dict[str, Any]]:
-        """Fetch network summary (lighter weight than full snapshot)"""
+    async def fetch_network_summary(self, network_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
+        """Fetch network summary (lighter weight than full snapshot)
+        
+        Args:
+            network_id: The network ID to fetch summary for (multi-tenant support).
+        """
         try:
+            params = {}
+            if network_id is not None:
+                params["network_id"] = network_id
+            
             async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.get(f"{METRICS_SERVICE_URL}/api/metrics/summary")
+                response = await client.get(f"{METRICS_SERVICE_URL}/api/metrics/summary", params=params)
                 
                 if response.status_code == 200:
                     return response.json()
@@ -341,7 +378,7 @@ class MetricsContextService:
         
         return "\n".join(lines)
     
-    async def build_context_string(self, wait_for_data: bool = True, force_refresh: bool = False) -> tuple[str, Dict[str, Any]]:
+    async def build_context_string(self, wait_for_data: bool = True, force_refresh: bool = False, network_id: Optional[int] = None) -> tuple[str, Dict[str, Any]]:
         """
         Build a context string for the AI assistant with network information.
         Returns (context_string, summary_dict)
@@ -350,27 +387,26 @@ class MetricsContextService:
             wait_for_data: If True and no snapshot available, wait and retry
             force_refresh: If True, bypass cache and fetch fresh data from the metrics service.
                           This also triggers the metrics service to regenerate its snapshot.
+            network_id: The network ID to build context for (multi-tenant support).
+                       If None, uses legacy single-network mode for backwards compatibility.
         """
-        # Check cache (skip if force_refresh)
+        # Check per-network cache (skip if force_refresh)
         now = datetime.utcnow()
-        if (
-            not force_refresh and
-            self._cached_context and 
-            self._cache_timestamp and 
-            (now - self._cache_timestamp).total_seconds() < self._cache_ttl_seconds
-        ):
-            return self._cached_context, self._cached_summary or {}
+        if network_id in self._context_cache and not force_refresh:
+            cached_context, cached_summary, cache_timestamp = self._context_cache[network_id]
+            if (now - cache_timestamp).total_seconds() < self._cache_ttl_seconds:
+                return cached_context, cached_summary
         
         # Try to fetch snapshot (force regeneration if force_refresh)
-        snapshot = await self.fetch_network_snapshot(force_refresh=force_refresh)
+        snapshot = await self.fetch_network_snapshot(force_refresh=force_refresh, network_id=network_id)
         
         # If no snapshot and we should wait, try waiting for it
-        if not snapshot and wait_for_data and not self._snapshot_available:
-            logger.info("No snapshot available yet, waiting for metrics service...")
-            snapshot = await self.wait_for_snapshot(max_attempts=3)  # Wait up to 15 seconds
+        if not snapshot and wait_for_data and not self.is_snapshot_available(network_id):
+            logger.info(f"No snapshot available yet for network_id={network_id}, waiting for metrics service...")
+            snapshot = await self.wait_for_snapshot(max_attempts=3, network_id=network_id)  # Wait up to 15 seconds
         
         if not snapshot:
-            return self._build_loading_context() if not self._snapshot_available else self._build_fallback_context()
+            return self._build_loading_context() if not self.is_snapshot_available(network_id) else self._build_fallback_context()
         
         lines = []
         lines.append("=" * 60)
@@ -550,10 +586,8 @@ class MetricsContextService:
             "context_tokens_estimate": len(context) // 4,  # Rough estimate
         }
         
-        # Update cache
-        self._cached_context = context
-        self._cached_summary = summary
-        self._cache_timestamp = now
+        # Update per-network cache
+        self._context_cache[network_id] = (context, summary, now)
         
         return context, summary
     
@@ -611,29 +645,63 @@ based on the information you provide directly.
         }
         return context.strip(), summary
     
-    def clear_cache(self):
-        """Clear the cached context"""
-        self._cached_context = None
-        self._cached_summary = None
-        self._cache_timestamp = None
+    def clear_cache(self, network_id: Optional[int] = None):
+        """Clear the cached context for a specific network or all networks.
+        
+        Args:
+            network_id: If provided, only clear cache for this network.
+                       If None, clears all cached contexts.
+        """
+        if network_id is not None:
+            self._context_cache.pop(network_id, None)
+        else:
+            self._context_cache.clear()
     
-    def reset_state(self):
-        """Reset all state including snapshot availability"""
-        self.clear_cache()
-        self._snapshot_available = False
+    def reset_state(self, network_id: Optional[int] = None):
+        """Reset all state including snapshot availability.
+        
+        Args:
+            network_id: If provided, only reset state for this network.
+                       If None, resets all state.
+        """
+        self.clear_cache(network_id)
+        if network_id is not None:
+            self._snapshot_available.pop(network_id, None)
+        else:
+            self._snapshot_available.clear()
         self._last_check_time = None
     
-    def get_status(self) -> Dict[str, Any]:
-        """Get current service status"""
-        return {
-            "snapshot_available": self._snapshot_available,
-            "cached": self._cached_context is not None,
-            "last_check": self._last_check_time.isoformat() if self._last_check_time else None,
-            "cache_age_seconds": (
-                (datetime.utcnow() - self._cache_timestamp).total_seconds()
-                if self._cache_timestamp else None
-            ),
-        }
+    def get_status(self, network_id: Optional[int] = None) -> Dict[str, Any]:
+        """Get current service status.
+        
+        Args:
+            network_id: If provided, get status for specific network.
+                       If None, returns overall status.
+        """
+        if network_id is not None:
+            # Status for specific network
+            cache_entry = self._context_cache.get(network_id)
+            return {
+                "network_id": network_id,
+                "snapshot_available": self._snapshot_available.get(network_id, False),
+                "cached": cache_entry is not None,
+                "last_check": self._last_check_time.isoformat() if self._last_check_time else None,
+                "cache_age_seconds": (
+                    (datetime.utcnow() - cache_entry[2]).total_seconds()
+                    if cache_entry else None
+                ),
+            }
+        else:
+            # Overall status (backwards compatible)
+            any_snapshot_available = any(self._snapshot_available.values()) if self._snapshot_available else False
+            any_cached = len(self._context_cache) > 0
+            return {
+                "snapshot_available": any_snapshot_available,
+                "cached": any_cached,
+                "cached_networks": list(self._context_cache.keys()),
+                "available_networks": [k for k, v in self._snapshot_available.items() if v],
+                "last_check": self._last_check_time.isoformat() if self._last_check_time else None,
+            }
 
 
 # Singleton instance

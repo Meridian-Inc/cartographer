@@ -60,27 +60,67 @@ async def list_models(provider: str, user: AuthenticatedUser = Depends(require_a
 # ==================== Context Endpoints ====================
 
 @router.get("/context")
-async def get_context(user: AuthenticatedUser = Depends(require_auth)):
-    """Get network context summary. Requires authentication."""
-    return await proxy_request("GET", "/context")
+async def get_context(
+    network_id: Optional[int] = None,
+    user: AuthenticatedUser = Depends(require_auth)
+):
+    """Get network context summary. Requires authentication.
+    
+    Args:
+        network_id: Optional network ID for multi-tenant mode.
+    """
+    params = {}
+    if network_id is not None:
+        params["network_id"] = network_id
+    return await proxy_request("GET", "/context", params=params if params else None)
 
 
 @router.post("/context/refresh")
-async def refresh_context(user: AuthenticatedUser = Depends(require_auth)):
-    """Refresh cached network context. Requires authentication."""
-    return await proxy_request("POST", "/context/refresh")
+async def refresh_context(
+    network_id: Optional[int] = None,
+    user: AuthenticatedUser = Depends(require_auth)
+):
+    """Refresh cached network context. Requires authentication.
+    
+    Args:
+        network_id: Optional network ID for multi-tenant mode.
+    """
+    params = {}
+    if network_id is not None:
+        params["network_id"] = network_id
+    return await proxy_request("POST", "/context/refresh", params=params if params else None)
 
 
 @router.get("/context/debug")
-async def get_context_debug(user: AuthenticatedUser = Depends(require_auth)):
-    """Debug: Get full context string sent to AI. Requires authentication."""
-    return await proxy_request("GET", "/context/debug")
+async def get_context_debug(
+    network_id: Optional[int] = None,
+    user: AuthenticatedUser = Depends(require_auth)
+):
+    """Debug: Get full context string sent to AI. Requires authentication.
+    
+    Args:
+        network_id: Optional network ID for multi-tenant mode.
+    """
+    params = {}
+    if network_id is not None:
+        params["network_id"] = network_id
+    return await proxy_request("GET", "/context/debug", params=params if params else None)
 
 
 @router.get("/context/raw")
-async def get_context_raw(user: AuthenticatedUser = Depends(require_auth)):
-    """Debug: Get raw snapshot data from metrics. Requires authentication."""
-    return await proxy_request("GET", "/context/raw")
+async def get_context_raw(
+    network_id: Optional[int] = None,
+    user: AuthenticatedUser = Depends(require_auth)
+):
+    """Debug: Get raw snapshot data from metrics. Requires authentication.
+    
+    Args:
+        network_id: Optional network ID for multi-tenant mode.
+    """
+    params = {}
+    if network_id is not None:
+        params["network_id"] = network_id
+    return await proxy_request("GET", "/context/raw", params=params if params else None)
 
 
 @router.get("/context/status")

@@ -11,7 +11,7 @@ import asyncio
 from typing import Optional, Dict, List, Tuple
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -285,9 +285,14 @@ async def refresh_all_models():
 # ==================== Context Endpoints ====================
 
 @router.get("/context", response_model=NetworkContextSummary)
-async def get_network_context():
-    """Get the current network context that would be provided to the assistant"""
-    _, summary = await metrics_context_service.build_context_string()
+async def get_network_context(network_id: Optional[int] = Query(None, description="Network ID for multi-tenant mode")):
+    """Get the current network context that would be provided to the assistant.
+    
+    Args:
+        network_id: Optional network ID for multi-tenant mode. If not provided,
+                   uses legacy single-network mode.
+    """
+    _, summary = await metrics_context_service.build_context_string(network_id=network_id)
     
     return NetworkContextSummary(
         total_nodes=summary.get("total_nodes", 0),
@@ -300,16 +305,19 @@ async def get_network_context():
 
 
 @router.post("/context/refresh")
-async def refresh_context():
+async def refresh_context(network_id: Optional[int] = Query(None, description="Network ID for multi-tenant mode")):
     """Clear cached context and fetch fresh data from the metrics service.
     
     This triggers the metrics service to regenerate its snapshot with
     the latest data (including recent speed test results, health checks, etc.)
     before building the context string.
+    
+    Args:
+        network_id: Optional network ID for multi-tenant mode.
     """
     metrics_context_service.clear_cache()
     # Use force_refresh=True to tell the metrics service to regenerate its snapshot
-    _, summary = await metrics_context_service.build_context_string(force_refresh=True)
+    _, summary = await metrics_context_service.build_context_string(force_refresh=True, network_id=network_id)
     
     return {
         "success": True,
@@ -331,10 +339,14 @@ async def get_context_status():
 
 
 @router.get("/context/debug")
-async def get_context_debug():
-    """Debug endpoint to see the full context string being sent to AI"""
+async def get_context_debug(network_id: Optional[int] = Query(None, description="Network ID for multi-tenant mode")):
+    """Debug endpoint to see the full context string being sent to AI.
+    
+    Args:
+        network_id: Optional network ID for multi-tenant mode.
+    """
     metrics_context_service.clear_cache()  # Force fresh data
-    context_string, summary = await metrics_context_service.build_context_string()
+    context_string, summary = await metrics_context_service.build_context_string(network_id=network_id)
     
     return {
         "context_string": context_string,
@@ -344,21 +356,28 @@ async def get_context_debug():
 
 
 @router.get("/context/raw")
-async def get_context_raw():
-    """Debug endpoint to see raw snapshot data from metrics service"""
+async def get_context_raw(network_id: Optional[int] = Query(None, description="Network ID for multi-tenant mode")):
+    """Debug endpoint to see raw snapshot data from metrics service.
+    
+    Args:
+        network_id: Optional network ID for multi-tenant mode.
+    """
     import httpx
     import os
     
     METRICS_SERVICE_URL = os.environ.get("METRICS_SERVICE_URL", "http://localhost:8003")
     
     # First, let's get the raw snapshot from metrics service
-    snapshot = await metrics_context_service.fetch_network_snapshot()
+    snapshot = await metrics_context_service.fetch_network_snapshot(network_id=network_id)
     
     # Also try to get the layout directly to compare
     layout_data = None
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(f"{METRICS_SERVICE_URL}/api/metrics/debug/layout")
+            params = {}
+            if network_id is not None:
+                params["network_id"] = network_id
+            response = await client.get(f"{METRICS_SERVICE_URL}/api/metrics/debug/layout", params=params)
             if response.status_code == 200:
                 layout_data = response.json()
     except Exception as e:
@@ -454,7 +473,7 @@ async def chat(request: ChatRequest):
         
         # Build system prompt with network context
         if request.include_network_context:
-            context, _ = await metrics_context_service.build_context_string()
+            context, _ = await metrics_context_service.build_context_string(network_id=request.network_id)
             system_prompt = SYSTEM_PROMPT_TEMPLATE.format(network_context=context)
         else:
             system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
@@ -516,7 +535,7 @@ async def chat_stream(request: ChatRequest):
         try:
             # Build system prompt with network context
             if request.include_network_context:
-                context, summary = await metrics_context_service.build_context_string()
+                context, summary = await metrics_context_service.build_context_string(network_id=request.network_id)
                 system_prompt = SYSTEM_PROMPT_TEMPLATE.format(network_context=context)
                 
                 # Send context summary first

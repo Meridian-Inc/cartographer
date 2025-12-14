@@ -89,26 +89,64 @@ class MetricsAggregator:
         self._publish_interval = DEFAULT_PUBLISH_INTERVAL
         self._publishing_enabled = True
         self._publish_task: Optional[asyncio.Task] = None
-        self._last_snapshot: Optional[NetworkTopologySnapshot] = None
+        # Multi-tenant: store snapshots per network_id (None key for legacy single-network mode)
+        self._snapshots: Dict[Optional[int], NetworkTopologySnapshot] = {}
         self._last_speed_test: Dict[str, SpeedTestMetrics] = {}  # gateway_ip -> last speed test
+    
+    @property
+    def _last_snapshot(self) -> Optional[NetworkTopologySnapshot]:
+        """Backwards compatibility: get the first/only snapshot (legacy mode)."""
+        if None in self._snapshots:
+            return self._snapshots[None]
+        # Return first available snapshot for backwards compatibility
+        if self._snapshots:
+            return next(iter(self._snapshots.values()))
+        return None
+    
+    @_last_snapshot.setter
+    def _last_snapshot(self, value: Optional[NetworkTopologySnapshot]):
+        """Backwards compatibility: set snapshot without network_id."""
+        self._snapshots[None] = value
     
     # ==================== Data Fetching ====================
     
-    async def _fetch_network_layout(self) -> Optional[Dict[str, Any]]:
-        """Fetch the saved network layout from the backend."""
+    async def _fetch_network_layout(self, network_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
+        """Fetch the saved network layout from the backend.
+        
+        Args:
+            network_id: The network ID to fetch layout for. If None, falls back to
+                       the legacy single-file endpoint (for backwards compatibility).
+        """
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.get(
-                    f"{BACKEND_SERVICE_URL}/api/load-layout",
-                    headers=SERVICE_AUTH_HEADER
-                )
-                if response.status_code == 200:
-                    data = response.json()
-                    if data.get("exists"):
-                        return data.get("layout")
-                elif response.status_code == 401:
-                    logger.error("Authentication failed fetching layout - check JWT_SECRET")
-                return None
+                if network_id is not None:
+                    # Use multi-tenant endpoint
+                    response = await client.get(
+                        f"{BACKEND_SERVICE_URL}/api/networks/{network_id}/layout",
+                        headers=SERVICE_AUTH_HEADER
+                    )
+                    if response.status_code == 200:
+                        data = response.json()
+                        if data.get("exists"):
+                            return data.get("layout")
+                    elif response.status_code == 401:
+                        logger.error("Authentication failed fetching layout - check JWT_SECRET")
+                    elif response.status_code == 404:
+                        logger.warning(f"Network {network_id} not found")
+                    return None
+                else:
+                    # Fallback to legacy single-file endpoint for backwards compatibility
+                    response = await client.get(
+                        f"{BACKEND_SERVICE_URL}/api/load-layout",
+                        headers=SERVICE_AUTH_HEADER
+                    )
+                    if response.status_code == 200:
+                        data = response.json()
+                        if data.get("exists"):
+                            return data.get("layout")
+                    elif response.status_code == 401:
+                        logger.error("Authentication failed fetching layout - check JWT_SECRET")
+                    return None
         except httpx.ConnectError:
             logger.warning("Backend service unavailable - cannot fetch network layout")
             return None
@@ -553,15 +591,19 @@ class MetricsAggregator:
     
     # ==================== Snapshot Generation ====================
     
-    async def generate_snapshot(self) -> Optional[NetworkTopologySnapshot]:
+    async def generate_snapshot(self, network_id: Optional[int] = None) -> Optional[NetworkTopologySnapshot]:
         """
         Generate a complete network topology snapshot by aggregating
         data from all sources.
+        
+        Args:
+            network_id: The network ID to generate snapshot for. If None, falls back
+                       to legacy single-file layout (for backwards compatibility).
         """
-        logger.debug("Generating network topology snapshot...")
+        logger.debug(f"Generating network topology snapshot for network_id={network_id}...")
         
         # Fetch data from all sources in parallel
-        layout_task = self._fetch_network_layout()
+        layout_task = self._fetch_network_layout(network_id)
         health_task = self._fetch_health_metrics()
         test_ips_task = self._fetch_gateway_test_ips()
         speed_test_task = self._fetch_speed_test_results()
@@ -622,9 +664,10 @@ class MetricsAggregator:
             root_node_id=root_node_id,
         )
         
-        self._last_snapshot = snapshot
+        # Store snapshot by network_id for multi-tenant support
+        self._snapshots[network_id] = snapshot
         logger.info(
-            f"Generated snapshot with {len(device_nodes)} devices "
+            f"Generated snapshot for network_id={network_id} with {len(device_nodes)} devices "
             f"(healthy={status_counts[HealthStatus.HEALTHY]}, "
             f"degraded={status_counts[HealthStatus.DEGRADED]}, "
             f"unhealthy={status_counts[HealthStatus.UNHEALTHY]}, "
@@ -635,9 +678,14 @@ class MetricsAggregator:
     
     # ==================== Publishing ====================
     
-    async def publish_snapshot(self) -> bool:
-        """Generate and publish a network topology snapshot."""
-        snapshot = await self.generate_snapshot()
+    async def publish_snapshot(self, network_id: Optional[int] = None) -> bool:
+        """Generate and publish a network topology snapshot.
+        
+        Args:
+            network_id: The network ID to publish snapshot for. If None, uses
+                       legacy single-network mode for backwards compatibility.
+        """
+        snapshot = await self.generate_snapshot(network_id)
         if not snapshot:
             return False
         
@@ -766,9 +814,19 @@ class MetricsAggregator:
             "last_snapshot_timestamp": self._last_snapshot.timestamp.isoformat() if self._last_snapshot else None,
         }
     
-    def get_last_snapshot(self) -> Optional[NetworkTopologySnapshot]:
-        """Get the last generated snapshot."""
-        return self._last_snapshot
+    def get_last_snapshot(self, network_id: Optional[int] = None) -> Optional[NetworkTopologySnapshot]:
+        """Get the last generated snapshot for a specific network.
+        
+        Args:
+            network_id: The network ID to get snapshot for. If None, returns
+                       the legacy single-network snapshot for backwards compatibility.
+        """
+        if network_id in self._snapshots:
+            return self._snapshots[network_id]
+        # Fallback to legacy snapshot if network_id not found but None exists
+        if network_id is not None and None in self._snapshots:
+            return self._snapshots[None]
+        return None
 
 
 # Singleton instance

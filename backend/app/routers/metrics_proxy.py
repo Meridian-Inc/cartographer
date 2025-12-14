@@ -41,21 +41,51 @@ async def proxy_request(method: str, path: str, params: dict = None, json_body: 
 # ==================== Snapshot Endpoints ====================
 
 @router.get("/snapshot")
-async def get_snapshot(user: AuthenticatedUser = Depends(require_auth)):
-    """Proxy get current snapshot. Requires authentication."""
-    return await proxy_request("GET", "/snapshot")
+async def get_snapshot(
+    network_id: Optional[int] = None,
+    user: AuthenticatedUser = Depends(require_auth)
+):
+    """Proxy get current snapshot. Requires authentication.
+    
+    Args:
+        network_id: Optional network ID for multi-tenant mode.
+    """
+    params = {}
+    if network_id is not None:
+        params["network_id"] = network_id
+    return await proxy_request("GET", "/snapshot", params=params if params else None)
 
 
 @router.post("/snapshot/generate")
-async def generate_snapshot(user: AuthenticatedUser = Depends(require_write_access)):
-    """Proxy generate new snapshot. Requires write access."""
-    return await proxy_request("POST", "/snapshot/generate")
+async def generate_snapshot(
+    network_id: Optional[int] = None,
+    user: AuthenticatedUser = Depends(require_write_access)
+):
+    """Proxy generate new snapshot. Requires write access.
+    
+    Args:
+        network_id: Optional network ID for multi-tenant mode.
+    """
+    params = {}
+    if network_id is not None:
+        params["network_id"] = network_id
+    return await proxy_request("POST", "/snapshot/generate", params=params if params else None)
 
 
 @router.post("/snapshot/publish")
-async def publish_snapshot(user: AuthenticatedUser = Depends(require_write_access)):
-    """Proxy publish snapshot to Redis. Requires write access."""
-    return await proxy_request("POST", "/snapshot/publish")
+async def publish_snapshot(
+    network_id: Optional[int] = None,
+    user: AuthenticatedUser = Depends(require_write_access)
+):
+    """Proxy publish snapshot to Redis. Requires write access.
+    
+    Args:
+        network_id: Optional network ID for multi-tenant mode.
+    """
+    params = {}
+    if network_id is not None:
+        params["network_id"] = network_id
+    return await proxy_request("POST", "/snapshot/publish", params=params if params else None)
 
 
 @router.get("/snapshot/cached")
@@ -82,35 +112,87 @@ async def update_config(request: Request, user: AuthenticatedUser = Depends(requ
 # ==================== Summary & Data Endpoints ====================
 
 @router.get("/summary")
-async def get_summary(user: AuthenticatedUser = Depends(require_auth)):
-    """Proxy get network summary. Requires authentication."""
-    return await proxy_request("GET", "/summary")
+async def get_summary(
+    network_id: Optional[int] = None,
+    user: AuthenticatedUser = Depends(require_auth)
+):
+    """Proxy get network summary. Requires authentication.
+    
+    Args:
+        network_id: Optional network ID for multi-tenant mode.
+    """
+    params = {}
+    if network_id is not None:
+        params["network_id"] = network_id
+    return await proxy_request("GET", "/summary", params=params if params else None)
 
 
 @router.get("/nodes/{node_id}")
-async def get_node_metrics(node_id: str, user: AuthenticatedUser = Depends(require_auth)):
-    """Proxy get specific node metrics. Requires authentication."""
-    return await proxy_request("GET", f"/nodes/{node_id}")
+async def get_node_metrics(
+    node_id: str,
+    network_id: Optional[int] = None,
+    user: AuthenticatedUser = Depends(require_auth)
+):
+    """Proxy get specific node metrics. Requires authentication.
+    
+    Args:
+        node_id: The node ID to get metrics for.
+        network_id: Optional network ID for multi-tenant mode.
+    """
+    params = {}
+    if network_id is not None:
+        params["network_id"] = network_id
+    return await proxy_request("GET", f"/nodes/{node_id}", params=params if params else None)
 
 
 @router.get("/connections")
-async def get_connections(user: AuthenticatedUser = Depends(require_auth)):
-    """Proxy get all connections. Requires authentication."""
-    return await proxy_request("GET", "/connections")
+async def get_connections(
+    network_id: Optional[int] = None,
+    user: AuthenticatedUser = Depends(require_auth)
+):
+    """Proxy get all connections. Requires authentication.
+    
+    Args:
+        network_id: Optional network ID for multi-tenant mode.
+    """
+    params = {}
+    if network_id is not None:
+        params["network_id"] = network_id
+    return await proxy_request("GET", "/connections", params=params if params else None)
 
 
 @router.get("/gateways")
-async def get_gateways(user: AuthenticatedUser = Depends(require_auth)):
-    """Proxy get gateway ISP info. Requires authentication."""
-    return await proxy_request("GET", "/gateways")
+async def get_gateways(
+    network_id: Optional[int] = None,
+    user: AuthenticatedUser = Depends(require_auth)
+):
+    """Proxy get gateway ISP info. Requires authentication.
+    
+    Args:
+        network_id: Optional network ID for multi-tenant mode.
+    """
+    params = {}
+    if network_id is not None:
+        params["network_id"] = network_id
+    return await proxy_request("GET", "/gateways", params=params if params else None)
 
 
 # ==================== Debug Endpoints ====================
 
 @router.get("/debug/layout")
-async def debug_layout(user: AuthenticatedUser = Depends(require_auth)):
-    """Debug: Get raw layout data to verify notes are saved. Requires authentication."""
-    return await proxy_request("GET", "/debug/layout")
+async def debug_layout(
+    network_id: Optional[int] = None,
+    user: AuthenticatedUser = Depends(require_auth)
+):
+    """Debug: Get raw layout data to verify notes are saved. Requires authentication.
+    
+    Args:
+        network_id: Optional network ID for multi-tenant mode.
+    """
+    params = {}
+    if network_id is not None:
+        params["network_id"] = network_id
+    return await proxy_request("GET", "/debug/layout", params=params if params else None)
 
 
 # ==================== Speed Test Endpoint ====================

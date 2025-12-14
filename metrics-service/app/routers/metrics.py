@@ -68,12 +68,16 @@ class SpeedTestRequest(BaseModel):
 # ==================== Snapshot Endpoints ====================
 
 @router.get("/snapshot", response_model=SnapshotResponse)
-async def get_current_snapshot():
+async def get_current_snapshot(network_id: Optional[int] = Query(None, description="Network ID to get snapshot for")):
     """
     Get the current/latest network topology snapshot.
     Returns the last generated snapshot from memory.
+    
+    Args:
+        network_id: Optional network ID for multi-tenant mode. If not provided,
+                   returns the legacy single-network snapshot.
     """
-    snapshot = metrics_aggregator.get_last_snapshot()
+    snapshot = metrics_aggregator.get_last_snapshot(network_id)
     
     if snapshot:
         return SnapshotResponse(
@@ -83,18 +87,22 @@ async def get_current_snapshot():
     
     return SnapshotResponse(
         success=False,
-        message="No snapshot available. Try triggering a snapshot generation."
+        message=f"No snapshot available for network_id={network_id}. Try triggering a snapshot generation."
     )
 
 
 @router.post("/snapshot/generate", response_model=SnapshotResponse)
-async def generate_snapshot():
+async def generate_snapshot(network_id: Optional[int] = Query(None, description="Network ID to generate snapshot for")):
     """
     Trigger immediate generation of a new network topology snapshot.
     This will fetch fresh data from all services and create a new snapshot.
+    
+    Args:
+        network_id: Optional network ID for multi-tenant mode. If not provided,
+                   uses legacy single-network mode.
     """
     try:
-        snapshot = await metrics_aggregator.generate_snapshot()
+        snapshot = await metrics_aggregator.generate_snapshot(network_id)
         
         if snapshot:
             return SnapshotResponse(
@@ -104,7 +112,7 @@ async def generate_snapshot():
         
         return SnapshotResponse(
             success=False,
-            message="Failed to generate snapshot - no network layout available"
+            message=f"Failed to generate snapshot for network_id={network_id} - no network layout available"
         )
     except Exception as e:
         logger.error(f"Failed to generate snapshot: {e}")
@@ -112,23 +120,26 @@ async def generate_snapshot():
 
 
 @router.post("/snapshot/publish", response_model=TriggerResponse)
-async def publish_snapshot():
+async def publish_snapshot(network_id: Optional[int] = Query(None, description="Network ID to publish snapshot for")):
     """
     Generate and publish a new snapshot to Redis.
     This will make the snapshot available to all subscribers.
+    
+    Args:
+        network_id: Optional network ID for multi-tenant mode.
     """
     try:
-        success = await metrics_aggregator.publish_snapshot()
+        success = await metrics_aggregator.publish_snapshot(network_id)
         
         if success:
             return TriggerResponse(
                 success=True,
-                message="Snapshot generated and published to Redis"
+                message=f"Snapshot for network_id={network_id} generated and published to Redis"
             )
         
         return TriggerResponse(
             success=False,
-            message="Failed to publish snapshot - check Redis connection"
+            message=f"Failed to publish snapshot for network_id={network_id} - check Redis connection or layout"
         )
     except Exception as e:
         logger.error(f"Failed to publish snapshot: {e}")
@@ -313,7 +324,7 @@ async def websocket_endpoint(websocket: WebSocket):
     
     await redis_publisher.subscribe(CHANNEL_TOPOLOGY, CHANNEL_HEALTH, CHANNEL_SPEED_TEST)
     
-    # Send initial snapshot if available
+    # Send initial snapshot if available (legacy mode - no network_id)
     snapshot = metrics_aggregator.get_last_snapshot()
     if snapshot:
         await websocket.send_json({
@@ -333,11 +344,32 @@ async def websocket_endpoint(websocket: WebSocket):
                 
                 # Handle client requests
                 if data.get("action") == "request_snapshot":
-                    snapshot = metrics_aggregator.get_last_snapshot()
+                    # Support network_id in client request for multi-tenant mode
+                    network_id = data.get("network_id")
+                    snapshot = metrics_aggregator.get_last_snapshot(network_id)
                     if snapshot:
                         await websocket.send_json({
                             "type": "snapshot",
                             "timestamp": datetime.utcnow().isoformat(),
+                            "network_id": network_id,
+                            "payload": snapshot.model_dump(mode="json")
+                        })
+                    else:
+                        await websocket.send_json({
+                            "type": "error",
+                            "timestamp": datetime.utcnow().isoformat(),
+                            "message": f"No snapshot available for network_id={network_id}"
+                        })
+                
+                elif data.get("action") == "subscribe_network":
+                    # Allow client to specify which network they want updates for
+                    network_id = data.get("network_id")
+                    snapshot = metrics_aggregator.get_last_snapshot(network_id)
+                    if snapshot:
+                        await websocket.send_json({
+                            "type": "initial_snapshot",
+                            "timestamp": datetime.utcnow().isoformat(),
+                            "network_id": network_id,
                             "payload": snapshot.model_dump(mode="json")
                         })
                 
@@ -360,12 +392,15 @@ async def websocket_endpoint(websocket: WebSocket):
 # ==================== Summary Endpoints ====================
 
 @router.get("/summary")
-async def get_summary():
+async def get_summary(network_id: Optional[int] = Query(None, description="Network ID to get summary for")):
     """
     Get a summary of the current network state without full details.
     Lighter weight than full snapshot for dashboards.
+    
+    Args:
+        network_id: Optional network ID for multi-tenant mode.
     """
-    snapshot = metrics_aggregator.get_last_snapshot()
+    snapshot = metrics_aggregator.get_last_snapshot(network_id)
     
     if not snapshot:
         return JSONResponse({
@@ -409,12 +444,17 @@ async def get_summary():
 
 
 @router.get("/nodes/{node_id}")
-async def get_node_metrics(node_id: str):
-    """Get metrics for a specific node by ID."""
-    snapshot = metrics_aggregator.get_last_snapshot()
+async def get_node_metrics(node_id: str, network_id: Optional[int] = Query(None, description="Network ID")):
+    """Get metrics for a specific node by ID.
+    
+    Args:
+        node_id: The node ID to get metrics for.
+        network_id: Optional network ID for multi-tenant mode.
+    """
+    snapshot = metrics_aggregator.get_last_snapshot(network_id)
     
     if not snapshot:
-        raise HTTPException(status_code=404, detail="No snapshot available")
+        raise HTTPException(status_code=404, detail=f"No snapshot available for network_id={network_id}")
     
     node = snapshot.nodes.get(node_id)
     if not node:
@@ -424,9 +464,13 @@ async def get_node_metrics(node_id: str):
 
 
 @router.get("/connections")
-async def get_connections():
-    """Get all node connections from the current snapshot."""
-    snapshot = metrics_aggregator.get_last_snapshot()
+async def get_connections(network_id: Optional[int] = Query(None, description="Network ID")):
+    """Get all node connections from the current snapshot.
+    
+    Args:
+        network_id: Optional network ID for multi-tenant mode.
+    """
+    snapshot = metrics_aggregator.get_last_snapshot(network_id)
     
     if not snapshot:
         return JSONResponse({
@@ -442,9 +486,13 @@ async def get_connections():
 
 
 @router.get("/gateways")
-async def get_gateways():
-    """Get ISP information for all gateway devices."""
-    snapshot = metrics_aggregator.get_last_snapshot()
+async def get_gateways(network_id: Optional[int] = Query(None, description="Network ID")):
+    """Get ISP information for all gateway devices.
+    
+    Args:
+        network_id: Optional network ID for multi-tenant mode.
+    """
+    snapshot = metrics_aggregator.get_last_snapshot(network_id)
     
     if not snapshot:
         return JSONResponse({
@@ -460,12 +508,16 @@ async def get_gateways():
 
 
 @router.get("/debug/layout")
-async def debug_layout():
-    """Debug endpoint to see raw layout data from backend"""
-    layout = await metrics_aggregator._fetch_network_layout()
+async def debug_layout(network_id: Optional[int] = Query(None, description="Network ID")):
+    """Debug endpoint to see raw layout data from backend.
+    
+    Args:
+        network_id: Optional network ID for multi-tenant mode.
+    """
+    layout = await metrics_aggregator._fetch_network_layout(network_id)
     
     if not layout:
-        return {"error": "Failed to fetch layout"}
+        return {"error": f"Failed to fetch layout for network_id={network_id}"}
     
     # Extract nodes with notes from the layout tree
     def extract_nodes(node, depth=0):
