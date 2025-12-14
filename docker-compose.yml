@@ -55,7 +55,7 @@ services:
     environment:
       - FRONTEND_DIST=/app/frontend/dist
       # Database connection (PostgreSQL)
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-cartographer_user}:${POSTGRES_PASSWORD:-cartographer_secret}@localhost:5432/${POSTGRES_DB:-cartographer}
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-cartographer}:${POSTGRES_PASSWORD:-cartographer_secret}@localhost:5432/${POSTGRES_DB:-cartographer}
       # Health service is on localhost when using host network
       - HEALTH_SERVICE_URL=http://localhost:8001
       # Auth service is on localhost when using host network
@@ -220,6 +220,8 @@ services:
       - TZ=${TZ:-}
       - CORS_ORIGINS=*
       - NOTIFICATION_DATA_DIR=/app/data
+      # Database connection (PostgreSQL) for notification preferences and Discord links
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-cartographer}:${POSTGRES_PASSWORD:-cartographer_secret}@localhost:5432/${POSTGRES_DB:-cartographer}
       # Current application version for update checking
       - CARTOGRAPHER_VERSION=${CARTOGRAPHER_VERSION:-0.1.1}
       # Email notifications via Resend (same key as auth service)
@@ -235,6 +237,8 @@ services:
       - HEALTH_SERVICE_URL=http://localhost:8001
     restart: unless-stopped
     depends_on:
+      postgres:
+        condition: service_healthy
       health:
         condition: service_healthy
     healthcheck:
