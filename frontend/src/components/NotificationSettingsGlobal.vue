@@ -104,8 +104,8 @@
 					@click="toggleType(type.value)"
 					class="relative p-4 rounded-lg border cursor-pointer transition-all duration-200"
 					:class="isTypeEnabled(type.value) 
-						? 'bg-slate-800 border-slate-600 hover:border-slate-500' 
-						: 'bg-slate-900/50 border-slate-700/50 opacity-60 hover:opacity-80'"
+						? 'bg-violet-500/10 border-violet-500/50 hover:border-violet-400/70' 
+						: 'bg-slate-800 border-slate-600 hover:border-slate-500'"
 				>
 					<!-- Priority Badge -->
 					<button
@@ -268,13 +268,13 @@ function capitalizeFirst(str: string): string {
 function getPriorityBadgeClass(priority: string): string {
 	switch (priority) {
 		case 'low':
-			return 'bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30';
+			return 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30';
 		case 'medium':
-			return 'bg-violet-500/20 text-violet-400 hover:bg-violet-500/30';
+			return 'bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30';
 		case 'high':
-			return 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30';
+			return 'bg-orange-500/20 text-orange-400 hover:bg-orange-500/30';
 		case 'critical':
-			return 'bg-rose-500/20 text-rose-400 hover:bg-rose-500/30';
+			return 'bg-red-500/20 text-red-400 hover:bg-red-500/30';
 		default:
 			return 'bg-slate-500/20 text-slate-400 hover:bg-slate-500/30';
 	}
@@ -283,13 +283,13 @@ function getPriorityBadgeClass(priority: string): string {
 function getPriorityButtonActiveClass(priority: string): string {
 	switch (priority) {
 		case 'low':
-			return 'bg-cyan-500/30 border-cyan-500 text-cyan-300';
+			return 'bg-emerald-500/30 border-emerald-500 text-emerald-300';
 		case 'medium':
-			return 'bg-violet-500/30 border-violet-500 text-violet-300';
+			return 'bg-yellow-500/30 border-yellow-500 text-yellow-300';
 		case 'high':
-			return 'bg-amber-500/30 border-amber-500 text-amber-300';
+			return 'bg-orange-500/30 border-orange-500 text-orange-300';
 		case 'critical':
-			return 'bg-rose-500/30 border-rose-500 text-rose-300';
+			return 'bg-red-500/30 border-red-500 text-red-300';
 		default:
 			return 'bg-slate-500/30 border-slate-500 text-slate-300';
 	}
