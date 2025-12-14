@@ -315,7 +315,7 @@
 		</div>
 
 		<!-- Embed Generator Modal -->
-		<EmbedGenerator v-if="showEmbedGenerator" @close="showEmbedGenerator = false" />
+		<EmbedGenerator v-if="showEmbedGenerator" :networkId="networkId" @close="showEmbedGenerator = false" />
 	</header>
 </template>
 

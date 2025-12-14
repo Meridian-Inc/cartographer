@@ -322,7 +322,12 @@ interface EmbedConfig {
 	ownerDisplayName: string | null;
 	createdAt: string;
 	updatedAt: string;
+	networkId?: number | null;
 }
+
+const props = defineProps<{
+	networkId?: number;
+}>();
 
 const emit = defineEmits<{
 	(e: 'close'): void;
@@ -382,7 +387,8 @@ function formatDate(isoString: string): string {
 async function loadEmbeds() {
 	loading.value = true;
 	try {
-		const response = await axios.get('/api/embeds');
+		const params = props.networkId ? { network_id: props.networkId } : {};
+		const response = await axios.get('/api/embeds', { params });
 		embeds.value = response.data.embeds || [];
 	} catch (err) {
 		console.error('Failed to load embeds:', err);
@@ -401,7 +407,8 @@ async function createEmbed() {
 			sensitiveMode: newEmbedSensitive.value,
 			showOwner: newEmbedShowOwner.value,
 			ownerDisplayType: newEmbedOwnerType.value,
-			ownerDisplayName: newEmbedShowOwner.value ? getOwnerDisplayName() : null
+			ownerDisplayName: newEmbedShowOwner.value ? getOwnerDisplayName() : null,
+			networkId: props.networkId || null
 		});
 		
 		// Add new embed to list and select it

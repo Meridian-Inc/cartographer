@@ -8,9 +8,11 @@ import string
 import hashlib
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from fastapi.responses import StreamingResponse, FileResponse, JSONResponse
 from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 import json
 
 from ..dependencies import (
@@ -19,6 +21,8 @@ from ..dependencies import (
     require_write_access,
     require_owner
 )
+from ..database import get_db
+from ..models.network import Network
 
 
 router = APIRouter()
@@ -336,7 +340,7 @@ def _save_all_embeds(embeds: dict) -> None:
 
 
 @router.get("/embed-data/{embed_id}")
-def get_embed_data(embed_id: str):
+async def get_embed_data(embed_id: str, db: AsyncSession = Depends(get_db)):
 	"""Get the network map data for a specific embed (read-only, no auth required)"""
 	global _embed_ip_mappings
 	
@@ -347,9 +351,35 @@ def get_embed_data(embed_id: str):
 	if not embed_config:
 		raise HTTPException(status_code=404, detail="Embed not found")
 	
-	# Load the network map
-	layout_path = _saved_layout_path()
-	if not layout_path.exists():
+	network_id = embed_config.get("networkId")
+	root = None
+	
+	# Load the network map - from database if networkId is set, otherwise from file
+	if network_id:
+		# Load from database (multi-tenant mode)
+		try:
+			result = await db.execute(select(Network).where(Network.id == network_id))
+			network = result.scalar_one_or_none()
+			
+			if network and network.layout_data:
+				layout = network.layout_data
+				if isinstance(layout, str):
+					layout = json.loads(layout)
+				root = layout.get("root")
+		except Exception as exc:
+			raise HTTPException(status_code=500, detail=f"Failed to load network data: {exc}")
+	else:
+		# Legacy: load from file
+		layout_path = _saved_layout_path()
+		if layout_path.exists():
+			try:
+				with open(layout_path, 'r') as f:
+					layout = json.load(f)
+				root = layout.get("root")
+			except Exception as exc:
+				raise HTTPException(status_code=500, detail=f"Failed to load embed data: {exc}")
+	
+	if not root:
 		return JSONResponse({
 			"exists": False,
 			"root": None,
@@ -358,54 +388,47 @@ def get_embed_data(embed_id: str):
 			"ownerDisplayName": None
 		})
 	
-	try:
-		with open(layout_path, 'r') as f:
-			layout = json.load(f)
-		
-		root = layout.get("root")
-		if not root:
-			return JSONResponse({
-				"exists": False,
-				"root": None,
-				"sensitiveMode": False,
-				"showOwner": False,
-				"ownerDisplayName": None
-			})
-		
-		sensitive_mode = embed_config.get("sensitiveMode", False)
-		
-		# If sensitive mode is enabled, sanitize all IPs in the response
-		if sensitive_mode:
-			ip_mapping: dict[str, str] = {}
-			root = _sanitize_node_ips(root, embed_id, ip_mapping)
-			# Store the mapping for health checks
-			_embed_ip_mappings[embed_id] = ip_mapping
-		
-		return JSONResponse({
-			"exists": True,
-			"root": root,
-			"sensitiveMode": sensitive_mode,
-			"showOwner": embed_config.get("showOwner", False),
-			"ownerDisplayName": embed_config.get("ownerDisplayName") if embed_config.get("showOwner") else None,
-			"name": embed_config.get("name", "Unnamed Embed")
-		})
-	except Exception as exc:
-		raise HTTPException(status_code=500, detail=f"Failed to load embed data: {exc}")
+	sensitive_mode = embed_config.get("sensitiveMode", False)
+	
+	# If sensitive mode is enabled, sanitize all IPs in the response
+	if sensitive_mode:
+		ip_mapping: dict[str, str] = {}
+		root = _sanitize_node_ips(root, embed_id, ip_mapping)
+		# Store the mapping for health checks
+		_embed_ip_mappings[embed_id] = ip_mapping
+	
+	return JSONResponse({
+		"exists": True,
+		"root": root,
+		"sensitiveMode": sensitive_mode,
+		"showOwner": embed_config.get("showOwner", False),
+		"ownerDisplayName": embed_config.get("ownerDisplayName") if embed_config.get("showOwner") else None,
+		"name": embed_config.get("name", "Unnamed Embed")
+	})
 
 
 @router.get("/embeds")
-def list_embeds(user: AuthenticatedUser = Depends(require_auth)):
+def list_embeds(
+	user: AuthenticatedUser = Depends(require_auth),
+	network_id: Optional[int] = Query(None, description="Filter embeds by network ID")
+):
 	"""List all embed configurations. Requires authentication."""
 	embeds = _load_all_embeds()
 	# Return list with IDs but without exposing full config details
 	embed_list = []
 	for embed_id, config in embeds.items():
+		# Filter by network_id if provided
+		if network_id is not None:
+			embed_network_id = config.get("networkId")
+			if embed_network_id != network_id:
+				continue
 		embed_list.append({
 			"id": embed_id,
 			"name": config.get("name", "Unnamed Embed"),
 			"sensitiveMode": config.get("sensitiveMode", False),
 			"showOwner": config.get("showOwner", False),
 			"ownerDisplayName": config.get("ownerDisplayName"),
+			"networkId": config.get("networkId"),
 			"createdAt": config.get("createdAt"),
 			"updatedAt": config.get("updatedAt")
 		})
@@ -433,6 +456,7 @@ def create_embed(config: dict, user: AuthenticatedUser = Depends(require_write_a
 			"showOwner": config.get("showOwner", False),
 			"ownerDisplayType": config.get("ownerDisplayType", "fullName"),
 			"ownerDisplayName": config.get("ownerDisplayName"),
+			"networkId": config.get("networkId"),  # Store network ID for multi-tenant mode
 			"createdAt": now,
 			"updatedAt": now
 		}
