@@ -4,7 +4,7 @@ Service for dispatching notifications to users based on their preferences.
 
 import logging
 from typing import Dict, List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -230,7 +230,7 @@ class NotificationDispatchService:
         results = {}
         
         # If scheduled, store for later (would need scheduled broadcast system)
-        if scheduled_at and scheduled_at > datetime.utcnow():
+        if scheduled_at and scheduled_at > datetime.now(timezone.utc):
             # TODO: Implement scheduled broadcast
             logger.warning("Scheduled notifications not yet implemented")
             return results
