@@ -53,7 +53,7 @@ class MetricsContextService:
             return self._context_cache[None][2]
         return None
     
-    async def fetch_network_snapshot(self, force_refresh: bool = False, network_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
+    async def fetch_network_snapshot(self, force_refresh: bool = False, network_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """Fetch the current network topology snapshot
         
         Args:
@@ -106,7 +106,7 @@ class MetricsContextService:
             logger.error(f"Error fetching network snapshot: {e}")
             return None
     
-    async def wait_for_snapshot(self, max_attempts: Optional[int] = None, network_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
+    async def wait_for_snapshot(self, max_attempts: Optional[int] = None, network_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """
         Wait for a snapshot to become available, retrying periodically.
         
@@ -132,7 +132,7 @@ class MetricsContextService:
         logger.warning(f"Snapshot for network_id={network_id} not available after {attempts} attempts")
         return None
     
-    def is_snapshot_available(self, network_id: Optional[int] = None) -> bool:
+    def is_snapshot_available(self, network_id: Optional[str] = None) -> bool:
         """Check if a snapshot has ever been successfully fetched for a network"""
         return self._snapshot_available.get(network_id, False)
     
@@ -147,7 +147,7 @@ class MetricsContextService:
         elapsed = (datetime.utcnow() - self._last_check_time).total_seconds()
         return elapsed >= self._check_interval_seconds
     
-    async def fetch_network_summary(self, network_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
+    async def fetch_network_summary(self, network_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """Fetch network summary (lighter weight than full snapshot)
         
         Args:
@@ -386,7 +386,7 @@ class MetricsContextService:
         
         return "\n".join(lines)
     
-    async def build_context_string(self, wait_for_data: bool = True, force_refresh: bool = False, network_id: Optional[int] = None) -> tuple[str, Dict[str, Any]]:
+    async def build_context_string(self, wait_for_data: bool = True, force_refresh: bool = False, network_id: Optional[str] = None) -> tuple[str, Dict[str, Any]]:
         """
         Build a context string for the AI assistant with network information.
         Returns (context_string, summary_dict)
@@ -653,7 +653,7 @@ based on the information you provide directly.
         }
         return context.strip(), summary
     
-    def clear_cache(self, network_id: Optional[int] = None):
+    def clear_cache(self, network_id: Optional[str] = None):
         """Clear the cached context for a specific network or all networks.
         
         Args:
@@ -665,7 +665,7 @@ based on the information you provide directly.
         else:
             self._context_cache.clear()
     
-    def reset_state(self, network_id: Optional[int] = None):
+    def reset_state(self, network_id: Optional[str] = None):
         """Reset all state including snapshot availability.
         
         Args:
@@ -679,7 +679,7 @@ based on the information you provide directly.
             self._snapshot_available.clear()
         self._last_check_time = None
     
-    def get_status(self, network_id: Optional[int] = None) -> Dict[str, Any]:
+    def get_status(self, network_id: Optional[str] = None) -> Dict[str, Any]:
         """Get current service status.
         
         Args:

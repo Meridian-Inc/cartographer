@@ -25,7 +25,7 @@ _previous_states: Dict[str, str] = {}
 async def report_health_check(
     device_ip: str,
     success: bool,
-    network_id: Optional[int] = None,
+    network_id: Optional[str] = None,
     latency_ms: Optional[float] = None,
     packet_loss: Optional[float] = None,
     device_name: Optional[str] = None,
@@ -128,7 +128,7 @@ def clear_state_tracking():
     _previous_states.clear()
 
 
-async def sync_devices_with_notification_service(device_ips: list, network_id: Optional[int] = None) -> bool:
+async def sync_devices_with_notification_service(device_ips: list, network_id: Optional[str] = None) -> bool:
     """
     Sync the current list of monitored devices with the notification service.
     

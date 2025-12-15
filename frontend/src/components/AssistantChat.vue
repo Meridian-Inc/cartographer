@@ -287,7 +287,7 @@ import { marked } from 'marked';
 
 // Props for network context
 const props = defineProps<{
-	networkId?: number;
+	networkId?: string;
 }>();
 
 const emit = defineEmits(['close']);

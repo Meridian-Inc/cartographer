@@ -333,7 +333,7 @@ const props = defineProps<{
 	root: TreeNode;
 	hasUnsavedChanges?: boolean;
 	canEdit?: boolean;
-	networkId?: number;
+	networkId?: string;
 	networkName?: string;
 }>();
 

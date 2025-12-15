@@ -593,7 +593,7 @@ import { useNotifications } from "../composables/useNotifications";
 
 // Props for network-specific view
 const props = defineProps<{
-	networkId?: number;
+	networkId?: string;
 	networkName?: string;
 	networkOwnerId?: string;
 	canWriteNetwork?: boolean;

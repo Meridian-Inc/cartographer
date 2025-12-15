@@ -1528,7 +1528,7 @@ const detectedTimezone = computed(() => {
 });
 
 const props = defineProps<{
-	networkId: number;
+	networkId: string;
 }>();
 
 defineEmits<{

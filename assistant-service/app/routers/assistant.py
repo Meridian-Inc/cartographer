@@ -285,7 +285,7 @@ async def refresh_all_models():
 # ==================== Context Endpoints ====================
 
 @router.get("/context", response_model=NetworkContextSummary)
-async def get_network_context(network_id: Optional[int] = Query(None, description="Network ID for multi-tenant mode")):
+async def get_network_context(network_id: Optional[str] = Query(None, description="Network ID for multi-tenant mode")):
     """Get the current network context that would be provided to the assistant.
     
     Args:
@@ -305,7 +305,7 @@ async def get_network_context(network_id: Optional[int] = Query(None, descriptio
 
 
 @router.post("/context/refresh")
-async def refresh_context(network_id: Optional[int] = Query(None, description="Network ID for multi-tenant mode")):
+async def refresh_context(network_id: Optional[str] = Query(None, description="Network ID for multi-tenant mode")):
     """Clear cached context and fetch fresh data from the metrics service.
     
     This triggers the metrics service to regenerate its snapshot with
@@ -339,7 +339,7 @@ async def get_context_status():
 
 
 @router.get("/context/debug")
-async def get_context_debug(network_id: Optional[int] = Query(None, description="Network ID for multi-tenant mode")):
+async def get_context_debug(network_id: Optional[str] = Query(None, description="Network ID for multi-tenant mode")):
     """Debug endpoint to see the full context string being sent to AI.
     
     Args:
@@ -356,7 +356,7 @@ async def get_context_debug(network_id: Optional[int] = Query(None, description=
 
 
 @router.get("/context/raw")
-async def get_context_raw(network_id: Optional[int] = Query(None, description="Network ID for multi-tenant mode")):
+async def get_context_raw(network_id: Optional[str] = Query(None, description="Network ID for multi-tenant mode")):
     """Debug endpoint to see raw snapshot data from metrics service.
     
     Args:

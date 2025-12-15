@@ -105,8 +105,10 @@ async function ensureAuthenticated(): Promise<boolean> {
 }
 
 async function loadNetwork() {
-	const id = Number(route.params.id);
-	if (isNaN(id)) {
+	const id = route.params.id as string;
+	// Validate UUID format
+	const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+	if (!id || !uuidRegex.test(id)) {
 		error.value = "Invalid network ID";
 		loading.value = false;
 		return;

@@ -45,7 +45,7 @@ export type NotificationPriority = 'low' | 'medium' | 'high' | 'critical';
 export type NotificationTypePriorityOverrides = Partial<Record<NotificationType, NotificationPriority>>;
 
 export interface NotificationPreferences {
-  network_id: number;
+  network_id: string;
   network_name?: string;
   owner_user_id?: string;
   enabled: boolean;
@@ -122,7 +122,7 @@ export interface ScheduledBroadcast {
   message: string;
   event_type: NotificationType;
   priority: NotificationPriority;
-  network_id: number;
+  network_id: string;
   scheduled_at: string;
   timezone?: string;  // IANA timezone name for display
   created_at: string;
@@ -166,13 +166,13 @@ export interface GlobalUserPreferencesUpdate {
 
 const API_BASE = '/api/notifications';
 
-export function useNotifications(networkId?: number) {
+export function useNotifications(networkId?: string) {
   const isLoading = ref(false);
   const error = ref<string | null>(null);
-  const currentNetworkId = ref<number | undefined>(networkId);
+  const currentNetworkId = ref<string | undefined>(networkId);
 
   // Set the network ID for subsequent calls
-  function setNetworkId(id: number) {
+  function setNetworkId(id: string) {
     currentNetworkId.value = id;
   }
 
@@ -277,7 +277,7 @@ export function useNotifications(networkId?: number) {
 
   // Send broadcast notification (owner only, network-scoped)
   async function sendBroadcastNotification(
-    networkId: number,
+    networkId: string,
     title: string,
     message: string,
     eventType: NotificationType = 'scheduled_maintenance',
@@ -307,7 +307,7 @@ export function useNotifications(networkId?: number) {
 
   // Schedule a broadcast (owner only, network-scoped)
   async function scheduleBroadcast(
-    networkId: number,
+    networkId: string,
     title: string,
     message: string,
     scheduledAt: Date,

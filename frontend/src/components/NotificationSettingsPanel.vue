@@ -132,7 +132,7 @@ import NetworkSettings from './NotificationSettingsNetwork.vue';
 import GlobalSettings from './NotificationSettingsGlobal.vue';
 
 const props = defineProps<{
-	networkId: number | null;
+	networkId: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -287,7 +287,7 @@ async function handleUnlinkGlobalDiscord() {
 }
 
 // Generic context-aware Discord link handler
-async function handleLinkDiscordWithContext(contextType: 'network' | 'global', networkId?: number) {
+async function handleLinkDiscordWithContext(contextType: 'network' | 'global', networkId?: string) {
 	try {
 		const { authorization_url } = await initiateDiscordOAuth(contextType, networkId);
 		const popup = window.open(authorization_url, 'discord_oauth', 'width=600,height=700');
@@ -354,7 +354,7 @@ async function handleLinkDiscordWithContext(contextType: 'network' | 'global', n
 }
 
 // Generic context-aware Discord unlink handler
-async function handleUnlinkDiscordWithContext(contextType: 'network' | 'global', networkId?: number) {
+async function handleUnlinkDiscordWithContext(contextType: 'network' | 'global', networkId?: string) {
 	const contextLabel = contextType === 'network' ? 'this network' : 'global settings';
 	if (!confirm(`Are you sure you want to unlink your Discord account from ${contextLabel}?`)) {
 		return;

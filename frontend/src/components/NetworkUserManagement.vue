@@ -279,7 +279,7 @@ import { useAuth } from "../composables/useAuth";
 import type { User } from "../types/auth";
 
 const props = defineProps<{
-	networkId: number;
+	networkId: string;
 	ownerId: string;
 }>();
 

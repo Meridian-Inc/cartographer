@@ -27,7 +27,7 @@ router = APIRouter()
 async def initiate_discord_oauth(
     user_id: str = Query(..., description="User ID"),
     context_type: str = Query("global", description="Context type: 'network' or 'global'"),
-    network_id: Optional[int] = Query(None, description="Network ID if context_type is 'network'"),
+    network_id: Optional[str] = Query(None, description="Network ID if context_type is 'network'"),
 ):
     """
     Initiate Discord OAuth flow for a specific context.
@@ -141,7 +141,7 @@ async def discord_oauth_callback(
 async def unlink_discord(
     user_id: str,
     context_type: str = Query("global", description="Context type: 'network' or 'global'"),
-    network_id: Optional[int] = Query(None, description="Network ID if context_type is 'network'"),
+    network_id: Optional[str] = Query(None, description="Network ID if context_type is 'network'"),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -186,7 +186,7 @@ async def unlink_discord(
 async def get_discord_info(
     user_id: str,
     context_type: str = Query("global", description="Context type: 'network' or 'global'"),
-    network_id: Optional[int] = Query(None, description="Network ID if context_type is 'network'"),
+    network_id: Optional[str] = Query(None, description="Network ID if context_type is 'network'"),
     db: AsyncSession = Depends(get_db),
 ):
     """

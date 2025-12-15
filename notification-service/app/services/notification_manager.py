@@ -1494,7 +1494,7 @@ class NotificationManager:
     
     def get_history(
         self,
-        network_id: Optional[int] = None,
+        network_id: Optional[str] = None,
         page: int = 1,
         per_page: int = 50,
     ) -> NotificationHistoryResponse:
@@ -1518,7 +1518,7 @@ class NotificationManager:
             per_page=per_page,
         )
     
-    def get_stats(self, network_id: Optional[int] = None) -> NotificationStatsResponse:
+    def get_stats(self, network_id: Optional[str] = None) -> NotificationStatsResponse:
         """Get notification statistics"""
         now = datetime.utcnow()
         day_ago = now - timedelta(days=1)

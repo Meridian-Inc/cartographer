@@ -90,7 +90,7 @@ class MetricsAggregator:
         self._publishing_enabled = True
         self._publish_task: Optional[asyncio.Task] = None
         # Multi-tenant: store snapshots per network_id (None key for legacy single-network mode)
-        self._snapshots: Dict[Optional[int], NetworkTopologySnapshot] = {}
+        self._snapshots: Dict[Optional[str], NetworkTopologySnapshot] = {}
         self._last_speed_test: Dict[str, SpeedTestMetrics] = {}  # gateway_ip -> last speed test
     
     @property
@@ -110,11 +110,11 @@ class MetricsAggregator:
     
     # ==================== Data Fetching ====================
     
-    async def _fetch_all_network_ids(self) -> List[int]:
+    async def _fetch_all_network_ids(self) -> List[str]:
         """Fetch all network IDs from the backend for multi-tenant snapshot generation.
         
         Returns:
-            List of network IDs that have layouts configured.
+            List of network IDs (UUIDs) that have layouts configured.
         """
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
@@ -139,7 +139,7 @@ class MetricsAggregator:
         
         return []
     
-    async def _fetch_network_layout(self, network_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
+    async def _fetch_network_layout(self, network_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """Fetch the saved network layout from the backend.
         
         Args:
@@ -634,7 +634,7 @@ class MetricsAggregator:
     
     # ==================== Snapshot Generation ====================
     
-    async def generate_snapshot(self, network_id: Optional[int] = None) -> Optional[NetworkTopologySnapshot]:
+    async def generate_snapshot(self, network_id: Optional[str] = None) -> Optional[NetworkTopologySnapshot]:
         """
         Generate a complete network topology snapshot by aggregating
         data from all sources.
@@ -721,16 +721,16 @@ class MetricsAggregator:
     
     # ==================== Publishing ====================
     
-    async def generate_all_snapshots(self) -> Dict[int, NetworkTopologySnapshot]:
+    async def generate_all_snapshots(self) -> Dict[str, NetworkTopologySnapshot]:
         """Generate snapshots for all networks in the system.
         
         This fetches the list of all networks and generates a snapshot for each.
         Used at startup and in the background publish loop.
         
         Returns:
-            Dict mapping network_id to generated snapshot.
+            Dict mapping network_id (UUID string) to generated snapshot.
         """
-        snapshots: Dict[int, NetworkTopologySnapshot] = {}
+        snapshots: Dict[str, NetworkTopologySnapshot] = {}
         
         # Fetch all network IDs
         network_ids = await self._fetch_all_network_ids()
@@ -760,7 +760,7 @@ class MetricsAggregator:
         
         return snapshots
     
-    async def publish_snapshot(self, network_id: Optional[int] = None) -> bool:
+    async def publish_snapshot(self, network_id: Optional[str] = None) -> bool:
         """Generate and publish a network topology snapshot.
         
         Args:
@@ -917,7 +917,7 @@ class MetricsAggregator:
             "last_snapshot_timestamp": self._last_snapshot.timestamp.isoformat() if self._last_snapshot else None,
         }
     
-    def get_last_snapshot(self, network_id: Optional[int] = None) -> Optional[NetworkTopologySnapshot]:
+    def get_last_snapshot(self, network_id: Optional[str] = None) -> Optional[NetworkTopologySnapshot]:
         """Get the last generated snapshot for a specific network.
         
         Args:

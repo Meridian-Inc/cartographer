@@ -322,11 +322,11 @@ interface EmbedConfig {
 	ownerDisplayName: string | null;
 	createdAt: string;
 	updatedAt: string;
-	networkId?: number | null;
+	networkId?: string | null;
 }
 
 const props = defineProps<{
-	networkId?: number;
+	networkId?: string;
 }>();
 
 const emit = defineEmits<{

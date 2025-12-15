@@ -35,7 +35,7 @@ export function useHealthMonitoring() {
 	 * @param networkId - The network these devices belong to (required)
 	 * @param triggerCheck - Whether to trigger an immediate check after registration
 	 */
-	async function registerDevices(ips: string[], networkId: number, triggerCheck = true): Promise<void> {
+	async function registerDevices(ips: string[], networkId: string, triggerCheck = true): Promise<void> {
 		try {
 			console.log(`[Health] Sending ${ips.length} IPs to backend for monitoring (network ${networkId}):`, ips);
 			const response = await axios.post('/api/health/monitoring/devices', { ips, network_id: networkId });

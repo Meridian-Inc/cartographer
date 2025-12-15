@@ -23,7 +23,7 @@ export type GlobalNotificationType = 'cartographer_up' | 'cartographer_down';
 
 export interface NetworkPreferences {
   user_id: string;
-  network_id: number;
+  network_id: string;
   email_enabled: boolean;
   discord_enabled: boolean;
   discord_user_id?: string;
@@ -70,7 +70,7 @@ export function useUserNotifications() {
   const error = ref<string | null>(null);
 
   // Network preferences
-  async function getNetworkPreferences(networkId: number): Promise<NetworkPreferences> {
+  async function getNetworkPreferences(networkId: string): Promise<NetworkPreferences> {
     isLoading.value = true;
     error.value = null;
     try {
@@ -87,7 +87,7 @@ export function useUserNotifications() {
   }
 
   async function updateNetworkPreferences(
-    networkId: number,
+    networkId: string,
     update: Partial<NetworkPreferences>
   ): Promise<NetworkPreferences> {
     error.value = null;
@@ -103,7 +103,7 @@ export function useUserNotifications() {
     }
   }
 
-  async function deleteNetworkPreferences(networkId: number): Promise<void> {
+  async function deleteNetworkPreferences(networkId: string): Promise<void> {
     error.value = null;
     try {
       await axios.delete(`${API_BASE}/users/me/networks/${networkId}/preferences`);
@@ -148,7 +148,7 @@ export function useUserNotifications() {
 
   // Test notifications
   async function testNetworkNotification(
-    networkId: number,
+    networkId: string,
     channel: 'email' | 'discord'
   ): Promise<{ success: boolean; message: string; error?: string }> {
     error.value = null;
@@ -183,11 +183,11 @@ export function useUserNotifications() {
   // Discord OAuth - Context-aware (per-network or global)
   async function initiateDiscordOAuth(
     contextType: 'network' | 'global' = 'global',
-    networkId?: number
+    networkId?: string
   ): Promise<{ authorization_url: string }> {
     error.value = null;
     try {
-      const params: Record<string, string | number> = { context_type: contextType };
+      const params: Record<string, string> = { context_type: contextType };
       if (contextType === 'network' && networkId !== undefined) {
         params.network_id = networkId;
       }
@@ -204,11 +204,11 @@ export function useUserNotifications() {
 
   async function getDiscordLink(
     contextType: 'network' | 'global' = 'global',
-    networkId?: number
+    networkId?: string
   ): Promise<DiscordLinkInfo> {
     error.value = null;
     try {
-      const params: Record<string, string | number> = { context_type: contextType };
+      const params: Record<string, string> = { context_type: contextType };
       if (contextType === 'network' && networkId !== undefined) {
         params.network_id = networkId;
       }
@@ -225,11 +225,11 @@ export function useUserNotifications() {
 
   async function unlinkDiscord(
     contextType: 'network' | 'global' = 'global',
-    networkId?: number
+    networkId?: string
   ): Promise<void> {
     error.value = null;
     try {
-      const params: Record<string, string | number> = { context_type: contextType };
+      const params: Record<string, string> = { context_type: contextType };
       if (contextType === 'network' && networkId !== undefined) {
         params.network_id = networkId;
       }
@@ -256,7 +256,7 @@ export function useUserNotifications() {
   }
 
   // Anomaly stats (network only)
-  async function getAnomalyStats(networkId: number): Promise<{
+  async function getAnomalyStats(networkId: string): Promise<{
     devices_tracked: number;
     anomalies_detected_24h: number;
     is_trained: boolean;

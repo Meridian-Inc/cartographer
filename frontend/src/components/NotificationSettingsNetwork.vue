@@ -264,7 +264,7 @@
 
 <script setup lang="ts">
 const props = defineProps<{
-	networkId: number;
+	networkId: string;
 	preferences: any;
 	serviceStatus: any;
 	discordLink: any;

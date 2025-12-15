@@ -406,14 +406,14 @@ interface ScheduledBroadcast {
 	message: string;
 	event_type: string;
 	priority: string;
-	network_id: number;
+	network_id: string;
 	scheduled_at: string;
 	timezone?: string;
 	status: string;
 }
 
 const props = defineProps<{
-	networkId: number;
+	networkId: string;
 }>();
 
 const emit = defineEmits<{

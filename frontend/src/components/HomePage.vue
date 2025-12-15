@@ -513,7 +513,7 @@ const newNetwork = reactive({
 const showEditModal = ref(false);
 const isEditing = ref(false);
 const editError = ref("");
-const editingNetworkId = ref<number | null>(null);
+const editingNetworkId = ref<string | null>(null);
 
 const editNetwork = reactive({
 	name: "",
