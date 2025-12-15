@@ -5,6 +5,13 @@ All notable changes to Cartographer will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.0](https://github.com/devartech/cartographer/compare/v0.13.19...v0.14.0) (2025-12-15)
+
+
+### ✨ Features
+
+* change from int to UUID for network ID ([1f74263](https://github.com/devartech/cartographer/commit/1f742630e3632d6ff124c89848e98c6d77e4acab))
+
 ### [0.13.19](https://github.com/devartech/cartographer/compare/v0.13.18...v0.13.19) (2025-12-14)
 
 
