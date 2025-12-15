@@ -68,6 +68,85 @@ def _save_service_state(clean_shutdown: bool):
         logger.warning(f"Failed to save service state: {e}")
 
 
+async def _migrate_network_ids_to_uuid():
+    """Migrate network_id and context_id columns from INTEGER to UUID if needed."""
+    from .database import async_session_maker
+    from sqlalchemy import text
+    
+    async with async_session_maker() as session:
+        try:
+            # Check if discord_user_links.context_id is INTEGER and convert to UUID
+            result = await session.execute(text("""
+                SELECT data_type 
+                FROM information_schema.columns 
+                WHERE table_name = 'discord_user_links' 
+                AND column_name = 'context_id'
+            """))
+            row = result.fetchone()
+            
+            if row and row[0] in ('integer', 'bigint'):
+                logger.info("Migrating discord_user_links.context_id from INTEGER to UUID...")
+                
+                # Add new UUID column
+                await session.execute(text("""
+                    ALTER TABLE discord_user_links 
+                    ADD COLUMN IF NOT EXISTS context_id_new UUID
+                """))
+                
+                # We can't reliably map old integer IDs to UUIDs, so we'll clear existing network links
+                # Global links (context_id IS NULL) are preserved
+                await session.execute(text("""
+                    UPDATE discord_user_links 
+                    SET context_id_new = NULL 
+                    WHERE context_type = 'network'
+                """))
+                
+                # Drop old column and rename new one
+                await session.execute(text("ALTER TABLE discord_user_links DROP COLUMN context_id"))
+                await session.execute(text("ALTER TABLE discord_user_links RENAME COLUMN context_id_new TO context_id"))
+                
+                await session.commit()
+                logger.info("discord_user_links.context_id migration complete")
+            
+            # Check if user_network_notification_prefs.network_id is INTEGER and convert to UUID
+            result = await session.execute(text("""
+                SELECT data_type 
+                FROM information_schema.columns 
+                WHERE table_name = 'user_network_notification_prefs' 
+                AND column_name = 'network_id'
+            """))
+            row = result.fetchone()
+            
+            if row and row[0] in ('integer', 'bigint'):
+                logger.info("Migrating user_network_notification_prefs.network_id from INTEGER to UUID...")
+                
+                # For this table, we need to drop existing rows since we can't map old IDs
+                # Users will need to reconfigure their notification preferences
+                await session.execute(text("DELETE FROM user_network_notification_prefs"))
+                
+                # Drop old column and recreate as UUID
+                await session.execute(text("ALTER TABLE user_network_notification_prefs DROP COLUMN network_id"))
+                await session.execute(text("""
+                    ALTER TABLE user_network_notification_prefs 
+                    ADD COLUMN network_id UUID NOT NULL
+                """))
+                
+                # Recreate index
+                await session.execute(text("""
+                    CREATE INDEX IF NOT EXISTS ix_user_network_notification_prefs_network_id 
+                    ON user_network_notification_prefs(network_id)
+                """))
+                
+                await session.commit()
+                logger.info("user_network_notification_prefs.network_id migration complete")
+            
+            logger.info("Network ID UUID migration check complete")
+            
+        except Exception as e:
+            logger.error(f"Error during network_id UUID migration: {e}", exc_info=True)
+            await session.rollback()
+
+
 async def _send_cartographer_status_notification(event_type: str, downtime_minutes: int = None, message: str = None):
     """
     Send Cartographer status notification directly (without HTTP).
@@ -315,6 +394,11 @@ async def lifespan(app: FastAPI):
                 logger.error(f"Migration stdout: {result.stdout}")
                 # Don't raise - let service continue if tables already exist
                 logger.warning("Migration may have failed, but service will continue. Check database connection.")
+            
+            # Run inline migration for network_id/context_id to UUID
+            # This handles cases where Alembic migrations conflict or fail
+            logger.info("Checking for network_id/context_id UUID migration...")
+            await _migrate_network_ids_to_uuid()
                 
     except FileNotFoundError:
         logger.warning("Alembic not found, skipping migrations. Install alembic to enable automatic migrations.")
