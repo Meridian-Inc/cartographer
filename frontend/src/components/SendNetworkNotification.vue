@@ -195,6 +195,11 @@
 								v-for="broadcast in scheduledBroadcasts" 
 								:key="broadcast.id"
 								class="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-lg border border-slate-200/80 dark:border-slate-700/50"
+								:class="{
+									'border-emerald-300 dark:border-emerald-700/50': broadcast.status === 'sent',
+									'border-amber-300 dark:border-amber-700/50': countdowns[broadcast.id]?.isSending,
+									'border-red-300 dark:border-red-700/50': broadcast.status === 'failed'
+								}"
 							>
 								<div class="flex items-start justify-between gap-3">
 									<div class="flex-1 min-w-0">
@@ -204,24 +209,42 @@
 										</div>
 										<p class="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mb-2">{{ broadcast.message }}</p>
 										<div class="flex items-center gap-2 flex-wrap">
-											<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400">
+											<!-- Status Badge with Countdown -->
+											<span 
+												class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium transition-all"
+												:class="getBroadcastStatus(broadcast).class"
+											>
+												<span class="text-sm">{{ getBroadcastStatus(broadcast).icon }}</span>
+												{{ getBroadcastStatus(broadcast).label }}
+											</span>
+											
+											<!-- Scheduled Time (show for pending) -->
+											<span 
+												v-if="broadcast.status === 'pending'"
+												class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400"
+											>
 												<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-													<path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+													<path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
 												</svg>
 												{{ formatScheduledTime(broadcast.scheduled_at) }}
 											</span>
+											
+											<!-- Priority -->
 											<span 
 												class="px-2 py-0.5 rounded text-xs font-medium"
 												:class="getPriorityClass(broadcast.priority)"
 											>
 												{{ broadcast.priority }}
 											</span>
-											<span v-if="broadcast.timezone" class="px-2 py-0.5 rounded text-xs font-medium bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+											
+											<!-- Timezone -->
+											<span v-if="broadcast.timezone && broadcast.status === 'pending'" class="px-2 py-0.5 rounded text-xs font-medium bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
 												{{ broadcast.timezone }}
 											</span>
 										</div>
 									</div>
-									<div class="flex items-center gap-1 flex-shrink-0">
+									<!-- Actions (only for pending broadcasts) -->
+									<div v-if="broadcast.status === 'pending' && !countdowns[broadcast.id]?.isSending" class="flex items-center gap-1 flex-shrink-0">
 										<button
 											@click="openEditModal(broadcast)"
 											class="p-1.5 text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors rounded hover:bg-slate-200 dark:hover:bg-slate-800"
@@ -240,6 +263,19 @@
 												<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
 											</svg>
 										</button>
+									</div>
+									<!-- Sending spinner -->
+									<div v-else-if="countdowns[broadcast.id]?.isSending" class="flex-shrink-0">
+										<svg class="animate-spin h-5 w-5 text-amber-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+											<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+											<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+										</svg>
+									</div>
+									<!-- Sent checkmark -->
+									<div v-else-if="broadcast.status === 'sent'" class="flex-shrink-0">
+										<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+											<path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+										</svg>
 									</div>
 								</div>
 							</div>
@@ -397,7 +433,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, reactive } from 'vue';
 import axios from 'axios';
 
 interface ScheduledBroadcast {
@@ -409,7 +445,10 @@ interface ScheduledBroadcast {
 	network_id: string;
 	scheduled_at: string;
 	timezone?: string;
-	status: string;
+	status: 'pending' | 'sent' | 'cancelled' | 'failed';
+	sent_at?: string;
+	seen_at?: string;  // When a user first viewed this after it was sent (backend-persisted)
+	users_notified?: number;
 }
 
 const props = defineProps<{
@@ -441,6 +480,14 @@ const isSending = ref(false);
 // Scheduled broadcasts
 const scheduledBroadcasts = ref<ScheduledBroadcast[]>([]);
 const loadingScheduled = ref(false);
+
+// Countdown timers
+const countdowns = reactive<Record<string, { timeLeft: number; isSending: boolean }>>({});
+let countdownInterval: ReturnType<typeof setInterval> | null = null;
+let pollInterval: ReturnType<typeof setInterval> | null = null;
+
+// Track which broadcasts we've already marked as seen (to avoid duplicate API calls)
+const markedAsSeenIds = new Set<string>();
 
 // Edit modal
 const editingBroadcast = ref<ScheduledBroadcast | null>(null);
@@ -477,20 +524,222 @@ const isValid = computed(() => {
 	return form.value.title.trim().length > 0 && form.value.message.trim().length > 0;
 });
 
+// Mark a broadcast as seen on the backend and return the seen_at timestamp
+async function markBroadcastAsSeen(broadcastId: string): Promise<string | null> {
+	if (markedAsSeenIds.has(broadcastId)) return null;
+	
+	markedAsSeenIds.add(broadcastId);
+	try {
+		const response = await axios.post(`/api/notifications/scheduled/${broadcastId}/seen`);
+		return response.data.seen_at || null;
+	} catch (e) {
+		console.error('Failed to mark broadcast as seen:', e);
+		// Remove from set so we can retry
+		markedAsSeenIds.delete(broadcastId);
+		return null;
+	}
+}
+
 // Load scheduled broadcasts
-async function loadScheduledBroadcasts() {
-	loadingScheduled.value = true;
+async function loadScheduledBroadcasts(showLoading = true) {
+	if (showLoading) loadingScheduled.value = true;
 	try {
 		const response = await axios.get(`/api/notifications/scheduled`, {
-			params: { include_completed: false }
+			params: { include_completed: true }  // Include completed to show "Sent" briefly
 		});
-		scheduledBroadcasts.value = response.data.broadcasts.filter(
+		const allBroadcasts = response.data.broadcasts.filter(
 			(b: ScheduledBroadcast) => b.network_id === props.networkId
 		);
+		
+		const now = Date.now();
+		const SENT_DISPLAY_DURATION = 5000;  // Show "Sent" for 5 seconds after being seen
+		
+		// Process broadcasts and mark sent ones as seen
+		const visibleBroadcasts: ScheduledBroadcast[] = [];
+		const markSeenPromises: Promise<void>[] = [];
+		
+		for (const b of allBroadcasts) {
+			// Always show pending broadcasts
+			if (b.status === 'pending') {
+				visibleBroadcasts.push(b);
+				continue;
+			}
+			
+			// Show failed broadcasts
+			if (b.status === 'failed') {
+				visibleBroadcasts.push(b);
+				continue;
+			}
+			
+			// For sent broadcasts, use backend's seen_at for timing
+			if (b.status === 'sent') {
+				if (!b.seen_at) {
+					// Not yet seen - mark as seen on backend
+					// Use a closure to capture the broadcast
+					const broadcast = b;
+					markSeenPromises.push(
+						markBroadcastAsSeen(broadcast.id).then(seenAt => {
+							if (seenAt) {
+								broadcast.seen_at = seenAt;
+							}
+						})
+					);
+					visibleBroadcasts.push(b);
+					continue;
+				}
+				
+				// Check if it's been seen long enough to hide
+				// Handle both naive datetimes (no timezone) and UTC datetimes
+				// Naive datetimes from the backend should be treated as UTC
+				let seenAtStr = b.seen_at;
+				if (!seenAtStr.includes('Z') && !seenAtStr.includes('+') && !seenAtStr.match(/-\d{2}:\d{2}$/)) {
+					seenAtStr += 'Z';  // Treat naive datetime as UTC
+				}
+				const seenTime = new Date(seenAtStr).getTime();
+				const seenDuration = now - seenTime;
+				
+				if (seenDuration < SENT_DISPLAY_DURATION) {
+					// Still within display window
+					visibleBroadcasts.push(b);
+				}
+				// Otherwise, don't include it (hidden permanently)
+			}
+		}
+		
+		// Wait for all mark-as-seen calls to complete
+		await Promise.all(markSeenPromises);
+		
+		scheduledBroadcasts.value = visibleBroadcasts;
+		
+		// Update countdown states
+		updateCountdowns();
 	} catch (e) {
 		console.error('Failed to load scheduled broadcasts:', e);
 	} finally {
 		loadingScheduled.value = false;
+	}
+}
+
+// Update countdown timers for all broadcasts
+function updateCountdowns() {
+	const now = Date.now();
+	
+	for (const broadcast of scheduledBroadcasts.value) {
+		const scheduledTime = new Date(broadcast.scheduled_at).getTime();
+		const timeLeft = scheduledTime - now;
+		
+		// Determine if it's in "sending" state (past due but not yet sent)
+		const isSending = broadcast.status === 'pending' && timeLeft <= 0;
+		
+		countdowns[broadcast.id] = {
+			timeLeft: Math.max(0, timeLeft),
+			isSending
+		};
+	}
+	
+	// Clean up countdowns for removed broadcasts
+	for (const id of Object.keys(countdowns)) {
+		if (!scheduledBroadcasts.value.find(b => b.id === id)) {
+			delete countdowns[id];
+		}
+	}
+}
+
+// Format countdown for display
+function formatCountdown(broadcastId: string): string {
+	const countdown = countdowns[broadcastId];
+	if (!countdown) return '';
+	
+	const timeLeft = countdown.timeLeft;
+	
+	if (timeLeft <= 0) return '';
+	
+	const seconds = Math.floor(timeLeft / 1000) % 60;
+	const minutes = Math.floor(timeLeft / (1000 * 60)) % 60;
+	const hours = Math.floor(timeLeft / (1000 * 60 * 60)) % 24;
+	const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
+	
+	if (days > 0) {
+		return `${days}d ${hours}h`;
+	} else if (hours > 0) {
+		return `${hours}h ${minutes}m`;
+	} else if (minutes > 0) {
+		return `${minutes}m ${seconds}s`;
+	} else {
+		return `${seconds}s`;
+	}
+}
+
+// Get broadcast status for display
+function getBroadcastStatus(broadcast: ScheduledBroadcast): { label: string; class: string; icon: string } {
+	if (broadcast.status === 'sent') {
+		return {
+			label: `Sent${broadcast.users_notified ? ` to ${broadcast.users_notified} user${broadcast.users_notified !== 1 ? 's' : ''}` : ''}`,
+			class: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400',
+			icon: '✓'
+		};
+	}
+	
+	if (broadcast.status === 'failed') {
+		return {
+			label: 'Failed',
+			class: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400',
+			icon: '✗'
+		};
+	}
+	
+	const countdown = countdowns[broadcast.id];
+	if (countdown?.isSending) {
+		return {
+			label: 'Sending...',
+			class: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 animate-pulse',
+			icon: '⏳'
+		};
+	}
+	
+	const timeDisplay = formatCountdown(broadcast.id);
+	return {
+		label: timeDisplay ? `in ${timeDisplay}` : 'Scheduled',
+		class: 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400',
+		icon: '⏱'
+	};
+}
+
+// Start countdown timer interval
+function startCountdownTimer() {
+	if (countdownInterval) return;
+	
+	countdownInterval = setInterval(() => {
+		updateCountdowns();
+	}, 1000);
+}
+
+// Start polling for status updates (check every 5 seconds for status changes)
+function startPolling() {
+	if (pollInterval) return;
+	
+	pollInterval = setInterval(async () => {
+		// Poll if we have broadcasts that are sending OR recently sent (still visible)
+		const hasSending = scheduledBroadcasts.value.some(b => 
+			b.status === 'pending' && countdowns[b.id]?.isSending
+		);
+		const hasSentVisible = scheduledBroadcasts.value.some(b => b.status === 'sent');
+		
+		if (hasSending || hasSentVisible) {
+			await loadScheduledBroadcasts(false);
+		}
+	}, 1000);  // Poll every second for smooth transitions
+}
+
+// Stop timers
+function stopTimers() {
+	if (countdownInterval) {
+		clearInterval(countdownInterval);
+		countdownInterval = null;
+	}
+	if (pollInterval) {
+		clearInterval(pollInterval);
+		pollInterval = null;
 	}
 }
 
@@ -656,8 +905,15 @@ function getPriorityClass(priority: string): string {
 	return classes[priority] || classes.medium;
 }
 
-// Load scheduled broadcasts on mount
+// Load scheduled broadcasts on mount and start timers
 onMounted(() => {
 	loadScheduledBroadcasts();
+	startCountdownTimer();
+	startPolling();
+});
+
+// Clean up timers on unmount
+onUnmounted(() => {
+	stopTimers();
 });
 </script>

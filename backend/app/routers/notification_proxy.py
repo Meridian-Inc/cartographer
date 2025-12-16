@@ -430,6 +430,12 @@ async def delete_scheduled_broadcast(broadcast_id: str, user: AuthenticatedUser 
     return await proxy_request("DELETE", f"/scheduled/{broadcast_id}")
 
 
+@router.post("/scheduled/{broadcast_id}/seen")
+async def mark_broadcast_seen(broadcast_id: str, user: AuthenticatedUser = Depends(require_auth)):
+    """Mark a sent broadcast as seen by the user."""
+    return await proxy_request("POST", f"/scheduled/{broadcast_id}/seen")
+
+
 # ==================== Silenced Devices (Monitoring Disabled) ====================
 
 @router.get("/silenced-devices")

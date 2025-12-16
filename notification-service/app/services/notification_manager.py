@@ -213,7 +213,7 @@ class NotificationManager:
             for broadcast_id, broadcast_data in data.items():
                 try:
                     # Parse datetime strings
-                    for field in ["scheduled_at", "created_at", "sent_at"]:
+                    for field in ["scheduled_at", "created_at", "sent_at", "seen_at"]:
                         if field in broadcast_data and broadcast_data[field] and isinstance(broadcast_data[field], str):
                             broadcast_data[field] = datetime.fromisoformat(broadcast_data[field].replace("Z", "+00:00"))
                     
@@ -343,6 +343,43 @@ class NotificationManager:
                 logger.error(f"Error in scheduler loop: {e}", exc_info=True)
                 await asyncio.sleep(60)  # Wait longer on error
     
+    async def _get_network_member_user_ids(self, network_id: str) -> List[str]:
+        """
+        Get all user IDs who have access to a network.
+        Queries the database directly to get owner + users with permissions.
+        """
+        from sqlalchemy import text
+        from ..database import async_session_maker
+        
+        try:
+            async with async_session_maker() as session:
+                # Get the network owner
+                result = await session.execute(
+                    text("SELECT user_id FROM networks WHERE id = :network_id AND is_active = true"),
+                    {"network_id": network_id}
+                )
+                row = result.fetchone()
+                
+                if not row:
+                    logger.warning(f"Network {network_id} not found or inactive")
+                    return []
+                
+                user_ids = [row[0]]
+                
+                # Get all users with permissions on this network
+                perm_result = await session.execute(
+                    text("SELECT user_id FROM network_permissions WHERE network_id = :network_id"),
+                    {"network_id": network_id}
+                )
+                permission_user_ids = [r[0] for r in perm_result.fetchall()]
+                user_ids.extend(permission_user_ids)
+                
+                # Remove duplicates
+                return list(set(user_ids))
+        except Exception as e:
+            logger.error(f"Failed to get network member user IDs for network {network_id}: {e}", exc_info=True)
+            return []
+    
     async def _process_due_broadcasts(self):
         """Process any broadcasts that are due to be sent"""
         now = datetime.utcnow()
@@ -385,13 +422,28 @@ class NotificationManager:
         Args:
             broadcast_id: The scheduled broadcast ID
             user_ids: Optional list of network member user IDs. If provided, sends to those members.
-                      If None, sends to network's preferences (for backwards compatibility).
+                      If None, fetches network members from database and uses notification_dispatch_service.
         """
+        from ..database import async_session_maker
+        from .notification_dispatch import notification_dispatch_service
+        
         broadcast = self._scheduled_broadcasts.get(broadcast_id)
         if not broadcast:
             return
         
         try:
+            # If user_ids not provided, fetch them from the database
+            if not user_ids:
+                user_ids = await self._get_network_member_user_ids(broadcast.network_id)
+                if not user_ids:
+                    logger.warning(f"No users found for network {broadcast.network_id}, cannot send broadcast")
+                    broadcast.status = ScheduledBroadcastStatus.FAILED
+                    broadcast.error_message = "No users found for network"
+                    self._save_scheduled_broadcasts()
+                    return
+                
+                logger.info(f"Found {len(user_ids)} users for network {broadcast.network_id}")
+            
             # Create the network event
             event = NetworkEvent(
                 event_id=f"scheduled-{broadcast_id}",
@@ -407,34 +459,31 @@ class NotificationManager:
                 }
             )
             
-            if user_ids:
-                # Send to specific network members based on their preferences
-                # Use force=True because scheduled broadcasts are intentionally created
-                # by users and should always be sent (bypassing priority/type filters)
-                results = await self.send_notification_to_network_members(
-                    broadcast.network_id, user_ids, event, force=True
+            # Use notification_dispatch_service to send to all network members
+            # This properly respects each user's notification preferences from the database
+            async with async_session_maker() as session:
+                results = await notification_dispatch_service.send_to_network_users(
+                    db=session,
+                    network_id=broadcast.network_id,
+                    user_ids=user_ids,
+                    event=event,
                 )
-                users_notified = len(results)
-                total_records = sum(len(records) for records in results.values())
-            else:
-                # Fallback to network-level preferences (backwards compatibility)
-                # Use force=True because scheduled broadcasts are intentionally created
-                # by users and should always be sent (bypassing priority/type filters)
-                records = await self.send_notification_to_network(broadcast.network_id, event, force=True)
-                users_notified = 1 if records else 0
-                total_records = len(records)
+            
+            # Count successful notifications
+            users_notified = len([r for r in results.values() if any(rec.success for rec in r)])
+            total_records = sum(len(records) for records in results.values())
             
             # Update broadcast status
             broadcast.status = ScheduledBroadcastStatus.SENT
             broadcast.sent_at = datetime.utcnow()
             broadcast.users_notified = users_notified
             
-            logger.info(f"Scheduled broadcast {broadcast_id} sent to network {broadcast.network_id} ({users_notified} users, {total_records} channels)")
+            logger.info(f"Scheduled broadcast {broadcast_id} sent to network {broadcast.network_id} ({users_notified}/{len(user_ids)} users notified, {total_records} channel attempts)")
             
         except Exception as e:
             broadcast.status = ScheduledBroadcastStatus.FAILED
             broadcast.error_message = str(e)
-            logger.error(f"Failed to send scheduled broadcast {broadcast_id}: {e}")
+            logger.error(f"Failed to send scheduled broadcast {broadcast_id}: {e}", exc_info=True)
         
         self._save_scheduled_broadcasts()
     
@@ -492,10 +541,35 @@ class NotificationManager:
         include_completed: bool = False,
     ) -> ScheduledBroadcastResponse:
         """Get all scheduled broadcasts"""
+        from datetime import timezone as dt_timezone
+        
         broadcasts = list(self._scheduled_broadcasts.values())
         
         if not include_completed:
             broadcasts = [b for b in broadcasts if b.status == ScheduledBroadcastStatus.PENDING]
+        else:
+            # Filter out sent broadcasts that have been seen for more than 5 seconds
+            # These are "dismissed" and should not be shown
+            now = datetime.now(dt_timezone.utc)
+            SEEN_DISPLAY_SECONDS = 5
+            
+            filtered = []
+            for b in broadcasts:
+                if b.status == ScheduledBroadcastStatus.SENT and b.seen_at is not None:
+                    # Calculate how long since it was seen
+                    seen_at = b.seen_at
+                    # Handle naive datetimes by assuming UTC
+                    if seen_at.tzinfo is None:
+                        seen_at = seen_at.replace(tzinfo=dt_timezone.utc)
+                    
+                    seconds_since_seen = (now - seen_at).total_seconds()
+                    if seconds_since_seen > SEEN_DISPLAY_SECONDS:
+                        # This broadcast has been seen and dismissed, don't include it
+                        continue
+                
+                filtered.append(b)
+            
+            broadcasts = filtered
         
         # Sort by scheduled time
         broadcasts.sort(key=lambda b: b.scheduled_at)
@@ -538,6 +612,28 @@ class NotificationManager:
         
         logger.info(f"Scheduled broadcast deleted: {broadcast_id}")
         return True
+    
+    def mark_broadcast_seen(self, broadcast_id: str) -> Optional[ScheduledBroadcast]:
+        """
+        Mark a sent broadcast as seen. Sets seen_at timestamp if not already set.
+        Returns the updated broadcast, or None if not found or not sent.
+        """
+        broadcast = self._scheduled_broadcasts.get(broadcast_id)
+        if not broadcast:
+            return None
+        
+        # Only mark sent broadcasts as seen
+        if broadcast.status != ScheduledBroadcastStatus.SENT:
+            return broadcast
+        
+        # Only set seen_at if not already set
+        if broadcast.seen_at is None:
+            from datetime import timezone as dt_timezone
+            broadcast.seen_at = datetime.now(dt_timezone.utc)
+            self._save_scheduled_broadcasts()
+            logger.info(f"Broadcast {broadcast_id} marked as seen at {broadcast.seen_at.isoformat()}")
+        
+        return broadcast
     
     def update_scheduled_broadcast(
         self,

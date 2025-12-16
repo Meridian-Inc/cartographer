@@ -400,6 +400,7 @@ class ScheduledBroadcast(BaseModel):
     created_by: str  # Username of the owner who created it
     status: ScheduledBroadcastStatus = ScheduledBroadcastStatus.PENDING
     sent_at: Optional[datetime] = None
+    seen_at: Optional[datetime] = None  # When a user first viewed this after it was sent
     users_notified: int = 0
     error_message: Optional[str] = None
 

@@ -550,6 +550,23 @@ async def delete_scheduled_broadcast(broadcast_id: str):
     return {"success": True, "message": "Broadcast deleted"}
 
 
+@router.post("/scheduled/{broadcast_id}/seen")
+async def mark_broadcast_seen(broadcast_id: str):
+    """
+    Mark a sent broadcast as seen by the user.
+    Sets the seen_at timestamp if not already set.
+    After being marked seen, the broadcast will be hidden after a short delay.
+    """
+    broadcast = notification_manager.mark_broadcast_seen(broadcast_id)
+    if not broadcast:
+        raise HTTPException(status_code=404, detail="Broadcast not found")
+    return {
+        "success": True,
+        "broadcast_id": broadcast_id,
+        "seen_at": broadcast.seen_at.isoformat() if broadcast.seen_at else None,
+    }
+
+
 # ==================== Silenced Devices (Monitoring Disabled) ====================
 
 @router.get("/silenced-devices")
