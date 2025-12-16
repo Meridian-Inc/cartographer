@@ -4,11 +4,17 @@
 FROM node:20-bookworm AS frontend-builder
 WORKDIR /app
 
+# Build argument for base path (default: / for standalone, /app/ for cloud)
+ARG VITE_BASE_PATH=/
+
 # Install dependencies and build
 COPY frontend/package.json frontend/package-lock.json* ./frontend/
 WORKDIR /app/frontend
 RUN npm ci || npm install
 COPY frontend/ /app/frontend/
+
+# Build with the specified base path
+ENV VITE_BASE_PATH=${VITE_BASE_PATH}
 RUN npm run build
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -41,6 +47,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 		bash \
 		ca-certificates \
 		procps \
+		curl \
 		samba-client && \
 	echo "mibs :" > /etc/snmp/snmp.conf
 
@@ -67,5 +74,3 @@ VOLUME ["/app/data"]
 
 EXPOSE 8000
 CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
-
-
