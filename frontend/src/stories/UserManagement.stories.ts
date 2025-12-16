@@ -136,7 +136,7 @@ const createMockedUserManagement = (config: {
                 users.value.map(user => 
                   h('div', { key: user.id, class: 'flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700' }, [
                     h('div', { class: 'flex items-center gap-4' }, [
-                      h('div', { class: ['w-10 h-10 rounded-full flex items-center justify-center text-white font-medium', user.role === 'owner' ? 'bg-gradient-to-br from-amber-500 to-orange-600' : 'bg-gradient-to-br from-cyan-500 to-blue-600'] }, user.first_name.charAt(0).toUpperCase()),
+                      h('div', { class: ['w-10 h-10 rounded-full flex items-center justify-center text-white font-medium', user.role === 'owner' ? 'bg-gradient-to-br from-amber-500 to-orange-600' : 'bg-gradient-to-br from-teal-500 to-emerald-500'] }, user.first_name.charAt(0).toUpperCase()),
                       h('div', [
                         h('div', { class: 'flex items-center gap-2' }, [
                           h('span', { class: 'font-medium text-slate-900 dark:text-white' }, getFullName(user)),

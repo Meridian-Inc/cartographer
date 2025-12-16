@@ -51,7 +51,7 @@
 					<div v-if="!selectedEmbed && canWrite" class="mb-4">
 						<button 
 							@click="showCreateForm = !showCreateForm"
-							class="w-full px-4 py-2.5 text-sm font-medium bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-lg hover:from-cyan-400 hover:to-blue-500 shadow-sm shadow-cyan-500/20 transition-all flex items-center justify-center gap-2"
+							class="w-full px-4 py-2.5 text-sm font-medium bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-lg hover:from-cyan-400 hover:to-blue-500 shadow-sm shadow-teal-500/20 transition-all flex items-center justify-center gap-2"
 						>
 							<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 								<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
@@ -214,7 +214,7 @@
 								/>
 								<button 
 									@click="copyUrl(selectedEmbed.id)"
-									class="px-3 py-2 text-xs font-medium bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-lg hover:from-cyan-400 hover:to-blue-500 shadow-sm shadow-cyan-500/20 transition-all"
+									class="px-3 py-2 text-xs font-medium bg-gradient-to-r from-teal-500 to-emerald-500 text-white rounded-lg hover:from-teal-400 hover:to-emerald-400 shadow-sm shadow-teal-500/20 transition-all"
 								>
 									{{ copiedId === selectedEmbed.id ? '✓ Copied' : 'Copy' }}
 								</button>
@@ -273,7 +273,7 @@
 								:href="getEmbedUrl(selectedEmbed.id)"
 								target="_blank"
 								rel="noopener noreferrer"
-								class="px-3 py-1.5 text-xs font-medium bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-lg hover:from-cyan-400 hover:to-blue-500 shadow-sm shadow-cyan-500/20 transition-all flex items-center gap-2"
+								class="px-3 py-1.5 text-xs font-medium bg-gradient-to-r from-teal-500 to-emerald-500 text-white rounded-lg hover:from-teal-400 hover:to-emerald-400 shadow-sm shadow-teal-500/20 transition-all flex items-center gap-2"
 							>
 								<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 									<path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />

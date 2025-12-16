@@ -78,16 +78,16 @@ button {
 	}
 	
 	.glass-card-hover {
-		@apply glass-card transition-all duration-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 hover:border-slate-300 dark:hover:border-slate-600/50 hover:shadow-lg hover:shadow-cyan-500/5 dark:hover:shadow-cyan-500/10;
+		@apply glass-card transition-all duration-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 hover:border-slate-300 dark:hover:border-slate-600/50 hover:shadow-lg hover:shadow-teal-500/5 dark:hover:shadow-teal-500/10;
 	}
 
 	.glow-button {
-		@apply relative overflow-hidden px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold rounded-xl shadow-lg shadow-cyan-500/25 transition-all duration-300 hover:shadow-cyan-500/40 hover:scale-[1.02] active:scale-[0.98];
+		@apply relative overflow-hidden px-6 py-3 bg-gradient-to-r from-teal-500 to-emerald-500 text-white font-semibold rounded-xl shadow-lg shadow-teal-500/25 transition-all duration-300 hover:shadow-teal-500/40 hover:scale-[1.02] active:scale-[0.98];
 	}
 
 	.glow-button::before {
 		content: '';
-		@apply absolute inset-0 bg-gradient-to-r from-cyan-400 to-blue-500 opacity-0 transition-opacity duration-300;
+		@apply absolute inset-0 bg-gradient-to-r from-teal-400 to-emerald-400 opacity-0 transition-opacity duration-300;
 	}
 
 	.glow-button:hover::before {
@@ -99,7 +99,7 @@ button {
 	}
 
 	.text-gradient {
-		@apply bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent;
+		@apply bg-gradient-to-r from-teal-400 to-emerald-400 bg-clip-text text-transparent;
 	}
 }
 

@@ -9,7 +9,7 @@
 		
 		<div class="relative text-center">
 			<!-- App Logo -->
-			<div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-2xl shadow-lg shadow-cyan-500/30 mb-6">
+			<div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-cyan-500 to-teal-600 rounded-2xl shadow-lg shadow-cyan-500/30 mb-6">
 				<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
 					<path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
 				</svg>
@@ -161,7 +161,7 @@
 							<button
 								class="px-2.5 h-6 text-xs font-medium rounded-md transition-colors flex items-center gap-1.5"
 								:class="mode === 'pan' 
-									? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-sm' 
+									? 'bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-sm' 
 									: 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'"
 								@click="mode = 'pan'"
 								title="Pan mode - drag to navigate"
@@ -175,7 +175,7 @@
 								class="px-2.5 h-6 text-xs font-medium rounded-md transition-colors flex items-center gap-1.5"
 								:class="[
 									mode === 'edit' 
-										? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-sm' 
+										? 'bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-sm' 
 										: 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200',
 									!effectiveCanWrite ? 'opacity-40 cursor-not-allowed' : ''
 								]"
@@ -557,7 +557,7 @@
 		<button
 			v-if="!showAssistant"
 			@click="showAssistant = true"
-			class="fixed bottom-4 right-4 z-40 p-3 bg-gradient-to-br from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 rounded-xl shadow-lg shadow-cyan-500/25 hover:shadow-xl hover:shadow-cyan-500/40 hover:scale-105 transition-all duration-200"
+			class="fixed bottom-4 right-4 z-40 p-3 bg-gradient-to-br from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 rounded-xl shadow-lg shadow-teal-500/25 hover:shadow-xl hover:shadow-teal-500/40 hover:scale-105 transition-all duration-200"
 			title="Open Network Assistant"
 		>
 			<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">

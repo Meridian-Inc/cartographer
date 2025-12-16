@@ -60,7 +60,7 @@
 						<div class="mb-4">
 							<button
 								@click="showAddUser = true"
-								class="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-lg hover:from-cyan-400 hover:to-blue-500 shadow-sm shadow-cyan-500/20 transition-all"
+								class="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-lg hover:from-cyan-400 hover:to-blue-500 shadow-sm shadow-teal-500/20 transition-all"
 							>
 								<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 									<path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -88,7 +88,7 @@
 							<!-- Avatar -->
 							<div 
 								class="w-10 h-10 rounded-full flex items-center justify-center text-white font-medium"
-								:class="u.role === 'owner' ? 'bg-gradient-to-br from-amber-500 to-orange-600' : 'bg-gradient-to-br from-cyan-500 to-blue-600'"
+								:class="u.role === 'owner' ? 'bg-gradient-to-br from-amber-500 to-orange-600' : 'bg-gradient-to-br from-teal-500 to-emerald-500'"
 							>
 								{{ u.first_name.charAt(0).toUpperCase() }}
 							</div>
@@ -152,7 +152,7 @@
 						<div class="mb-4">
 							<button
 								@click="openInviteForm"
-								class="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-lg hover:from-cyan-400 hover:to-blue-500 shadow-sm shadow-cyan-500/20 transition-all"
+								class="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium bg-gradient-to-r from-teal-500 to-emerald-500 text-white rounded-lg hover:from-teal-400 hover:to-emerald-400 shadow-sm shadow-teal-500/20 transition-all"
 							>
 								<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 									<path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -433,7 +433,7 @@
 						<button
 							type="submit"
 							:disabled="isSubmitting"
-							class="flex-1 px-4 py-2 text-sm font-medium bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-lg hover:from-cyan-400 hover:to-blue-500 shadow-sm shadow-cyan-500/20 disabled:opacity-50 transition-all"
+							class="flex-1 px-4 py-2 text-sm font-medium bg-gradient-to-r from-teal-500 to-emerald-500 text-white rounded-lg hover:from-teal-400 hover:to-emerald-400 shadow-sm shadow-teal-500/20 disabled:opacity-50 transition-all"
 						>
 							<template v-if="isSubmitting">Saving...</template>
 							<template v-else-if="editingUser">Update User</template>
@@ -550,7 +550,7 @@
 						<button
 							type="submit"
 							:disabled="isSubmittingInvite"
-							class="flex-1 px-4 py-2 text-sm font-medium bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-lg hover:from-cyan-400 hover:to-blue-500 shadow-sm shadow-cyan-500/20 disabled:opacity-50 transition-all"
+							class="flex-1 px-4 py-2 text-sm font-medium bg-gradient-to-r from-teal-500 to-emerald-500 text-white rounded-lg hover:from-teal-400 hover:to-emerald-400 shadow-sm shadow-teal-500/20 disabled:opacity-50 transition-all"
 						>
 							{{ isSubmittingInvite ? 'Sending...' : 'Send Invitation' }}
 						</button>

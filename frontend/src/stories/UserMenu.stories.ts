@@ -40,7 +40,7 @@ const createMockedUserMenu = (config: {
         }, [
           // Avatar
           h('div', { 
-            class: 'w-7 h-7 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white text-xs font-semibold shadow-sm' 
+            class: 'w-7 h-7 rounded-full bg-gradient-to-br from-teal-500 to-emerald-500 flex items-center justify-center text-white text-xs font-semibold shadow-sm' 
           }, userInitial),
           h('div', { class: 'flex flex-col items-start' }, [
             h('span', { class: 'text-sm font-medium text-slate-700 dark:text-slate-200 max-w-24 truncate leading-tight' }, displayName),
@@ -66,7 +66,7 @@ const createMockedUserMenu = (config: {
           h('div', { class: 'px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700' }, [
             h('div', { class: 'flex items-center gap-3' }, [
               h('div', { 
-                class: 'w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white text-base font-semibold shadow-sm' 
+                class: 'w-10 h-10 rounded-full bg-gradient-to-br from-teal-500 to-emerald-500 flex items-center justify-center text-white text-base font-semibold shadow-sm' 
               }, userInitial),
               h('div', { class: 'flex-1 min-w-0' }, [
                 h('p', { class: 'text-sm font-semibold text-slate-900 dark:text-white truncate' }, displayName),
