@@ -355,7 +355,9 @@ const copiedId = ref<string | null>(null);
 const copiedIframeId = ref<string | null>(null);
 
 function getEmbedUrl(embedId: string): string {
-	return `${window.location.origin}/embed/${embedId}`;
+	// Use BASE_URL to support both standalone (/) and cloud (/app/) deployments
+	const basePath = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
+	return `${window.location.origin}${basePath}/embed/${embedId}`;
 }
 
 function getIframeCode(embedId: string): string {
