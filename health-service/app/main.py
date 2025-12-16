@@ -28,11 +28,17 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
+    # Check if docs should be disabled (default: enabled)
+    disable_docs = os.environ.get("DISABLE_DOCS", "false").lower() == "true"
+    
     app = FastAPI(
         title="Cartographer Health Service",
         description="Health monitoring microservice for network devices",
         version="0.1.0",
-        lifespan=lifespan
+        lifespan=lifespan,
+        docs_url=None if disable_docs else "/docs",
+        redoc_url=None if disable_docs else "/redoc",
+        openapi_url=None if disable_docs else "/openapi.json",
     )
 
     # Allow CORS for development and integration with main app

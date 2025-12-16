@@ -66,6 +66,9 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
     
+    # Check if docs should be disabled (default: enabled)
+    disable_docs = os.environ.get("DISABLE_DOCS", "false").lower() == "true"
+    
     app = FastAPI(
         title="Cartographer Assistant Service",
         description="""
@@ -93,6 +96,9 @@ This service provides intelligent assistance by:
         """,
         version="0.1.0",
         lifespan=lifespan,
+        docs_url=None if disable_docs else "/docs",
+        redoc_url=None if disable_docs else "/redoc",
+        openapi_url=None if disable_docs else "/openapi.json",
     )
     
     # CORS middleware

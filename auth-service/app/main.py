@@ -133,12 +133,18 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application"""
+    # Check if docs should be disabled (default: enabled)
+    disable_docs = os.environ.get("DISABLE_DOCS", "false").lower() == "true"
+    
     app = FastAPI(
         title="Cartographer Auth Service",
         description="User authentication and authorization microservice for Cartographer. "
                     "Uses PostgreSQL database for user storage, compatible with cartographer-cloud format.",
         version="0.1.0",
         lifespan=lifespan,
+        docs_url=None if disable_docs else "/docs",
+        redoc_url=None if disable_docs else "/redoc",
+        openapi_url=None if disable_docs else "/openapi.json",
     )
 
     # Allow CORS for development and integration with main app
