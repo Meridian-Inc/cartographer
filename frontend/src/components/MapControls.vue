@@ -327,6 +327,7 @@ import { useNetworkData } from "../composables/useNetworkData";
 import { useMapLayout } from "../composables/useMapLayout";
 import { useHealthMonitoring, type MonitoringConfig, type MonitoringStatus } from "../composables/useHealthMonitoring";
 import { useAuth } from "../composables/useAuth";
+import { apiUrl } from "../config";
 import EmbedGenerator from "./EmbedGenerator.vue";
 
 const props = defineProps<{
@@ -388,7 +389,7 @@ onMounted(async () => {
 	}
 
 	try {
-		const res = await fetch("/api/config");
+		const res = await fetch(apiUrl("/api/config"));
 		if (res.ok) {
 			const cfg = await res.json();
 			const url = String(cfg?.applicationUrl || "").trim();
@@ -609,7 +610,7 @@ function startSSE() {
 		// Build SSE URL with token as query parameter (EventSource doesn't support custom headers)
 		let sseUrl = `${baseUrl.value}/api/run-mapper/stream`.replace(/^\/\//, "/");
 		if (!baseUrl.value) {
-			sseUrl = "/api/run-mapper/stream";
+			sseUrl = apiUrl("/api/run-mapper/stream");
 		}
 		// Add token as query parameter for SSE authentication
 		if (token.value) {
@@ -637,7 +638,7 @@ function startSSE() {
 			loading.value = false;
 			emit("running", false);
 			// Emit a download hint line
-			const dl = baseUrl.value ? `${baseUrl.value}/api/download-map` : `/api/download-map`;
+			const dl = baseUrl.value ? `${baseUrl.value}/api/download-map` : apiUrl("/api/download-map");
 			emit("log", `DOWNLOAD: ${dl}`);
 			endSSE();
 			setTimeout(() => { message.value = ""; }, 3000);

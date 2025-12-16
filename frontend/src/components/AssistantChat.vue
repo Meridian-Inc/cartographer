@@ -284,6 +284,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import axios from 'axios';
 import { marked } from 'marked';
+import { apiUrl } from '../config';
 
 // Props for network context
 const props = defineProps<{
@@ -624,7 +625,7 @@ async function handleSubmit() {
 			throw new Error('Not authenticated. Please log in again.');
 		}
 
-		const response = await fetch('/api/assistant/chat/stream', {
+		const response = await fetch(apiUrl('/api/assistant/chat/stream'), {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
