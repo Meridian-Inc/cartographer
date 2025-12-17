@@ -53,24 +53,10 @@ async def init_db():
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """Dependency to get database session."""
+    """Dependency to get database session for FastAPI endpoints."""
     if AsyncSessionLocal is None:
         raise RuntimeError("Database not configured. Set DATABASE_URL environment variable.")
     
     async with AsyncSessionLocal() as session:
-        try:
-            yield session
-        finally:
-            await session.close()
-
-
-async def get_db_session() -> AsyncSession | None:
-    """Get a database session directly (not as a dependency).
-    
-    Returns None if database is not configured.
-    """
-    if AsyncSessionLocal is None:
-        return None
-    
-    return AsyncSessionLocal()
+        yield session
 
