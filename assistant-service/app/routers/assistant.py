@@ -607,13 +607,28 @@ async def chat_stream(request: ChatRequest, user: AuthenticatedUser = Depends(re
 async def get_chat_limit_status(user: AuthenticatedUser = Depends(require_auth)):
     """
     Get the current chat rate limit status for the authenticated user.
-    Returns usage count, limit, remaining, and time until reset.
+    Returns usage count, limit, remaining, time until reset, and exempt status.
+    
+    Users with roles in ASSISTANT_RATE_LIMIT_EXEMPT_ROLES have unlimited access.
     """
-    status = await get_rate_limit_status(user.user_id, "chat", CHAT_LIMIT_PER_DAY)
+    status = await get_rate_limit_status(user.user_id, "chat", CHAT_LIMIT_PER_DAY, user_role=user.role.value)
+    
+    # If user is exempt, they have unlimited access
+    if status.get("is_exempt"):
+        return {
+            "used": status["used"],
+            "limit": status["limit"],
+            "remaining": status["remaining"],
+            "resets_in_seconds": status["resets_in_seconds"],
+            "is_limited": False,
+            "is_exempt": True,
+        }
+    
     return {
         "used": status["used"],
         "limit": status["limit"],
         "remaining": status["remaining"],
         "resets_in_seconds": status["resets_in_seconds"],
         "is_limited": status["remaining"] <= 0,
+        "is_exempt": False,
     }

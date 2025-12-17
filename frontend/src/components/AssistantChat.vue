@@ -261,7 +261,7 @@
 			</div>
 			<div class="flex-1">
 				<p class="text-sm font-medium text-amber-800 dark:text-amber-200">Daily limit reached</p>
-				<p class="text-xs text-amber-600 dark:text-amber-400">{{ rateLimitMessage || 'You have used all your assistant chats for today. Your limit will reset at midnight UTC.' }}</p>
+				<p class="text-xs text-amber-600 dark:text-amber-400">{{ rateLimitMessage || 'You have used all your assistant chats for today. Your limit will reset at midnight.' }}</p>
 			</div>
 		</div>
 
@@ -279,11 +279,17 @@
 				<!-- Remaining chats indicator -->
 				<span 
 					v-if="rateLimitInfo && !rateLimited" 
-					class="text-xs text-slate-400 dark:text-slate-500 whitespace-nowrap"
-					:class="{ 'text-amber-500 dark:text-amber-400': rateLimitInfo.remaining <= 3 }"
-					:title="`${rateLimitInfo.used} of ${rateLimitInfo.limit} daily chats used`"
+					class="text-xs whitespace-nowrap"
+					:class="[
+						rateLimitInfo.is_exempt 
+							? 'text-emerald-500 dark:text-emerald-400' 
+							: rateLimitInfo.remaining <= 3 
+								? 'text-amber-500 dark:text-amber-400' 
+								: 'text-slate-400 dark:text-slate-500'
+					]"
+					:title="rateLimitInfo.is_exempt ? 'Unlimited chats (exempt role)' : `${rateLimitInfo.used} of ${rateLimitInfo.limit} daily chats used`"
 				>
-					{{ rateLimitInfo.remaining }} left
+					{{ rateLimitInfo.is_exempt ? '∞' : `${rateLimitInfo.remaining} left` }}
 				</span>
 				<button
 					type="submit"
@@ -365,7 +371,7 @@ const contextStatusPollInterval = ref<number | null>(null);
 // Rate limit state
 const rateLimited = ref(false);
 const rateLimitMessage = ref<string | null>(null);
-const rateLimitInfo = ref<{ used: number; limit: number; remaining: number; resets_in_seconds: number } | null>(null);
+const rateLimitInfo = ref<{ used: number; limit: number; remaining: number; resets_in_seconds: number; is_exempt?: boolean } | null>(null);
 
 // Computed: whether input should be disabled
 const inputDisabled = computed(() => isStreaming.value || rateLimited.value);
@@ -411,9 +417,14 @@ async function checkRateLimitStatus() {
 			limit: data.limit,
 			remaining: data.remaining,
 			resets_in_seconds: data.resets_in_seconds,
+			is_exempt: data.is_exempt || false,
 		};
 		
-		if (data.is_limited) {
+		// Exempt users never get rate limited
+		if (data.is_exempt) {
+			rateLimited.value = false;
+			rateLimitMessage.value = null;
+		} else if (data.is_limited) {
 			rateLimited.value = true;
 			rateLimitMessage.value = `You've used all ${data.limit} daily chats. Resets in ${formatTimeUntilReset(data.resets_in_seconds)}.`;
 		} else {

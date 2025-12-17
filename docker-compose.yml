@@ -199,6 +199,8 @@ services:
       - REDIS_URL=redis://localhost:6379
       - REDIS_DB=1
       - ASSISTANT_CHAT_LIMIT_PER_DAY=${ASSISTANT_CHAT_LIMIT_PER_DAY:-99999}
+      # Roles exempt from rate limiting (comma-separated: member,admin,owner)
+      - ASSISTANT_RATE_LIMIT_EXEMPT_ROLES=${ASSISTANT_RATE_LIMIT_EXEMPT_ROLES:-}
     restart: unless-stopped
     depends_on:
       redis:

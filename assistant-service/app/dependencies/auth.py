@@ -165,6 +165,8 @@ def require_auth_with_rate_limit(limit: int, endpoint: str):
     """
     Create a dependency that requires authentication AND enforces a daily rate limit.
     
+    Users with roles specified in ASSISTANT_RATE_LIMIT_EXEMPT_ROLES env var are exempt.
+    
     Args:
         limit: Maximum requests per day
         endpoint: Endpoint identifier for the rate limit key (e.g., "chat")
@@ -176,7 +178,7 @@ def require_auth_with_rate_limit(limit: int, endpoint: str):
         user: AuthenticatedUser = Depends(require_auth)
     ) -> AuthenticatedUser:
         from ..services.rate_limit import check_rate_limit
-        await check_rate_limit(user.user_id, endpoint, limit)
+        await check_rate_limit(user.user_id, endpoint, limit, user_role=user.role.value)
         return user
     
     return _dependency
