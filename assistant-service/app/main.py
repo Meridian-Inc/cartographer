@@ -37,6 +37,10 @@ async def lifespan(app: FastAPI):
     logger.info("Starting Cartographer Assistant Service...")
     logger.info(f"Metrics service URL: {os.environ.get('METRICS_SERVICE_URL', 'http://localhost:8003')}")
     
+    # Initialize database
+    from .database import init_db
+    await init_db()
+    
     # Log provider availability
     from .providers import OpenAIProvider, AnthropicProvider, GeminiProvider, OllamaProvider
     from .providers.base import ProviderConfig

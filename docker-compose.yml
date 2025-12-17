@@ -201,8 +201,12 @@ services:
       - ASSISTANT_CHAT_LIMIT_PER_DAY=${ASSISTANT_CHAT_LIMIT_PER_DAY:-99999}
       # Roles exempt from rate limiting (comma-separated: member,admin,owner)
       - ASSISTANT_RATE_LIMIT_EXEMPT_ROLES=${ASSISTANT_RATE_LIMIT_EXEMPT_ROLES:-}
+      # Database connection for per-user rate limits (uses same DB as other services)
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-cartographer}:${POSTGRES_PASSWORD:-cartographer_secret}@localhost:5432/${POSTGRES_DB:-cartographer}
     restart: unless-stopped
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
       metrics:

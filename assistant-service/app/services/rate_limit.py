@@ -1,9 +1,13 @@
 import os
+import logging
 from datetime import datetime, timedelta
-from typing import Callable, Optional, Set
+from typing import Optional, Set
 
-from fastapi import HTTPException, Request
+from fastapi import HTTPException
 from redis.asyncio import Redis
+from sqlalchemy import select
+
+logger = logging.getLogger(__name__)
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
 REDIS_DB = int(os.getenv("REDIS_DB", "1"))
@@ -18,7 +22,11 @@ RATE_LIMIT_EXEMPT_ROLES: Set[str] = {
     if role.strip()
 }
 
+# Unlimited limit value in database
+UNLIMITED_LIMIT = -1
+
 _redis: Redis | None = None
+
 
 async def get_redis() -> Redis:
     global _redis
@@ -44,6 +52,7 @@ def _seconds_until_local_midnight() -> int:
     midnight = datetime(tomorrow.year, tomorrow.month, tomorrow.day)
     return max(1, int((midnight - now).total_seconds()))
 
+
 # Atomic: increment and set expiry only if first time
 LUA_INCR_EXPIRE = """
 local v = redis.call('INCR', KEYS[1])
@@ -59,6 +68,100 @@ def is_role_exempt(user_role: str) -> bool:
     return user_role.lower() in RATE_LIMIT_EXEMPT_ROLES
 
 
+async def get_user_limit(user_id: str, default_limit: int, user_role: Optional[str] = None) -> int:
+    """
+    Get the effective daily limit for a user.
+    
+    Priority:
+    1. If user role is in ASSISTANT_RATE_LIMIT_EXEMPT_ROLES -> unlimited (-1)
+    2. If user has a custom limit in the database -> use that
+    3. Otherwise -> use default_limit from env var
+    
+    Also handles syncing role exemption status to the database.
+    
+    Args:
+        user_id: The user's ID
+        default_limit: Default limit from env var (ASSISTANT_CHAT_LIMIT_PER_DAY)
+        user_role: The user's role (member, admin, owner)
+    
+    Returns:
+        -1 for unlimited, or a positive number for the limit
+    """
+    from ..database import get_db_session
+    from ..db_models import UserRateLimit
+    
+    # Check if user role is exempt from rate limiting
+    is_exempt = user_role and is_role_exempt(user_role)
+    
+    session = await get_db_session()
+    if session is None:
+        # Database not configured, fall back to role-based check only
+        if is_exempt:
+            return UNLIMITED_LIMIT
+        return default_limit
+    
+    try:
+        # Get or create user rate limit record
+        result = await session.execute(
+            select(UserRateLimit).where(UserRateLimit.user_id == user_id)
+        )
+        user_limit = result.scalar_one_or_none()
+        
+        if user_limit is None:
+            # Create new record
+            user_limit = UserRateLimit(
+                user_id=user_id,
+                daily_limit=UNLIMITED_LIMIT if is_exempt else None,  # NULL = use default
+                is_role_exempt=is_exempt,
+            )
+            session.add(user_limit)
+            await session.commit()
+            
+            if is_exempt:
+                logger.info(f"[RateLimit] Created unlimited limit for exempt user {user_id}")
+                return UNLIMITED_LIMIT
+            return default_limit
+        
+        # User exists - handle role exemption changes
+        if is_exempt and not user_limit.is_role_exempt:
+            # User became exempt (e.g., promoted to admin)
+            user_limit.daily_limit = UNLIMITED_LIMIT
+            user_limit.is_role_exempt = True
+            await session.commit()
+            logger.info(f"[RateLimit] User {user_id} is now exempt (role: {user_role}), set to unlimited")
+            return UNLIMITED_LIMIT
+        
+        if not is_exempt and user_limit.is_role_exempt:
+            # User lost exemption (e.g., demoted from admin)
+            user_limit.daily_limit = None  # Revert to default
+            user_limit.is_role_exempt = False
+            await session.commit()
+            logger.info(f"[RateLimit] User {user_id} lost exemption (role: {user_role}), reverted to default")
+            return default_limit
+        
+        # User still exempt - keep unlimited
+        if is_exempt:
+            return UNLIMITED_LIMIT
+        
+        # Return stored limit or default
+        if user_limit.daily_limit is not None:
+            # Custom limit set (could be -1 for manual unlimited, or positive for custom)
+            return user_limit.daily_limit
+        
+        # NULL means use system default
+        return default_limit
+        
+    except Exception as e:
+        logger.error(f"[RateLimit] Error getting user limit: {e}")
+        await session.rollback()
+        # Fall back to role-based check
+        if is_exempt:
+            return UNLIMITED_LIMIT
+        return default_limit
+    finally:
+        await session.close()
+
+
 async def check_rate_limit(user_id: str, endpoint: str, limit: int, user_role: Optional[str] = None) -> None:
     """
     Check if user has exceeded their daily rate limit.
@@ -66,17 +169,20 @@ async def check_rate_limit(user_id: str, endpoint: str, limit: int, user_role: O
     
     The daily limit resets at midnight in the server's local timezone.
     
-    Users with roles in ASSISTANT_RATE_LIMIT_EXEMPT_ROLES are exempt from rate limiting.
+    Uses per-user limits from the database when available.
     
     Args:
         user_id: The user's ID
         endpoint: Endpoint identifier for the rate limit key
-        limit: Maximum requests per day
-        user_role: The user's role (member, admin, owner) - if exempt, skip rate limiting
+        limit: Default maximum requests per day (from env var)
+        user_role: The user's role (member, admin, owner)
     """
-    # Check if user role is exempt from rate limiting
-    if user_role and is_role_exempt(user_role):
-        return  # No rate limit for exempt roles
+    # Get user's effective limit (may be different from default)
+    effective_limit = await get_user_limit(user_id, limit, user_role)
+    
+    # Unlimited users bypass rate limiting
+    if effective_limit == UNLIMITED_LIMIT:
+        return
     
     redis = await get_redis()
     
@@ -87,10 +193,10 @@ async def check_rate_limit(user_id: str, endpoint: str, limit: int, user_role: O
     ttl = _seconds_until_local_midnight()
     count = await redis.eval(LUA_INCR_EXPIRE, 1, key, ttl)
     
-    if int(count) > limit:
+    if int(count) > effective_limit:
         raise HTTPException(
             status_code=429,
-            detail=f"Daily limit exceeded for this endpoint ({limit}/day). Try again tomorrow.",
+            detail=f"Daily limit exceeded for this endpoint ({effective_limit}/day). Try again tomorrow.",
             headers={"Retry-After": str(ttl)},
         )
 
@@ -101,17 +207,22 @@ async def get_rate_limit_status(user_id: str, endpoint: str, limit: int, user_ro
     
     The daily limit resets at midnight in the server's local timezone.
     
+    Uses per-user limits from the database when available.
+    
     Args:
         user_id: The user's ID
         endpoint: Endpoint identifier for the rate limit key
-        limit: Maximum requests per day
-        user_role: The user's role - if exempt, returns unlimited status
+        limit: Default maximum requests per day (from env var)
+        user_role: The user's role
     
     Returns:
         dict with 'used', 'limit', 'remaining', 'resets_in_seconds', 'is_exempt'
     """
-    # Check if user role is exempt from rate limiting
-    if user_role and is_role_exempt(user_role):
+    # Get user's effective limit (may be different from default)
+    effective_limit = await get_user_limit(user_id, limit, user_role)
+    
+    # Unlimited users
+    if effective_limit == UNLIMITED_LIMIT:
         return {
             "used": 0,
             "limit": -1,  # -1 indicates unlimited
@@ -131,8 +242,79 @@ async def get_rate_limit_status(user_id: str, endpoint: str, limit: int, user_ro
     
     return {
         "used": used,
-        "limit": limit,
-        "remaining": max(0, limit - used),
+        "limit": effective_limit,
+        "remaining": max(0, effective_limit - used),
         "resets_in_seconds": ttl,
         "is_exempt": False,
     }
+
+
+async def set_user_limit(user_id: str, daily_limit: Optional[int], is_manual: bool = True) -> dict:
+    """
+    Set a custom daily limit for a user.
+    
+    Args:
+        user_id: The user's ID
+        daily_limit: The new limit. Use -1 for unlimited, None to reset to default.
+        is_manual: If True, this is a manual admin override. If False, it's role-based.
+    
+    Returns:
+        dict with updated user limit info
+    """
+    from ..database import get_db_session
+    from ..db_models import UserRateLimit
+    
+    session = await get_db_session()
+    if session is None:
+        raise RuntimeError("Database not configured")
+    
+    try:
+        result = await session.execute(
+            select(UserRateLimit).where(UserRateLimit.user_id == user_id)
+        )
+        user_limit = result.scalar_one_or_none()
+        
+        if user_limit is None:
+            # Create new record
+            user_limit = UserRateLimit(
+                user_id=user_id,
+                daily_limit=daily_limit,
+                is_role_exempt=not is_manual,  # Manual overrides are not role-based
+            )
+            session.add(user_limit)
+        else:
+            user_limit.daily_limit = daily_limit
+            if is_manual:
+                # Manual override clears the role exempt flag
+                user_limit.is_role_exempt = False
+        
+        await session.commit()
+        
+        limit_str = "unlimited" if daily_limit == -1 else ("default" if daily_limit is None else str(daily_limit))
+        logger.info(f"[RateLimit] Set user {user_id} limit to {limit_str} (manual={is_manual})")
+        
+        return {
+            "user_id": user_id,
+            "daily_limit": daily_limit,
+            "is_role_exempt": user_limit.is_role_exempt,
+        }
+        
+    except Exception as e:
+        logger.error(f"[RateLimit] Error setting user limit: {e}")
+        await session.rollback()
+        raise
+    finally:
+        await session.close()
+
+
+async def reset_user_to_default(user_id: str) -> dict:
+    """
+    Reset a user's limit to the system default.
+    
+    Args:
+        user_id: The user's ID
+    
+    Returns:
+        dict with updated user limit info
+    """
+    return await set_user_limit(user_id, None, is_manual=True)
