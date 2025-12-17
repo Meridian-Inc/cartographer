@@ -183,6 +183,10 @@ services:
     network_mode: host
     environment:
       - CORS_ORIGINS=*
+      # Auth service for token validation
+      - AUTH_SERVICE_URL=http://localhost:8002
+      # JWT secret must match auth service for service-to-service auth
+      - JWT_SECRET=${JWT_SECRET:-cartographer-dev-secret-change-in-production}
       # Metrics service for network context
       - METRICS_SERVICE_URL=http://localhost:8003
       # AI Provider API Keys (set in .env file or environment)
