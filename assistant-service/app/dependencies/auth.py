@@ -1,0 +1,162 @@
+"""
+Auth dependencies for assistant service routes.
+Verifies tokens by calling the auth service or validating service tokens locally.
+"""
+import os
+import logging
+from typing import Optional
+from enum import Enum
+
+import httpx
+import jwt
+from fastapi import HTTPException, Depends, Header, Query
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
+
+AUTH_SERVICE_URL = os.environ.get("AUTH_SERVICE_URL", "http://localhost:8002")
+
+# JWT Configuration for service token validation (must match other services)
+JWT_SECRET = os.environ.get("JWT_SECRET", "cartographer-dev-secret-change-in-production")
+JWT_ALGORITHM = "HS256"
+
+# Security scheme for JWT
+security = HTTPBearer(auto_error=False)
+
+
+class UserRole(str, Enum):
+    OWNER = "owner"
+    ADMIN = "admin"
+    MEMBER = "member"
+
+
+class AuthenticatedUser(BaseModel):
+    """Authenticated user information from token verification"""
+    user_id: str
+    username: str
+    role: UserRole
+    
+    @property
+    def is_owner(self) -> bool:
+        return self.role == UserRole.OWNER
+    
+    @property
+    def can_write(self) -> bool:
+        return self.role in [UserRole.OWNER, UserRole.ADMIN]
+
+
+def verify_service_token(token: str) -> Optional[AuthenticatedUser]:
+    """Verify a service-to-service JWT token locally.
+    
+    Service tokens are self-signed with the shared JWT_SECRET and have 'service: true' in the payload.
+    """
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        
+        # Check if this is a service token
+        if not payload.get("service"):
+            return None
+        
+        # Service tokens have full owner access
+        return AuthenticatedUser(
+            user_id=payload.get("sub", "service"),
+            username=payload.get("username", "service"),
+            role=UserRole.OWNER  # Services have owner-level access
+        )
+    except jwt.ExpiredSignatureError:
+        logger.debug("Service token expired")
+        return None
+    except jwt.InvalidTokenError as e:
+        logger.debug(f"Invalid service token: {e}")
+        return None
+    except Exception as e:
+        logger.debug(f"Error verifying service token: {e}")
+        return None
+
+
+async def verify_token_with_auth_service(token: str) -> Optional[AuthenticatedUser]:
+    """Verify a token by calling the auth service"""
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(
+                f"{AUTH_SERVICE_URL}/api/auth/verify",
+                headers={"Authorization": f"Bearer {token}"}
+            )
+            
+            if response.status_code != 200:
+                logger.debug(f"Token verification failed with status {response.status_code}")
+                return None
+            
+            data = response.json()
+            if not data.get("valid"):
+                return None
+            
+            return AuthenticatedUser(
+                user_id=data["user_id"],
+                username=data["username"],
+                role=UserRole(data["role"])
+            )
+    except httpx.ConnectError:
+        logger.error(f"Failed to connect to auth service at {AUTH_SERVICE_URL}")
+        raise HTTPException(
+            status_code=503,
+            detail="Auth service unavailable"
+        )
+    except httpx.TimeoutException:
+        logger.error(f"Timeout connecting to auth service")
+        raise HTTPException(
+            status_code=504,
+            detail="Auth service timeout"
+        )
+    except Exception as e:
+        logger.error(f"Error verifying token: {e}")
+        return None
+
+
+async def get_current_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    token: Optional[str] = Query(None, description="JWT token (for SSE/EventSource which doesn't support headers)")
+) -> Optional[AuthenticatedUser]:
+    """Get current user from JWT token (returns None if not authenticated).
+    
+    Supports both:
+    - Authorization header (standard approach)
+    - Query parameter 'token' (for EventSource/SSE which doesn't support custom headers)
+    
+    Also supports service-to-service tokens (validated locally without auth service).
+    """
+    actual_token = None
+    
+    # Try Authorization header first
+    if credentials:
+        actual_token = credentials.credentials
+    # Fall back to query parameter (for SSE/EventSource)
+    elif token:
+        actual_token = token
+    
+    if not actual_token:
+        return None
+    
+    # Try service token validation first (for internal service-to-service calls)
+    service_user = verify_service_token(actual_token)
+    if service_user:
+        logger.debug("Authenticated as service")
+        return service_user
+    
+    # Fall back to auth service validation for user tokens
+    return await verify_token_with_auth_service(actual_token)
+
+
+async def require_auth(
+    user: Optional[AuthenticatedUser] = Depends(get_current_user)
+) -> AuthenticatedUser:
+    """Require authenticated user"""
+    if not user:
+        raise HTTPException(
+            status_code=401,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+    return user
+

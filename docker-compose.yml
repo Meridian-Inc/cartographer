@@ -192,6 +192,9 @@ services:
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       # Ollama (local models) - point to host if running Ollama locally
       - OLLAMA_HOST=${OLLAMA_HOST:-http://localhost:11434}
+      - REDIS_URL=redis://localhost:6379
+      - REDIS_DB=1
+      - ASSISTANT_CHAT_LIMIT_PER_DAY=${ASSISTANT_CHAT_LIMIT_PER_DAY:-99999}
     restart: unless-stopped
     depends_on:
       metrics:

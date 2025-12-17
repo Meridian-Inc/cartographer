@@ -11,10 +11,11 @@ import asyncio
 from typing import Optional, Dict, List, Tuple
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from ..dependencies import AuthenticatedUser, require_auth
 from ..models import (
     ModelProvider,
     ChatRequest,
@@ -33,6 +34,7 @@ from ..providers import (
 )
 from ..providers.base import ChatMessage as ProviderChatMessage
 from ..services.metrics_context import metrics_context_service
+from ..services.rate_limit import rate_limit_per_day
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +87,9 @@ class ModelCache:
 # Global model cache
 model_cache = ModelCache()
 
+# Chat limit per day
+CHAT_LIMIT_PER_DAY = int(os.getenv("ASSISTANT_CHAT_LIMIT_PER_DAY", "99999"))
+
 
 # System prompt for the assistant
 SYSTEM_PROMPT_TEMPLATE = """You are Cartographer Assistant, an AI helper for the Cartographer network mapping and monitoring application.
@@ -129,8 +134,8 @@ def get_provider(provider_type: ModelProvider, config: Optional[ProviderConfig] 
 # ==================== Configuration Endpoints ====================
 
 @router.get("/config", response_model=AssistantConfig)
-async def get_config():
-    """Get assistant configuration and provider status"""
+async def get_config(user: AuthenticatedUser = Depends(require_auth)):
+    """Get assistant configuration and provider status. Requires authentication."""
     providers_status = []
     
     # Fetch all provider statuses concurrently
@@ -195,8 +200,8 @@ async def get_config():
 
 
 @router.get("/providers")
-async def list_providers():
-    """List all providers and their availability"""
+async def list_providers(user: AuthenticatedUser = Depends(require_auth)):
+    """List all providers and their availability. Requires authentication."""
     result = []
     
     for provider_type in ModelProvider:
@@ -220,8 +225,12 @@ async def list_providers():
 
 
 @router.get("/models/{provider}")
-async def list_models(provider: ModelProvider, refresh: bool = False):
-    """List available models for a specific provider
+async def list_models(
+    provider: ModelProvider,
+    refresh: bool = False,
+    user: AuthenticatedUser = Depends(require_auth)
+):
+    """List available models for a specific provider. Requires authentication.
     
     Args:
         provider: The AI provider to list models for
@@ -253,8 +262,8 @@ async def list_models(provider: ModelProvider, refresh: bool = False):
 
 
 @router.post("/models/refresh")
-async def refresh_all_models():
-    """Refresh model lists for all providers"""
+async def refresh_all_models(user: AuthenticatedUser = Depends(require_auth)):
+    """Refresh model lists for all providers. Requires authentication."""
     model_cache.invalidate()
     
     results = {}
@@ -285,8 +294,11 @@ async def refresh_all_models():
 # ==================== Context Endpoints ====================
 
 @router.get("/context", response_model=NetworkContextSummary)
-async def get_network_context(network_id: Optional[str] = Query(None, description="Network ID for multi-tenant mode")):
-    """Get the current network context that would be provided to the assistant.
+async def get_network_context(
+    network_id: Optional[str] = Query(None, description="Network ID for multi-tenant mode"),
+    user: AuthenticatedUser = Depends(require_auth)
+):
+    """Get the current network context that would be provided to the assistant. Requires authentication.
     
     Args:
         network_id: Optional network ID for multi-tenant mode. If not provided,
@@ -305,8 +317,11 @@ async def get_network_context(network_id: Optional[str] = Query(None, descriptio
 
 
 @router.post("/context/refresh")
-async def refresh_context(network_id: Optional[str] = Query(None, description="Network ID for multi-tenant mode")):
-    """Clear cached context and fetch fresh data from the metrics service.
+async def refresh_context(
+    network_id: Optional[str] = Query(None, description="Network ID for multi-tenant mode"),
+    user: AuthenticatedUser = Depends(require_auth)
+):
+    """Clear cached context and fetch fresh data from the metrics service. Requires authentication.
     
     This triggers the metrics service to regenerate its snapshot with
     the latest data (including recent speed test results, health checks, etc.)
@@ -327,8 +342,8 @@ async def refresh_context(network_id: Optional[str] = Query(None, description="N
 
 
 @router.get("/context/status")
-async def get_context_status():
-    """Get the current status of the context service"""
+async def get_context_status(user: AuthenticatedUser = Depends(require_auth)):
+    """Get the current status of the context service. Requires authentication."""
     status = metrics_context_service.get_status()
     
     # Add additional info
@@ -339,8 +354,11 @@ async def get_context_status():
 
 
 @router.get("/context/debug")
-async def get_context_debug(network_id: Optional[str] = Query(None, description="Network ID for multi-tenant mode")):
-    """Debug endpoint to see the full context string being sent to AI.
+async def get_context_debug(
+    network_id: Optional[str] = Query(None, description="Network ID for multi-tenant mode"),
+    user: AuthenticatedUser = Depends(require_auth)
+):
+    """Debug endpoint to see the full context string being sent to AI. Requires authentication.
     
     Args:
         network_id: Optional network ID for multi-tenant mode.
@@ -356,8 +374,11 @@ async def get_context_debug(network_id: Optional[str] = Query(None, description=
 
 
 @router.get("/context/raw")
-async def get_context_raw(network_id: Optional[str] = Query(None, description="Network ID for multi-tenant mode")):
-    """Debug endpoint to see raw snapshot data from metrics service.
+async def get_context_raw(
+    network_id: Optional[str] = Query(None, description="Network ID for multi-tenant mode"),
+    user: AuthenticatedUser = Depends(require_auth)
+):
+    """Debug endpoint to see raw snapshot data from metrics service. Requires authentication.
     
     Args:
         network_id: Optional network ID for multi-tenant mode.
@@ -452,9 +473,9 @@ async def get_context_raw(network_id: Optional[str] = Query(None, description="N
 
 # ==================== Chat Endpoints ====================
 
-@router.post("/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest):
-    """Non-streaming chat endpoint"""
+@router.post("/chat", response_model=ChatResponse, dependencies=[Depends(rate_limit_per_day(CHAT_LIMIT_PER_DAY))])
+async def chat(request: ChatRequest, user: AuthenticatedUser = Depends(require_auth)):
+    """Non-streaming chat endpoint. Requires authentication."""
     # Get provider
     provider_config = ProviderConfig(
         model=request.model,
@@ -506,9 +527,9 @@ async def chat(request: ChatRequest):
 
 
 @router.post("/chat/stream")
-async def chat_stream(request: ChatRequest):
+async def chat_stream(request: ChatRequest, user: AuthenticatedUser = Depends(require_auth), dependencies=[Depends(rate_limit_per_day(CHAT_LIMIT_PER_DAY))]):
     """
-    Streaming chat endpoint.
+    Streaming chat endpoint. Requires authentication.
     Returns Server-Sent Events (SSE) with response chunks.
     """
     # Get provider
