@@ -18,50 +18,83 @@ class TestAssistantStreamingProxy:
     def owner_user(self):
         return AuthenticatedUser(user_id="user-1", username="test", role=UserRole.OWNER)
     
-    async def test_stream_proxy_generator_connect_error(self, owner_user):
-        """Stream generator should yield error on connect failure"""
+    @pytest.fixture
+    def mock_request(self):
+        """Create a mock request with headers"""
+        request = MagicMock()
+        request.json = AsyncMock(return_value={"message": "Hello"})
+        mock_headers = MagicMock()
+        mock_headers.get = MagicMock(return_value="Bearer test-token")
+        request.headers = mock_headers
+        return request
+    
+    async def test_stream_proxy_generator_connect_error(self, owner_user, mock_request):
+        """Stream generator should raise 503 on connect failure"""
+        import httpx
+        from fastapi import HTTPException
         from app.routers.assistant_proxy import chat_stream
         
-        mock_request = MagicMock()
-        mock_request.json = AsyncMock(return_value={"message": "Hello"})
-        
-        response = await chat_stream(request=mock_request, user=owner_user)
-        
-        # Consume the generator to trigger the error handling
-        async def consume_response():
-            chunks = []
-            async for chunk in response.body_iterator:
-                chunks.append(chunk)
-            return chunks
-        
-        # The actual consumption would need a real httpx client
-        # Just verify the response type
-        assert isinstance(response, StreamingResponse)
+        with patch('app.routers.assistant_proxy.httpx.AsyncClient') as mock_client_cls:
+            mock_client = MagicMock()
+            mock_client.aclose = AsyncMock()
+            mock_client.build_request = MagicMock(return_value=MagicMock())
+            mock_client.send = AsyncMock(side_effect=httpx.ConnectError("Connection failed"))
+            mock_client_cls.return_value = mock_client
+            
+            with pytest.raises(HTTPException) as exc_info:
+                await chat_stream(request=mock_request, user=owner_user)
+            
+            assert exc_info.value.status_code == 503
     
-    async def test_stream_proxy_timeout_error_in_stream(self, owner_user):
+    async def test_stream_proxy_timeout_error_in_stream(self, owner_user, mock_request):
         """Stream should handle timeout during streaming"""
         from app.routers.assistant_proxy import chat_stream
         
-        mock_request = MagicMock()
-        mock_request.json = AsyncMock(return_value={"message": "Hello"})
+        # Mock a successful response that returns chunks
+        async def mock_aiter_bytes():
+            yield b'data: {"type": "chunk"}\n\n'
         
-        response = await chat_stream(request=mock_request, user=owner_user)
-        
-        assert response.media_type == "text/event-stream"
+        with patch('app.routers.assistant_proxy.httpx.AsyncClient') as mock_client_cls:
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_response.aiter_bytes = mock_aiter_bytes
+            mock_response.aclose = AsyncMock()
+            
+            mock_client = MagicMock()
+            mock_client.aclose = AsyncMock()
+            mock_client.build_request = MagicMock(return_value=MagicMock())
+            mock_client.send = AsyncMock(return_value=mock_response)
+            mock_client_cls.return_value = mock_client
+            
+            response = await chat_stream(request=mock_request, user=owner_user)
+            
+            assert response.media_type == "text/event-stream"
     
-    async def test_stream_proxy_headers(self, owner_user):
+    async def test_stream_proxy_headers(self, owner_user, mock_request):
         """Stream proxy should set correct cache headers"""
         from app.routers.assistant_proxy import chat_stream
         
-        mock_request = MagicMock()
-        mock_request.json = AsyncMock(return_value={"message": "Hello"})
+        async def mock_aiter_bytes():
+            yield b'data: {"type": "chunk"}\n\n'
         
-        response = await chat_stream(request=mock_request, user=owner_user)
-        
-        # Verify headers
-        assert response.headers.get("Cache-Control") == "no-cache"
-        assert response.headers.get("Connection") == "keep-alive"
-        assert response.headers.get("X-Accel-Buffering") == "no"
+        with patch('app.routers.assistant_proxy.httpx.AsyncClient') as mock_client_cls:
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_response.aiter_bytes = mock_aiter_bytes
+            mock_response.aclose = AsyncMock()
+            
+            mock_client = MagicMock()
+            mock_client.aclose = AsyncMock()
+            mock_client.build_request = MagicMock(return_value=MagicMock())
+            mock_client.send = AsyncMock(return_value=mock_response)
+            mock_client_cls.return_value = mock_client
+            
+            response = await chat_stream(request=mock_request, user=owner_user)
+            
+            # Verify headers
+            assert response.headers.get("Cache-Control") == "no-cache"
+            assert response.headers.get("Connection") == "keep-alive"
+            assert response.headers.get("X-Accel-Buffering") == "no"
 
 
 class TestMetricsWebSocketProxy:

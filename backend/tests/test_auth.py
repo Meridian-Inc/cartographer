@@ -154,6 +154,81 @@ class TestVerifyTokenWithAuthService:
         assert user is None
 
 
+class TestVerifyServiceToken:
+    """Tests for service token verification"""
+    
+    def test_valid_service_token(self):
+        """Valid service token should return AuthenticatedUser"""
+        import jwt
+        from app.dependencies.auth import verify_service_token, JWT_SECRET, JWT_ALGORITHM
+        
+        # Create a valid service token
+        payload = {
+            "service": True,
+            "sub": "metrics-service",
+            "username": "metrics",
+        }
+        token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+        
+        user = verify_service_token(token)
+        
+        assert user is not None
+        assert user.user_id == "metrics-service"
+        assert user.username == "metrics"
+        assert user.role == UserRole.OWNER
+    
+    def test_non_service_token_returns_none(self):
+        """Token without service flag should return None"""
+        import jwt
+        from app.dependencies.auth import verify_service_token, JWT_SECRET, JWT_ALGORITHM
+        
+        # Create a non-service token
+        payload = {
+            "sub": "user-123",
+            "username": "testuser",
+        }
+        token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+        
+        user = verify_service_token(token)
+        
+        assert user is None
+    
+    def test_expired_service_token_returns_none(self):
+        """Expired service token should return None"""
+        import jwt
+        import time
+        from app.dependencies.auth import verify_service_token, JWT_SECRET, JWT_ALGORITHM
+        
+        # Create an expired token
+        payload = {
+            "service": True,
+            "sub": "service",
+            "exp": int(time.time()) - 3600  # Expired 1 hour ago
+        }
+        token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+        
+        user = verify_service_token(token)
+        
+        assert user is None
+    
+    def test_invalid_service_token_returns_none(self):
+        """Invalid service token should return None"""
+        from app.dependencies.auth import verify_service_token
+        
+        user = verify_service_token("invalid-token")
+        
+        assert user is None
+    
+    def test_service_token_with_generic_exception(self):
+        """Generic exception during verification should return None"""
+        from app.dependencies.auth import verify_service_token
+        
+        with patch('app.dependencies.auth.jwt.decode', side_effect=Exception("Unexpected error")):
+            user = verify_service_token("some-token")
+            
+            assert user is None
+
+
 class TestGetCurrentUser:
     """Tests for get_current_user dependency"""
     
@@ -162,6 +237,31 @@ class TestGetCurrentUser:
         """Mock verify_token_with_auth_service"""
         with patch('app.dependencies.auth.verify_token_with_auth_service') as mock:
             yield mock
+    
+    async def test_service_token_takes_priority(self):
+        """Service token should be validated first"""
+        import jwt
+        from app.dependencies.auth import get_current_user, JWT_SECRET, JWT_ALGORITHM
+        
+        # Create a valid service token
+        payload = {
+            "service": True,
+            "sub": "metrics-service",
+            "username": "metrics",
+        }
+        token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+        
+        credentials = HTTPAuthorizationCredentials(
+            scheme="Bearer",
+            credentials=token
+        )
+        
+        user = await get_current_user(credentials=credentials, token=None)
+        
+        # Should authenticate as service without calling auth service
+        assert user is not None
+        assert user.user_id == "metrics-service"
+        assert user.role == UserRole.OWNER
     
     async def test_with_authorization_header(self, mock_verify, sample_user_data):
         """Should extract token from Authorization header"""

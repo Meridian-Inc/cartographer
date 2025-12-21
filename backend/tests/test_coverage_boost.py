@@ -99,75 +99,70 @@ class TestMapperEmbedDeleteWithMapping:
 class TestAssistantStreamProxy:
     """Tests for assistant streaming proxy error handling"""
     
-    async def test_stream_proxy_yields_error_on_connect_failure(self, owner_user):
-        """Stream should yield error event on connection failure"""
+    @pytest.fixture
+    def mock_request(self):
+        """Create a mock request with headers"""
+        request = MagicMock()
+        request.json = AsyncMock(return_value={"message": "Hello"})
+        mock_headers = MagicMock()
+        mock_headers.get = MagicMock(return_value="Bearer test-token")
+        request.headers = mock_headers
+        return request
+    
+    async def test_stream_proxy_yields_error_on_connect_failure(self, owner_user, mock_request):
+        """Stream should raise 503 on connection failure"""
         import httpx
-        
-        mock_request = MagicMock()
-        mock_request.json = AsyncMock(return_value={"message": "Hello"})
-        
-        # Create a mock that raises on stream
-        with patch('app.routers.assistant_proxy.httpx.AsyncClient') as mock_client_cls:
-            mock_client = AsyncMock()
-            mock_client_cls.return_value.__aenter__.return_value = mock_client
-            mock_client_cls.return_value.__aexit__.return_value = None
-            
-            # Make stream raise ConnectError
-            mock_stream_cm = MagicMock()
-            mock_stream_cm.__aenter__ = AsyncMock(side_effect=httpx.ConnectError("Failed"))
-            mock_stream_cm.__aexit__ = AsyncMock()
-            mock_client.stream.return_value = mock_stream_cm
-            
-            from app.routers.assistant_proxy import chat_stream
-            response = await chat_stream(request=mock_request, user=owner_user)
-            
-            # Consume the generator
-            chunks = []
-            async for chunk in response.body_iterator:
-                chunks.append(chunk)
-            
-            # Should have error chunk
-            assert len(chunks) > 0
-            error_chunk = b''.join(chunks)
-            assert b'error' in error_chunk
-    
-    async def test_stream_proxy_yields_error_on_timeout(self, owner_user):
-        """Stream should yield error event on timeout"""
-        # This test verifies the response type - actual error handling is in the generator
-        mock_request = MagicMock()
-        mock_request.json = AsyncMock(return_value={"message": "Hello"})
-        
+        from fastapi import HTTPException
         from app.routers.assistant_proxy import chat_stream
-        response = await chat_stream(request=mock_request, user=owner_user)
-        
-        # Verify it's a streaming response with correct content type
-        assert response.media_type == "text/event-stream"
-    
-    async def test_stream_proxy_yields_error_on_generic_exception(self, owner_user):
-        """Stream should yield error event on generic exception"""
-        mock_request = MagicMock()
-        mock_request.json = AsyncMock(return_value={"message": "Hello"})
         
         with patch('app.routers.assistant_proxy.httpx.AsyncClient') as mock_client_cls:
-            mock_client = AsyncMock()
-            mock_client_cls.return_value.__aenter__.return_value = mock_client
-            mock_client_cls.return_value.__aexit__.return_value = None
+            mock_client = MagicMock()
+            mock_client.aclose = AsyncMock()
+            mock_client.build_request = MagicMock(return_value=MagicMock())
+            mock_client.send = AsyncMock(side_effect=httpx.ConnectError("Connection failed"))
+            mock_client_cls.return_value = mock_client
             
-            # Make stream raise generic exception
-            mock_stream_cm = MagicMock()
-            mock_stream_cm.__aenter__ = AsyncMock(side_effect=RuntimeError("Something broke"))
-            mock_stream_cm.__aexit__ = AsyncMock()
-            mock_client.stream.return_value = mock_stream_cm
+            with pytest.raises(HTTPException) as exc_info:
+                await chat_stream(request=mock_request, user=owner_user)
             
-            from app.routers.assistant_proxy import chat_stream
-            response = await chat_stream(request=mock_request, user=owner_user)
+            assert exc_info.value.status_code == 503
+            assert "unavailable" in exc_info.value.detail.lower()
+    
+    async def test_stream_proxy_yields_error_on_timeout(self, owner_user, mock_request):
+        """Stream should raise 504 on timeout"""
+        import httpx
+        from fastapi import HTTPException
+        from app.routers.assistant_proxy import chat_stream
+        
+        with patch('app.routers.assistant_proxy.httpx.AsyncClient') as mock_client_cls:
+            mock_client = MagicMock()
+            mock_client.aclose = AsyncMock()
+            mock_client.build_request = MagicMock(return_value=MagicMock())
+            mock_client.send = AsyncMock(side_effect=httpx.TimeoutException("Timeout"))
+            mock_client_cls.return_value = mock_client
             
-            chunks = []
-            async for chunk in response.body_iterator:
-                chunks.append(chunk)
+            with pytest.raises(HTTPException) as exc_info:
+                await chat_stream(request=mock_request, user=owner_user)
             
-            error_chunk = b''.join(chunks)
-            assert b'error' in error_chunk
+            assert exc_info.value.status_code == 504
+            assert "timeout" in exc_info.value.detail.lower()
+    
+    async def test_stream_proxy_yields_error_on_generic_exception(self, owner_user, mock_request):
+        """Stream should raise 500 on generic exception"""
+        from fastapi import HTTPException
+        from app.routers.assistant_proxy import chat_stream
+        
+        with patch('app.routers.assistant_proxy.httpx.AsyncClient') as mock_client_cls:
+            mock_client = MagicMock()
+            mock_client.aclose = AsyncMock()
+            mock_client.build_request = MagicMock(return_value=MagicMock())
+            mock_client.send = AsyncMock(side_effect=RuntimeError("Something broke"))
+            mock_client_cls.return_value = mock_client
+            
+            with pytest.raises(HTTPException) as exc_info:
+                await chat_stream(request=mock_request, user=owner_user)
+            
+            assert exc_info.value.status_code == 500
 
 
 class TestMetricsWebSocketForwarding:
