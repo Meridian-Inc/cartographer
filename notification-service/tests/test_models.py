@@ -131,7 +131,7 @@ class TestNotificationPreferences:
     
     def test_notification_preferences_default(self):
         """Should have default values"""
-        prefs = NotificationPreferences(user_id="test-user")
+        prefs = NotificationPreferences(network_id="test-network-uuid")
         assert prefs.enabled is True
         assert prefs.email.enabled is False
         assert prefs.discord.enabled is False
@@ -139,20 +139,20 @@ class TestNotificationPreferences:
     
     def test_notification_preferences_enabled_types(self):
         """Should have default enabled notification types"""
-        prefs = NotificationPreferences(user_id="test-user")
+        prefs = NotificationPreferences(network_id="test-network-uuid")
         assert NotificationType.DEVICE_OFFLINE in prefs.enabled_notification_types
         assert NotificationType.CARTOGRAPHER_UP in prefs.enabled_notification_types
     
     def test_get_effective_priority_default(self):
         """Should return default priority when no override"""
-        prefs = NotificationPreferences(user_id="test-user")
+        prefs = NotificationPreferences(network_id="test-network-uuid")
         priority = prefs.get_effective_priority(NotificationType.DEVICE_OFFLINE)
         assert priority == NotificationPriority.HIGH
     
     def test_get_effective_priority_override(self):
         """Should return user override priority"""
         prefs = NotificationPreferences(
-            user_id="test-user",
+            network_id="test-network-uuid",
             notification_type_priorities={
                 NotificationType.DEVICE_OFFLINE: NotificationPriority.LOW
             }
@@ -220,7 +220,7 @@ class TestNotificationRecord:
         record = NotificationRecord(
             notification_id="notif-123",
             event_id="event-123",
-            user_id="user-123",
+            network_id="network-uuid-123",
             channel=NotificationChannel.EMAIL,
             success=True,
             title="Test",
@@ -312,6 +312,7 @@ class TestScheduledBroadcastModels:
             id="broadcast-123",
             title="Maintenance Notice",
             message="System maintenance scheduled",
+            network_id="network-uuid-123",
             scheduled_at=datetime.utcnow(),
             created_by="admin"
         )
@@ -322,6 +323,7 @@ class TestScheduledBroadcastModels:
         request = ScheduledBroadcastCreate(
             title="Test",
             message="Test broadcast",
+            network_id="network-uuid-123",
             scheduled_at=datetime.utcnow()
         )
         assert request.event_type == NotificationType.SCHEDULED_MAINTENANCE

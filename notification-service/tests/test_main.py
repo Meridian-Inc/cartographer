@@ -188,12 +188,14 @@ class TestNotificationFunctions:
         """Should send cartographer up notification"""
         from app.main import _send_cartographer_up_notification
         
-        with patch('app.main.notification_manager') as mock_nm:
-            mock_nm.broadcast_notification = AsyncMock(return_value={})
-            
-            await _send_cartographer_up_notification({"clean_shutdown": True})
+        with patch('app.main.cartographer_status_service') as mock_css:
+            with patch('app.services.email_service.is_email_configured', return_value=True):
+                with patch('app.services.email_service.send_notification_email', new_callable=AsyncMock) as mock_send:
+                    mock_css.get_subscribers_for_event.return_value = []
+                    
+                    await _send_cartographer_up_notification({"clean_shutdown": True})
         
-        mock_nm.broadcast_notification.assert_called_once()
+        mock_css.get_subscribers_for_event.assert_called_once()
     
     async def test_send_cartographer_up_notification_with_downtime(self):
         """Should include downtime in notification"""
@@ -202,33 +204,37 @@ class TestNotificationFunctions:
         
         past_time = (datetime.utcnow() - timedelta(minutes=30)).isoformat()
         
-        with patch('app.main.notification_manager') as mock_nm:
-            mock_nm.broadcast_notification = AsyncMock(return_value={})
-            
-            await _send_cartographer_up_notification({
-                "clean_shutdown": True,
-                "last_shutdown": past_time
-            })
+        with patch('app.main.cartographer_status_service') as mock_css:
+            with patch('app.services.email_service.is_email_configured', return_value=True):
+                with patch('app.services.email_service.send_notification_email', new_callable=AsyncMock) as mock_send:
+                    mock_css.get_subscribers_for_event.return_value = []
+                    
+                    await _send_cartographer_up_notification({
+                        "clean_shutdown": True,
+                        "last_shutdown": past_time
+                    })
         
-        mock_nm.broadcast_notification.assert_called_once()
+        mock_css.get_subscribers_for_event.assert_called_once()
     
     async def test_send_cartographer_down_notification(self):
         """Should send cartographer down notification"""
         from app.main import _send_cartographer_down_notification
         
-        with patch('app.main.notification_manager') as mock_nm:
-            mock_nm.broadcast_notification = AsyncMock(return_value={})
-            
-            await _send_cartographer_down_notification()
+        with patch('app.main.cartographer_status_service') as mock_css:
+            with patch('app.services.email_service.is_email_configured', return_value=True):
+                with patch('app.services.email_service.send_notification_email', new_callable=AsyncMock) as mock_send:
+                    mock_css.get_subscribers_for_event.return_value = []
+                    
+                    await _send_cartographer_down_notification()
         
-        mock_nm.broadcast_notification.assert_called_once()
+        mock_css.get_subscribers_for_event.assert_called_once()
     
     async def test_send_notification_error_handling(self):
         """Should handle errors gracefully"""
         from app.main import _send_cartographer_up_notification
         
-        with patch('app.main.notification_manager') as mock_nm:
-            mock_nm.broadcast_notification = AsyncMock(side_effect=Exception("Error"))
+        with patch('app.main.cartographer_status_service') as mock_css:
+            mock_css.get_subscribers_for_event.side_effect = Exception("Error")
             
             # Should not raise
             await _send_cartographer_up_notification({})

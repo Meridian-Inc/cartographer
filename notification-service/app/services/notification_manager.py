@@ -736,10 +736,10 @@ class NotificationManager:
             return True
         return False
     
-    def get_all_networks_with_notifications_enabled(self) -> List[int]:
+    def get_all_networks_with_notifications_enabled(self) -> List[str]:
         """Get list of network IDs with notifications enabled"""
         return [
-            int(network_id) for network_id, prefs in self._preferences.items()
+            str(network_id) for network_id, prefs in self._preferences.items()
             if prefs.enabled and (prefs.email.enabled or prefs.discord.enabled)
         ]
     

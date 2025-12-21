@@ -335,3 +335,98 @@ class TestConvenienceFunctions:
         
         mock_send.assert_called_once()
 
+
+class TestDiscordServiceSendToChannel:
+    """Tests for sending messages to channels"""
+    
+    async def test_send_to_channel_success(self):
+        """Should send message to channel successfully"""
+        service = DiscordNotificationService()
+        service._ready = asyncio.Event()
+        service._ready.set()
+        
+        mock_client = MagicMock()
+        mock_channel = MagicMock()
+        mock_channel.send = AsyncMock()
+        mock_client.get_channel.return_value = mock_channel
+        service._client = mock_client
+        
+        config = DiscordConfig(
+            enabled=True,
+            delivery_method=DiscordDeliveryMethod.CHANNEL,
+            channel_config=DiscordChannelConfig(
+                guild_id="123456789012345678",  # Discord IDs are numeric
+                channel_id="987654321098765432"
+            )
+        )
+        event = NetworkEvent(
+            event_type=NotificationType.DEVICE_OFFLINE,
+            title="Test",
+            message="Test message"
+        )
+        
+        with patch('app.services.discord_service.DISCORD_BOT_TOKEN', 'test-token'):
+            record = await service.send_notification(config, event, "notif-123")
+        
+        assert record.success is True
+    
+    async def test_send_to_channel_not_found(self):
+        """Should fail when channel not found"""
+        service = DiscordNotificationService()
+        service._ready = asyncio.Event()
+        service._ready.set()
+        
+        mock_client = MagicMock()
+        mock_client.get_channel.return_value = None  # Channel not found
+        service._client = mock_client
+        
+        config = DiscordConfig(
+            enabled=True,
+            delivery_method=DiscordDeliveryMethod.CHANNEL,
+            channel_config=DiscordChannelConfig(
+                guild_id="123456789012345678",
+                channel_id="987654321098765432"
+            )
+        )
+        event = NetworkEvent(
+            event_type=NotificationType.DEVICE_OFFLINE,
+            title="Test",
+            message="Test message"
+        )
+        
+        with patch('app.services.discord_service.DISCORD_BOT_TOKEN', 'test-token'):
+            record = await service.send_notification(config, event, "notif-123")
+        
+        assert record.success is False
+
+
+class TestDiscordServiceSendDM:
+    """Tests for sending DMs"""
+    
+    async def test_send_dm_user_not_found(self):
+        """Should fail when user not found"""
+        service = DiscordNotificationService()
+        service._ready = asyncio.Event()
+        service._ready.set()
+        
+        mock_client = MagicMock()
+        mock_client.get_user.return_value = None
+        mock_client.fetch_user = AsyncMock(side_effect=Exception("User not found"))
+        service._client = mock_client
+        
+        config = DiscordConfig(
+            enabled=True,
+            delivery_method=DiscordDeliveryMethod.DM,
+            discord_user_id="123456789012345678"
+        )
+        event = NetworkEvent(
+            event_type=NotificationType.DEVICE_OFFLINE,
+            title="Test",
+            message="Test message"
+        )
+        
+        with patch('app.services.discord_service.DISCORD_BOT_TOKEN', 'test-token'):
+            record = await service.send_notification(config, event, "notif-123")
+        
+        assert record.success is False
+

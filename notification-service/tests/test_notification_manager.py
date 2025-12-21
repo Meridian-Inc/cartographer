@@ -23,28 +23,28 @@ from app.models import (
 class TestPreferencesManagement:
     """Tests for preferences management"""
     
-    def test_get_preferences_new_user(self, notification_manager_instance):
-        """Should create default preferences for new user"""
-        prefs = notification_manager_instance.get_preferences("new-user")
+    def test_get_preferences_new_network(self, notification_manager_instance):
+        """Should create default preferences for new network"""
+        prefs = notification_manager_instance.get_preferences("new-network-uuid")
         
-        assert prefs.user_id == "new-user"
+        assert prefs.network_id == "new-network-uuid"
         assert prefs.enabled is True
         assert prefs.email.enabled is False
     
-    def test_get_preferences_existing_user(self, notification_manager_instance):
+    def test_get_preferences_existing_network(self, notification_manager_instance):
         """Should return existing preferences"""
         # Set up preferences
-        notification_manager_instance._preferences["existing-user"] = NotificationPreferences(
-            user_id="existing-user",
+        notification_manager_instance._preferences["existing-network"] = NotificationPreferences(
+            network_id="existing-network",
             enabled=False
         )
         
-        prefs = notification_manager_instance.get_preferences("existing-user")
+        prefs = notification_manager_instance.get_preferences("existing-network")
         assert prefs.enabled is False
     
     def test_update_preferences(self, notification_manager_instance):
         """Should update preferences"""
-        notification_manager_instance.get_preferences("test-user")
+        notification_manager_instance.get_preferences("test-network")
         
         update = NotificationPreferencesUpdate(
             enabled=False,
@@ -52,65 +52,65 @@ class TestPreferencesManagement:
         )
         
         with patch.object(notification_manager_instance, '_save_preferences'):
-            result = notification_manager_instance.update_preferences("test-user", update)
+            result = notification_manager_instance.update_preferences("test-network", update)
         
         assert result.enabled is False
         assert result.minimum_priority == NotificationPriority.HIGH
     
     def test_update_preferences_email(self, notification_manager_instance):
         """Should update email config"""
-        notification_manager_instance.get_preferences("test-user")
+        notification_manager_instance.get_preferences("test-network")
         
         update = NotificationPreferencesUpdate(
             email=EmailConfig(enabled=True, email_address="new@example.com")
         )
         
         with patch.object(notification_manager_instance, '_save_preferences'):
-            result = notification_manager_instance.update_preferences("test-user", update)
+            result = notification_manager_instance.update_preferences("test-network", update)
         
         assert result.email.enabled is True
         assert result.email.email_address == "new@example.com"
     
     def test_delete_preferences(self, notification_manager_instance):
         """Should delete preferences"""
-        notification_manager_instance._preferences["test-user"] = NotificationPreferences(
-            user_id="test-user"
+        notification_manager_instance._preferences["test-network"] = NotificationPreferences(
+            network_id="test-network"
         )
         
         with patch.object(notification_manager_instance, '_save_preferences'):
-            result = notification_manager_instance.delete_preferences("test-user")
+            result = notification_manager_instance.delete_preferences("test-network")
         
         assert result is True
-        assert "test-user" not in notification_manager_instance._preferences
+        assert "test-network" not in notification_manager_instance._preferences
     
     def test_delete_preferences_not_found(self, notification_manager_instance):
-        """Should return False for non-existent user"""
+        """Should return False for non-existent network"""
         result = notification_manager_instance.delete_preferences("non-existent")
         assert result is False
     
-    def test_get_all_users_with_notifications(self, notification_manager_instance):
-        """Should return users with notifications enabled"""
-        notification_manager_instance._preferences["user1"] = NotificationPreferences(
-            user_id="user1",
+    def test_get_all_networks_with_notifications(self, notification_manager_instance):
+        """Should return networks with notifications enabled"""
+        notification_manager_instance._preferences["1"] = NotificationPreferences(
+            network_id="1",
             enabled=True,
             email=EmailConfig(enabled=True, email_address="test@test.com")
         )
-        notification_manager_instance._preferences["user2"] = NotificationPreferences(
-            user_id="user2",
+        notification_manager_instance._preferences["2"] = NotificationPreferences(
+            network_id="2",
             enabled=False
         )
         
-        # Note: Tests need to be updated for network-based preferences
-        users = notification_manager_instance.get_all_networks_with_notifications_enabled()
+        # Note: This returns string network_ids (UUIDs)
+        networks = notification_manager_instance.get_all_networks_with_notifications_enabled()
         
-        assert "user1" in users
-        assert "user2" not in users
+        assert "1" in networks
+        assert "2" not in networks
     
     def test_update_notification_type_priorities_reset(self, notification_manager_instance):
         """Should replace notification_type_priorities entirely (not merge) to allow resetting to defaults"""
-        # Set up user with custom priorities
-        notification_manager_instance._preferences["test-user"] = NotificationPreferences(
-            user_id="test-user",
+        # Set up network with custom priorities
+        notification_manager_instance._preferences["test-network"] = NotificationPreferences(
+            network_id="test-network",
             notification_type_priorities={
                 NotificationType.DEVICE_OFFLINE: NotificationPriority.LOW,
                 NotificationType.ANOMALY_DETECTED: NotificationPriority.CRITICAL,
@@ -123,16 +123,16 @@ class TestPreferencesManagement:
         )
         
         with patch.object(notification_manager_instance, '_save_preferences'):
-            result = notification_manager_instance.update_preferences("test-user", update)
+            result = notification_manager_instance.update_preferences("test-network", update)
         
         # Should be empty, not merged with old values
         assert result.notification_type_priorities == {}
     
     def test_update_notification_type_priorities_partial(self, notification_manager_instance):
         """Should replace notification_type_priorities with partial update (not merge with existing)"""
-        # Set up user with custom priorities
-        notification_manager_instance._preferences["test-user"] = NotificationPreferences(
-            user_id="test-user",
+        # Set up network with custom priorities
+        notification_manager_instance._preferences["test-network"] = NotificationPreferences(
+            network_id="test-network",
             notification_type_priorities={
                 NotificationType.DEVICE_OFFLINE: NotificationPriority.LOW,
                 NotificationType.ANOMALY_DETECTED: NotificationPriority.CRITICAL,
@@ -147,7 +147,7 @@ class TestPreferencesManagement:
         )
         
         with patch.object(notification_manager_instance, '_save_preferences'):
-            result = notification_manager_instance.update_preferences("test-user", update)
+            result = notification_manager_instance.update_preferences("test-network", update)
         
         # Should only have the new priority, anomaly_detected should be removed
         assert result.notification_type_priorities == {
@@ -211,33 +211,33 @@ class TestRateLimiting:
     
     def test_check_rate_limit_allowed(self, notification_manager_instance):
         """Should allow when under rate limit"""
-        prefs = NotificationPreferences(user_id="test", max_notifications_per_hour=10)
+        prefs = NotificationPreferences(network_id="test-network", max_notifications_per_hour=10)
         
-        result = notification_manager_instance._check_rate_limit("test", prefs)
+        result = notification_manager_instance._check_rate_limit("test-network", prefs)
         
         assert result is True
     
     def test_check_rate_limit_exceeded(self, notification_manager_instance):
         """Should block when over rate limit"""
-        prefs = NotificationPreferences(user_id="test", max_notifications_per_hour=2)
+        prefs = NotificationPreferences(network_id="test-network", max_notifications_per_hour=2)
         
         # Fill up rate limit
         from collections import deque
-        notification_manager_instance._rate_limits["test"] = deque(
+        notification_manager_instance._rate_limits["test-network"] = deque(
             [datetime.utcnow() for _ in range(3)],
             maxlen=10
         )
         
-        result = notification_manager_instance._check_rate_limit("test", prefs)
+        result = notification_manager_instance._check_rate_limit("test-network", prefs)
         
         assert result is False
     
     def test_record_rate_limit(self, notification_manager_instance):
         """Should record notification for rate limiting"""
-        notification_manager_instance._record_rate_limit("test")
+        notification_manager_instance._record_rate_limit("test-network")
         
-        assert "test" in notification_manager_instance._rate_limits
-        assert len(notification_manager_instance._rate_limits["test"]) == 1
+        assert "test-network" in notification_manager_instance._rate_limits
+        assert len(notification_manager_instance._rate_limits["test-network"]) == 1
 
 
 class TestQuietHours:
@@ -245,7 +245,7 @@ class TestQuietHours:
     
     def test_is_quiet_hours_disabled(self, notification_manager_instance):
         """Should return False when quiet hours disabled"""
-        prefs = NotificationPreferences(user_id="test", quiet_hours_enabled=False)
+        prefs = NotificationPreferences(network_id="test-network", quiet_hours_enabled=False)
         
         result = notification_manager_instance._is_quiet_hours(prefs)
         
@@ -254,7 +254,7 @@ class TestQuietHours:
     def test_is_quiet_hours_no_times(self, notification_manager_instance):
         """Should return False when no times set"""
         prefs = NotificationPreferences(
-            user_id="test",
+            network_id="test-network",
             quiet_hours_enabled=True,
             quiet_hours_start=None,
             quiet_hours_end=None
@@ -275,7 +275,7 @@ class TestQuietHours:
         end_hour = (now + timedelta(hours=1)).strftime("%H:%M")
         
         prefs = NotificationPreferences(
-            user_id="test",
+            network_id="test-network",
             quiet_hours_enabled=True,
             quiet_hours_start=start_hour,
             quiet_hours_end=end_hour
@@ -288,7 +288,7 @@ class TestQuietHours:
     def test_is_quiet_hours_midnight_to_morning_at_3am(self, notification_manager_instance):
         """Should detect quiet hours at 3 AM when set to 00:00-08:00 (common sleep hours)"""
         prefs = NotificationPreferences(
-            user_id="test",
+            network_id="test-network",
             quiet_hours_enabled=True,
             quiet_hours_start="00:00",
             quiet_hours_end="08:00"
@@ -307,7 +307,7 @@ class TestQuietHours:
     def test_is_quiet_hours_midnight_to_morning_at_10am(self, notification_manager_instance):
         """Should NOT detect quiet hours at 10 AM when set to 00:00-08:00"""
         prefs = NotificationPreferences(
-            user_id="test",
+            network_id="test-network",
             quiet_hours_enabled=True,
             quiet_hours_start="00:00",
             quiet_hours_end="08:00"
@@ -326,7 +326,7 @@ class TestQuietHours:
     def test_is_quiet_hours_overnight_at_11pm(self, notification_manager_instance):
         """Should detect quiet hours at 11 PM when set to 22:00-07:00 (overnight)"""
         prefs = NotificationPreferences(
-            user_id="test",
+            network_id="test-network",
             quiet_hours_enabled=True,
             quiet_hours_start="22:00",
             quiet_hours_end="07:00"
@@ -345,7 +345,7 @@ class TestQuietHours:
     def test_is_quiet_hours_overnight_at_5am(self, notification_manager_instance):
         """Should detect quiet hours at 5 AM when set to 22:00-07:00 (overnight)"""
         prefs = NotificationPreferences(
-            user_id="test",
+            network_id="test-network",
             quiet_hours_enabled=True,
             quiet_hours_start="22:00",
             quiet_hours_end="07:00"
@@ -364,7 +364,7 @@ class TestQuietHours:
     def test_is_quiet_hours_overnight_at_noon(self, notification_manager_instance):
         """Should NOT detect quiet hours at noon when set to 22:00-07:00 (overnight)"""
         prefs = NotificationPreferences(
-            user_id="test",
+            network_id="test-network",
             quiet_hours_enabled=True,
             quiet_hours_start="22:00",
             quiet_hours_end="07:00"
@@ -387,7 +387,7 @@ class TestQuietHours:
         causing quiet hours to fail for users not in UTC timezone.
         """
         prefs = NotificationPreferences(
-            user_id="test",
+            network_id="test-network",
             quiet_hours_enabled=True,
             quiet_hours_start="00:00",
             quiet_hours_end="08:00"
@@ -413,7 +413,7 @@ class TestQuietHours:
     def test_is_quiet_hours_boundary_at_start(self, notification_manager_instance):
         """Should include the start boundary time in quiet hours"""
         prefs = NotificationPreferences(
-            user_id="test",
+            network_id="test-network",
             quiet_hours_enabled=True,
             quiet_hours_start="22:00",
             quiet_hours_end="07:00"
@@ -432,7 +432,7 @@ class TestQuietHours:
     def test_is_quiet_hours_boundary_at_end(self, notification_manager_instance):
         """Should include the end boundary time in quiet hours"""
         prefs = NotificationPreferences(
-            user_id="test",
+            network_id="test-network",
             quiet_hours_enabled=True,
             quiet_hours_start="22:00",
             quiet_hours_end="07:00"
@@ -451,7 +451,7 @@ class TestQuietHours:
     def test_is_quiet_hours_just_after_end(self, notification_manager_instance):
         """Should NOT include time just after end boundary"""
         prefs = NotificationPreferences(
-            user_id="test",
+            network_id="test-network",
             quiet_hours_enabled=True,
             quiet_hours_start="22:00",
             quiet_hours_end="07:00"
@@ -470,7 +470,7 @@ class TestQuietHours:
     def test_is_quiet_hours_with_user_timezone_est(self, notification_manager_instance):
         """Should use user's timezone when set (EST user, 4am local = 9am UTC)"""
         prefs = NotificationPreferences(
-            user_id="test",
+            network_id="test-network",
             quiet_hours_enabled=True,
             quiet_hours_start="00:00",
             quiet_hours_end="08:00",
@@ -492,7 +492,7 @@ class TestQuietHours:
     def test_is_quiet_hours_with_user_timezone_outside_quiet_hours(self, notification_manager_instance):
         """Should correctly detect when outside quiet hours using user's timezone"""
         prefs = NotificationPreferences(
-            user_id="test",
+            network_id="test-network",
             quiet_hours_enabled=True,
             quiet_hours_start="00:00",
             quiet_hours_end="08:00",
@@ -514,7 +514,7 @@ class TestQuietHours:
     def test_is_quiet_hours_with_user_timezone_pst(self, notification_manager_instance):
         """Should work with Pacific timezone user"""
         prefs = NotificationPreferences(
-            user_id="test",
+            network_id="test-network",
             quiet_hours_enabled=True,
             quiet_hours_start="22:00",
             quiet_hours_end="07:00",
@@ -536,7 +536,7 @@ class TestQuietHours:
     def test_is_quiet_hours_invalid_timezone_fallback(self, notification_manager_instance):
         """Should fall back to server time when timezone is invalid"""
         prefs = NotificationPreferences(
-            user_id="test",
+            network_id="test-network",
             quiet_hours_enabled=True,
             quiet_hours_start="00:00",
             quiet_hours_end="08:00",
@@ -556,7 +556,7 @@ class TestQuietHours:
     def test_is_quiet_hours_no_timezone_uses_server_time(self, notification_manager_instance):
         """Should use server local time when no timezone is set"""
         prefs = NotificationPreferences(
-            user_id="test",
+            network_id="test-network",
             quiet_hours_enabled=True,
             quiet_hours_start="00:00",
             quiet_hours_end="08:00",
@@ -605,7 +605,7 @@ class TestShouldNotify:
     
     def test_should_notify_master_disabled(self, notification_manager_instance):
         """Should not notify when master switch disabled"""
-        prefs = NotificationPreferences(user_id="test", enabled=False)
+        prefs = NotificationPreferences(network_id="test-network", enabled=False)
         event = NetworkEvent(
             event_type=NotificationType.DEVICE_OFFLINE,
             title="Test",
@@ -620,7 +620,7 @@ class TestShouldNotify:
     def test_should_notify_no_channels(self, notification_manager_instance):
         """Should not notify when no channels enabled"""
         prefs = NotificationPreferences(
-            user_id="test",
+            network_id="test-network",
             enabled=True,
             email=EmailConfig(enabled=False),
             discord=DiscordConfig(enabled=False)
@@ -639,7 +639,7 @@ class TestShouldNotify:
     def test_should_notify_event_type_filtered(self, notification_manager_instance):
         """Should not notify when event type not enabled"""
         prefs = NotificationPreferences(
-            user_id="test",
+            network_id="test-network",
             enabled=True,
             email=EmailConfig(enabled=True, email_address="test@test.com"),
             enabled_notification_types=[NotificationType.DEVICE_ONLINE]  # Not DEVICE_OFFLINE
@@ -657,7 +657,7 @@ class TestShouldNotify:
     def test_should_notify_priority_below_minimum(self, notification_manager_instance):
         """Should not notify when priority below minimum"""
         prefs = NotificationPreferences(
-            user_id="test",
+            network_id="test-network",
             enabled=True,
             email=EmailConfig(enabled=True, email_address="test@test.com"),
             minimum_priority=NotificationPriority.CRITICAL,
@@ -681,8 +681,8 @@ class TestSendNotification:
     
     async def test_send_notification_email(self, notification_manager_instance, sample_network_event):
         """Should send email notification"""
-        notification_manager_instance._preferences["test-user"] = NotificationPreferences(
-            user_id="test-user",
+        notification_manager_instance._preferences["test-network"] = NotificationPreferences(
+            network_id="test-network",
             enabled=True,
             email=EmailConfig(enabled=True, email_address="test@test.com"),
         )
@@ -690,7 +690,7 @@ class TestSendNotification:
         mock_record = NotificationRecord(
             notification_id="test",
             event_id="test",
-            user_id="test-user",
+            network_id="test-network",
             channel=NotificationChannel.EMAIL,
             success=True,
             title="Test",
@@ -699,32 +699,33 @@ class TestSendNotification:
         )
         
         with patch('app.services.notification_manager.send_notification_email', AsyncMock(return_value=mock_record)):
-            with patch.object(notification_manager_instance, '_save_history'):
-                records = await notification_manager_instance.send_notification(
-                    "test-user",
-                    sample_network_event,
-                    force=True
-                )
+            with patch('app.services.notification_manager.is_email_configured', return_value=True):
+                with patch.object(notification_manager_instance, '_save_history'):
+                    records = await notification_manager_instance.send_notification(
+                        "test-network",
+                        sample_network_event,
+                        force=True
+                    )
         
         assert len(records) > 0
     
     async def test_broadcast_notification(self, notification_manager_instance, sample_network_event):
-        """Should broadcast to all users"""
-        notification_manager_instance._preferences["user1"] = NotificationPreferences(
-            user_id="user1",
+        """Should broadcast to all networks"""
+        notification_manager_instance._preferences["1"] = NotificationPreferences(
+            network_id="1",
             enabled=True,
-            email=EmailConfig(enabled=True, email_address="user1@test.com"),
+            email=EmailConfig(enabled=True, email_address="network1@test.com"),
         )
-        notification_manager_instance._preferences["user2"] = NotificationPreferences(
-            user_id="user2",
+        notification_manager_instance._preferences["2"] = NotificationPreferences(
+            network_id="2",
             enabled=True,
-            email=EmailConfig(enabled=True, email_address="user2@test.com"),
+            email=EmailConfig(enabled=True, email_address="network2@test.com"),
         )
         
         mock_record = NotificationRecord(
             notification_id="test",
             event_id="test",
-            user_id="",
+            network_id="",
             channel=NotificationChannel.EMAIL,
             success=True,
             title="Test",
@@ -733,8 +734,9 @@ class TestSendNotification:
         )
         
         with patch('app.services.notification_manager.send_notification_email', AsyncMock(return_value=mock_record)):
-            with patch.object(notification_manager_instance, '_save_history'):
-                results = await notification_manager_instance.broadcast_notification(sample_network_event)
+            with patch('app.services.notification_manager.is_email_configured', return_value=True):
+                with patch.object(notification_manager_instance, '_save_history'):
+                    results = await notification_manager_instance.broadcast_notification(sample_network_event)
         
         assert len(results) == 2
 
@@ -744,27 +746,27 @@ class TestTestNotification:
     
     async def test_send_test_email_no_address(self, notification_manager_instance):
         """Should fail when no email address configured"""
-        notification_manager_instance._preferences["test-user"] = NotificationPreferences(
-            user_id="test-user",
+        notification_manager_instance._preferences["test-network"] = NotificationPreferences(
+            network_id="test-network",
             email=EmailConfig(enabled=True, email_address="")
         )
         
         request = TestNotificationRequest(channel=NotificationChannel.EMAIL)
         
-        result = await notification_manager_instance.send_test_notification("test-user", request)
+        result = await notification_manager_instance.send_test_notification("test-network", request)
         
         assert result.success is False
     
     async def test_send_test_discord_not_enabled(self, notification_manager_instance):
         """Should fail when Discord not enabled"""
-        notification_manager_instance._preferences["test-user"] = NotificationPreferences(
-            user_id="test-user",
+        notification_manager_instance._preferences["test-network"] = NotificationPreferences(
+            network_id="test-network",
             discord=DiscordConfig(enabled=False)
         )
         
         request = TestNotificationRequest(channel=NotificationChannel.DISCORD)
         
-        result = await notification_manager_instance.send_test_notification("test-user", request)
+        result = await notification_manager_instance.send_test_notification("test-network", request)
         
         assert result.success is False
 
@@ -778,7 +780,7 @@ class TestHistoryAndStats:
             NotificationRecord(
                 notification_id="1",
                 event_id="1",
-                user_id="test-user",
+                network_id="test-network",
                 channel=NotificationChannel.EMAIL,
                 success=True,
                 title="Test",
@@ -787,7 +789,7 @@ class TestHistoryAndStats:
             )
         )
         
-        result = notification_manager_instance.get_history(user_id="test-user")
+        result = notification_manager_instance.get_history(network_id="test-network")
         
         assert result.total_count == 1
     
@@ -797,7 +799,7 @@ class TestHistoryAndStats:
             NotificationRecord(
                 notification_id="1",
                 event_id="1",
-                user_id="test-user",
+                network_id="test-network",
                 channel=NotificationChannel.EMAIL,
                 success=True,
                 title="Test",
@@ -807,7 +809,7 @@ class TestHistoryAndStats:
             )
         )
         
-        stats = notification_manager_instance.get_stats(user_id="test-user")
+        stats = notification_manager_instance.get_stats(network_id="test-network")
         
         assert stats.total_sent_24h == 1
 
@@ -824,7 +826,8 @@ class TestScheduledBroadcasts:
                 title="Test Broadcast",
                 message="Test message",
                 scheduled_at=scheduled_at,
-                created_by="admin"
+                created_by="admin",
+                network_id="test-network-uuid"
             )
         
         assert broadcast.title == "Test Broadcast"
@@ -838,6 +841,7 @@ class TestScheduledBroadcasts:
             id="test-id",
             title="Test",
             message="Test",
+            network_id="test-network-uuid",
             scheduled_at=datetime.utcnow() + timedelta(hours=1),
             created_by="admin"
         )
@@ -854,6 +858,7 @@ class TestScheduledBroadcasts:
             id="test-id",
             title="Test",
             message="Test",
+            network_id="test-network-uuid",
             scheduled_at=datetime.utcnow() + timedelta(hours=1),
             created_by="admin"
         )
@@ -872,6 +877,7 @@ class TestScheduledBroadcasts:
             id="test-id",
             title="Test",
             message="Test",
+            network_id="test-network-uuid",
             scheduled_at=datetime.utcnow(),
             created_by="admin",
             status=ScheduledBroadcastStatus.CANCELLED
@@ -882,4 +888,199 @@ class TestScheduledBroadcasts:
         
         assert result is True
         assert "test-id" not in notification_manager_instance._scheduled_broadcasts
+    
+    def test_cancel_scheduled_broadcast_not_found(self, notification_manager_instance):
+        """Should return False when broadcast not found"""
+        result = notification_manager_instance.cancel_scheduled_broadcast("nonexistent")
+        assert result is False
+    
+    def test_delete_scheduled_broadcast_not_found(self, notification_manager_instance):
+        """Should return False when broadcast not found"""
+        result = notification_manager_instance.delete_scheduled_broadcast("nonexistent")
+        assert result is False
+    
+    def test_delete_scheduled_broadcast_not_cancelled(self, notification_manager_instance):
+        """Should return False when broadcast is still pending"""
+        from app.models import ScheduledBroadcast
+        
+        notification_manager_instance._scheduled_broadcasts["test-id"] = ScheduledBroadcast(
+            id="test-id",
+            title="Test",
+            message="Test",
+            network_id="test-network-uuid",
+            scheduled_at=datetime.utcnow() + timedelta(hours=1),
+            created_by="admin",
+            status=ScheduledBroadcastStatus.PENDING
+        )
+        
+        result = notification_manager_instance.delete_scheduled_broadcast("test-id")
+        assert result is False
+        assert "test-id" in notification_manager_instance._scheduled_broadcasts
+    
+    def test_get_scheduled_broadcasts_include_completed(self, notification_manager_instance):
+        """Should include completed broadcasts when requested"""
+        from app.models import ScheduledBroadcast
+        
+        notification_manager_instance._scheduled_broadcasts["id1"] = ScheduledBroadcast(
+            id="id1", title="T1", message="M1", network_id="network-1",
+            scheduled_at=datetime.utcnow() + timedelta(hours=1), created_by="admin",
+            status=ScheduledBroadcastStatus.PENDING
+        )
+        notification_manager_instance._scheduled_broadcasts["id2"] = ScheduledBroadcast(
+            id="id2", title="T2", message="M2", network_id="network-2",
+            scheduled_at=datetime.utcnow(), created_by="admin",
+            status=ScheduledBroadcastStatus.CANCELLED
+        )
+        
+        # By default should only show pending
+        response = notification_manager_instance.get_scheduled_broadcasts(include_completed=False)
+        assert response.total_count == 1
+        
+    def test_get_scheduled_broadcasts_default(self, notification_manager_instance):
+        """Should return only pending broadcasts by default"""
+        from app.models import ScheduledBroadcast
+        
+        notification_manager_instance._scheduled_broadcasts["id1"] = ScheduledBroadcast(
+            id="id1", title="T1", message="M1", network_id="network-1",
+            scheduled_at=datetime.utcnow() + timedelta(hours=1), created_by="admin",
+            status=ScheduledBroadcastStatus.PENDING
+        )
+        
+        response = notification_manager_instance.get_scheduled_broadcasts()
+        
+        assert response.total_count == 1
+        assert response.broadcasts[0].status == ScheduledBroadcastStatus.PENDING
+
+
+class TestGlobalPreferences:
+    """Tests for global user preferences"""
+    
+    def test_get_global_preferences_new_user(self, notification_manager_instance):
+        """Should create default global preferences for new user"""
+        from app.models import GlobalUserPreferences
+        
+        with patch.object(notification_manager_instance, '_save_global_preferences'):
+            prefs = notification_manager_instance.get_global_preferences("new-user-id")
+        
+        assert prefs.user_id == "new-user-id"
+        assert prefs.cartographer_up_enabled is True
+        assert prefs.cartographer_down_enabled is True
+    
+    def test_get_global_preferences_existing_user(self, notification_manager_instance):
+        """Should return existing global preferences"""
+        from app.models import GlobalUserPreferences
+        
+        notification_manager_instance._global_preferences["existing-user"] = GlobalUserPreferences(
+            user_id="existing-user",
+            cartographer_up_enabled=False
+        )
+        
+        prefs = notification_manager_instance.get_global_preferences("existing-user")
+        assert prefs.cartographer_up_enabled is False
+    
+    def test_update_global_preferences(self, notification_manager_instance):
+        """Should update global preferences"""
+        from app.models import GlobalUserPreferencesUpdate
+        
+        with patch.object(notification_manager_instance, '_save_global_preferences'):
+            notification_manager_instance.get_global_preferences("test-user")
+        
+        update = GlobalUserPreferencesUpdate(
+            cartographer_up_enabled=False,
+            cartographer_down_enabled=False
+        )
+        
+        with patch.object(notification_manager_instance, '_save_global_preferences'):
+            result = notification_manager_instance.update_global_preferences("test-user", update)
+        
+        assert result.cartographer_up_enabled is False
+        assert result.cartographer_down_enabled is False
+    
+    def test_get_all_users_with_global_notifications_up(self, notification_manager_instance):
+        """Should get users with cartographer UP enabled"""
+        from app.models import GlobalUserPreferences
+        
+        notification_manager_instance._global_preferences["user1"] = GlobalUserPreferences(
+            user_id="user1",
+            cartographer_up_enabled=True,
+            email_address="user1@test.com"
+        )
+        notification_manager_instance._global_preferences["user2"] = GlobalUserPreferences(
+            user_id="user2",
+            cartographer_up_enabled=False,
+            email_address="user2@test.com"
+        )
+        
+        users = notification_manager_instance.get_all_users_with_global_notifications_enabled(
+            NotificationType.CARTOGRAPHER_UP
+        )
+        
+        assert "user1" in users
+        assert "user2" not in users
+    
+    def test_get_all_users_with_global_notifications_down(self, notification_manager_instance):
+        """Should get users with cartographer DOWN enabled"""
+        from app.models import GlobalUserPreferences
+        
+        notification_manager_instance._global_preferences["user1"] = GlobalUserPreferences(
+            user_id="user1",
+            cartographer_down_enabled=True,
+            email_address="user1@test.com"
+        )
+        notification_manager_instance._global_preferences["user2"] = GlobalUserPreferences(
+            user_id="user2",
+            cartographer_down_enabled=False,
+            email_address="user2@test.com"
+        )
+        
+        users = notification_manager_instance.get_all_users_with_global_notifications_enabled(
+            NotificationType.CARTOGRAPHER_DOWN
+        )
+        
+        assert "user1" in users
+        assert "user2" not in users
+
+
+class TestPersistence:
+    """Tests for data persistence"""
+    
+    def test_save_preferences_creates_directory(self, notification_manager_instance, tmp_path):
+        """Should create data directory if not exists"""
+        with patch('app.services.notification_manager.DATA_DIR', tmp_path / "new_dir"):
+            with patch('app.services.notification_manager.PREFERENCES_FILE', tmp_path / "new_dir" / "prefs.json"):
+                notification_manager_instance._save_preferences()
+        
+        # No exception should be raised
+    
+    def test_load_preferences_missing_file(self, notification_manager_instance, tmp_path):
+        """Should handle missing preferences file"""
+        with patch('app.services.notification_manager.PREFERENCES_FILE', tmp_path / "nonexistent.json"):
+            notification_manager_instance._preferences.clear()
+            notification_manager_instance._load_preferences()
+        
+        assert len(notification_manager_instance._preferences) == 0
+    
+    def test_save_and_load_history(self, notification_manager_instance, tmp_path):
+        """Should save and load history correctly"""
+        notification_manager_instance._history.append(
+            NotificationRecord(
+                notification_id="1",
+                event_id="1",
+                network_id="test",
+                channel=NotificationChannel.EMAIL,
+                success=True,
+                title="Test",
+                message="Test",
+                priority=NotificationPriority.HIGH
+            )
+        )
+        
+        with patch('app.services.notification_manager.DATA_DIR', tmp_path):
+            with patch('app.services.notification_manager.HISTORY_FILE', tmp_path / "history.json"):
+                notification_manager_instance._save_history()
+        
+        # Verify file was created
+        assert (tmp_path / "history.json").exists()
+
+
 

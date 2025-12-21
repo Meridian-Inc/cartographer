@@ -37,36 +37,34 @@ class TestPreferencesEndpoints:
     """Tests for preferences endpoints"""
     
     def test_get_preferences(self, test_client):
-        """Should return user preferences"""
+        """Should return network preferences"""
         with patch('app.routers.notifications.notification_manager') as mock_nm:
             default_prefs = NotificationPreferences(
-                user_id="user_123",
-                enabled_channels=[NotificationChannel.DISCORD]
+                network_id="network_uuid_123",
             )
             mock_nm.get_preferences.return_value = default_prefs
             
             response = test_client.get(
-                "/api/notifications/preferences",
+                "/api/notifications/networks/network_uuid_123/preferences",
                 headers={"X-User-Id": "user_123"}
             )
             
             assert response.status_code == 200
             data = response.json()
-            assert data["user_id"] == "user_123"
+            assert data["network_id"] == "network_uuid_123"
     
     def test_update_preferences(self, test_client):
         """Should update preferences"""
         with patch('app.routers.notifications.notification_manager') as mock_nm:
             updated_prefs = NotificationPreferences(
-                user_id="user_123",
-                enabled_channels=[NotificationChannel.EMAIL]
+                network_id="network_uuid_123",
             )
             mock_nm.update_preferences.return_value = updated_prefs
             
             response = test_client.put(
-                "/api/notifications/preferences",
+                "/api/notifications/networks/network_uuid_123/preferences",
                 headers={"X-User-Id": "user_123"},
-                json={"enabled_channels": ["email"]}
+                json={"enabled": True}
             )
             
             assert response.status_code == 200
@@ -77,7 +75,7 @@ class TestPreferencesEndpoints:
             mock_nm.delete_preferences.return_value = True
             
             response = test_client.delete(
-                "/api/notifications/preferences",
+                "/api/notifications/networks/network_uuid_123/preferences",
                 headers={"X-User-Id": "user_123"}
             )
             
@@ -195,12 +193,12 @@ class TestTestNotificationEndpoints:
             from app.models import TestNotificationResponse
             mock_nm.send_test_notification = AsyncMock(return_value=TestNotificationResponse(
                 success=True,
-                channel="discord",
+                channel=NotificationChannel.DISCORD,
                 message="Test sent"
             ))
             
             response = test_client.post(
-                "/api/notifications/test",
+                "/api/notifications/networks/network_uuid_123/test",
                 headers={"X-User-Id": "user_123"},
                 json={
                     "channel": "discord"
@@ -225,7 +223,7 @@ class TestHistoryEndpoints:
             )
             
             response = test_client.get(
-                "/api/notifications/history",
+                "/api/notifications/networks/network_uuid_123/history",
                 headers={"X-User-Id": "user_123"}
             )
             
@@ -245,7 +243,7 @@ class TestHistoryEndpoints:
             )
             
             response = test_client.get(
-                "/api/notifications/stats",
+                "/api/notifications/networks/network_uuid_123/stats",
                 headers={"X-User-Id": "user_123"}
             )
             
@@ -273,34 +271,39 @@ class TestMLAnomalyEndpoints:
     
     def test_get_device_baseline(self, test_client):
         """Should return device baseline"""
-        with patch('app.routers.notifications.anomaly_detector') as mock_ad:
-            mock_ad.get_device_baseline.return_value = DeviceBaseline(
+        with patch('app.routers.notifications.network_anomaly_detector_manager') as mock_nadm:
+            mock_detector = MagicMock()
+            mock_detector.get_device_baseline.return_value = DeviceBaseline(
                 device_ip="192.168.1.1",
                 mean_latency=10.5,
                 std_latency=2.3,
                 availability=0.99,
                 sample_count=100
             )
+            mock_nadm.get_detector.return_value = mock_detector
             
-            response = test_client.get("/api/notifications/ml/baseline/192.168.1.1")
+            response = test_client.get("/api/notifications/ml/baseline/192.168.1.1?network_id=network_uuid_123")
             
             assert response.status_code == 200
     
     def test_get_device_baseline_not_found(self, test_client):
         """Should return 404 for unknown device"""
-        with patch('app.routers.notifications.anomaly_detector') as mock_ad:
-            mock_ad.get_device_baseline.return_value = None
+        with patch('app.routers.notifications.network_anomaly_detector_manager') as mock_nadm:
+            mock_detector = MagicMock()
+            mock_detector.get_device_baseline.return_value = None
+            mock_nadm.get_detector.return_value = mock_detector
             
-            response = test_client.get("/api/notifications/ml/baseline/192.168.1.1")
+            response = test_client.get("/api/notifications/ml/baseline/192.168.1.1?network_id=network_uuid_123")
             
             assert response.status_code == 404
     
     def test_reset_device_baseline(self, test_client):
         """Should reset device baseline"""
-        with patch('app.routers.notifications.anomaly_detector') as mock_ad:
-            mock_ad.reset_device.return_value = None
+        with patch('app.routers.notifications.network_anomaly_detector_manager') as mock_nadm:
+            mock_detector = MagicMock()
+            mock_nadm.get_detector.return_value = mock_detector
             
-            response = test_client.delete("/api/notifications/ml/baseline/192.168.1.1")
+            response = test_client.delete("/api/notifications/ml/baseline/192.168.1.1?network_id=network_uuid_123")
             
             assert response.status_code == 200
     
@@ -327,12 +330,14 @@ class TestMLAnomalyEndpoints:
     
     def test_sync_current_devices(self, test_client):
         """Should sync current devices for ML tracking"""
-        with patch('app.routers.notifications.anomaly_detector') as mock_ad:
-            mock_ad.sync_current_devices.return_value = None
+        with patch('app.routers.notifications.network_anomaly_detector_manager') as mock_nadm:
+            mock_detector = MagicMock()
+            mock_detector.sync_current_devices.return_value = None
+            mock_nadm.get_detector.return_value = mock_detector
             
             device_ips = ["192.168.1.1", "192.168.1.2", "192.168.1.3"]
             response = test_client.post(
-                "/api/notifications/ml/sync-devices",
+                "/api/notifications/ml/sync-devices?network_id=network_uuid_123",
                 json=device_ips
             )
             
@@ -340,7 +345,7 @@ class TestMLAnomalyEndpoints:
             data = response.json()
             assert data["success"] is True
             assert data["devices_synced"] == 3
-            mock_ad.sync_current_devices.assert_called_once_with(device_ips)
+            mock_detector.sync_current_devices.assert_called_once_with(device_ips)
 
 
 class TestHealthCheckProcessing:
@@ -348,15 +353,16 @@ class TestHealthCheckProcessing:
     
     def test_process_health_check(self, test_client):
         """Should process health checks"""
-        with patch('app.routers.notifications.notification_manager') as mock_nm:
-            mock_nm.process_health_check = AsyncMock(return_value=None)
+        with patch('app.routers.notifications.network_anomaly_detector_manager') as mock_nadm:
+            mock_nadm.process_health_check.return_value = None
             
             response = test_client.post(
                 "/api/notifications/process-health-check",
                 params={
                     "device_ip": "192.168.1.1",
                     "success": True,
-                    "latency_ms": 10.5
+                    "latency_ms": 10.5,
+                    "network_id": "network_uuid_123"
                 }
             )
             
@@ -385,13 +391,13 @@ class TestManualNotificationEndpoints:
             
             assert response.status_code == 200
     
-    def test_send_manual_notification_to_user(self, test_client):
-        """Should send notification to specific user"""
+    def test_send_manual_notification_to_network(self, test_client):
+        """Should send notification to a network"""
         with patch('app.routers.notifications.notification_manager') as mock_nm:
             record = NotificationRecord(
                 notification_id=str(uuid4()),
                 event_id=str(uuid4()),
-                user_id="user_123",
+                network_id="network_uuid_123",
                 channel=NotificationChannel.DISCORD,
                 timestamp=datetime.now(timezone.utc),
                 success=True,
@@ -399,7 +405,7 @@ class TestManualNotificationEndpoints:
                 message="Test message",
                 priority=NotificationPriority.MEDIUM
             )
-            mock_nm.send_notification = AsyncMock(return_value=[record])
+            mock_nm.send_notification_to_network = AsyncMock(return_value=[record])
             
             event_data = {
                 "event_type": "device_offline",
@@ -409,8 +415,7 @@ class TestManualNotificationEndpoints:
             }
             
             response = test_client.post(
-                "/api/notifications/send-notification",
-                params={"user_id": "user_123"},
+                "/api/notifications/networks/network_uuid_123/send-notification",
                 json=event_data
             )
             
@@ -445,7 +450,8 @@ class TestScheduledBroadcastEndpoints:
                 message="Test message",
                 scheduled_at=future_time,
                 status=ScheduledBroadcastStatus.PENDING,
-                created_by="admin"
+                created_by="admin",
+                network_id="network_uuid_123"
             )
             mock_nm.create_scheduled_broadcast.return_value = broadcast
             
@@ -455,7 +461,8 @@ class TestScheduledBroadcastEndpoints:
                 json={
                     "title": "Test Broadcast",
                     "message": "Test message",
-                    "scheduled_at": future_time.isoformat()
+                    "scheduled_at": future_time.isoformat(),
+                    "network_id": "network_uuid_123"
                 }
             )
             
@@ -471,7 +478,8 @@ class TestScheduledBroadcastEndpoints:
             json={
                 "title": "Test Broadcast",
                 "message": "Test message",
-                "scheduled_at": past_time.isoformat()
+                "scheduled_at": past_time.isoformat(),
+                "network_id": "network_uuid_123"
             }
         )
         
@@ -487,7 +495,8 @@ class TestScheduledBroadcastEndpoints:
                 message="Test",
                 scheduled_at=datetime.now(timezone.utc) + timedelta(hours=1),
                 status=ScheduledBroadcastStatus.PENDING,
-                created_by="admin"
+                created_by="admin",
+                network_id="network_uuid_123"
             )
             mock_nm.get_scheduled_broadcast.return_value = broadcast
             
@@ -645,6 +654,37 @@ class TestServiceStatusNotifications:
             assert response.status_code == 200
 
 
+class TestSendNetworkNotificationEndpoint:
+    """Tests for send network notification endpoint"""
+    
+    def test_send_network_notification_with_user_ids(self, test_client):
+        """Should send notification to specific users"""
+        with patch('app.routers.notifications.notification_manager') as mock_nm:
+            mock_record = NotificationRecord(
+                notification_id="n1", event_id="e1",
+                channel=NotificationChannel.EMAIL, success=True,
+                title="T", message="M", priority=NotificationPriority.HIGH
+            )
+            mock_nm.send_notification_to_network_members = AsyncMock(return_value={
+                "user1": [mock_record],
+                "user2": [mock_record]
+            })
+            
+            response = test_client.post(
+                "/api/notifications/networks/test-network/send-notification",
+                json={
+                    "event_type": "device_offline",
+                    "title": "Test",
+                    "message": "Test message",
+                    "priority": "high",
+                    "user_ids": ["user1", "user2"]
+                }
+            )
+            
+            assert response.status_code == 200
+            assert response.json()["success"] is True
+
+
 class TestVersionCheckEndpoints:
     """Tests for version check endpoints"""
     
@@ -689,7 +729,9 @@ class TestVersionCheckEndpoints:
             response = test_client.post("/api/notifications/version/notify")
             
             assert response.status_code == 200
-            assert response.json()["success"] is False
+            # success indicates the check was successful, has_update indicates if there's an update
+            assert response.json()["success"] is True
+            assert response.json()["has_update"] is False
     
     def test_send_version_notification_check_failed(self, test_client):
         """Should handle check failure"""
