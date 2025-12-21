@@ -3,20 +3,23 @@ Auth router with database-backed authentication.
 """
 
 import logging
+import uuid
+import os
 from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Depends, Header
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
-from ..db_models import User, UserRole
+from ..db_models import User, UserRole, Invite
 from ..models import (
     UserCreate, UserUpdate, UserResponse,
     LoginRequest, LoginResponse, OwnerSetupRequest, SetupStatus,
     ChangePasswordRequest, SessionInfo, ErrorResponse,
     InviteCreate, InviteResponse, AcceptInviteRequest, InviteTokenInfo
 )
-from ..services.auth_service import auth_service
+from ..services.auth_service import auth_service, hash_password_async
 
 logger = logging.getLogger(__name__)
 
@@ -155,8 +158,6 @@ async def register(request: UserCreate, db: AsyncSession = Depends(get_db)):
     This endpoint allows public registration without requiring an invite.
     For self-hosted deployments, use the invite system instead.
     """
-    import os
-    
     # Check if open registration is enabled (for cloud deployments)
     allow_registration = os.environ.get("ALLOW_OPEN_REGISTRATION", "false").lower() == "true"
     if not allow_registration:
@@ -176,10 +177,6 @@ async def register(request: UserCreate, db: AsyncSession = Depends(get_db)):
     
     # Create user with member role
     try:
-        from ..services.auth_service import hash_password_async
-        from ..db_models import User
-        import uuid
-        
         password_hash = await hash_password_async(request.password)
         
         user = User(
@@ -439,9 +436,6 @@ async def get_invite(
     db: AsyncSession = Depends(get_db)
 ):
     """Get a specific invitation (owner only)"""
-    from sqlalchemy import select
-    from ..db_models import Invite
-    
     result = await db.execute(select(Invite).where(Invite.id == invite_id))
     invite = result.scalar_one_or_none()
     if not invite:

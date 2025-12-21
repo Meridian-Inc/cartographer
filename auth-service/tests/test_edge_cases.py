@@ -1,6 +1,7 @@
 """
 Edge case and integration tests for additional coverage.
 """
+import os
 import pytest
 from datetime import datetime, timezone, timedelta
 from unittest.mock import patch, MagicMock, AsyncMock
@@ -548,3 +549,410 @@ class TestMoreRouterEndpoints:
             )
             
             assert response.status_code == 400
+
+
+class TestInternalEndpoints:
+    """Tests for internal service-to-service endpoints"""
+    
+    def test_get_owner_internal(self, app, client, mock_owner):
+        """Should get owner user ID"""
+        with patch('app.routers.auth.auth_service') as mock_service:
+            mock_service.get_owner_user = AsyncMock(return_value=mock_owner)
+            
+            response = client.get("/api/auth/internal/owner")
+            
+            assert response.status_code == 200
+            assert response.json()["user_id"] == mock_owner.id
+            assert response.json()["username"] == mock_owner.username
+    
+    def test_get_owner_internal_not_found(self, app, client):
+        """Should return 404 if no owner"""
+        with patch('app.routers.auth.auth_service') as mock_service:
+            mock_service.get_owner_user = AsyncMock(return_value=None)
+            
+            response = client.get("/api/auth/internal/owner")
+            
+            assert response.status_code == 404
+    
+    def test_get_all_users_internal(self, app, client):
+        """Should get all user IDs"""
+        with patch('app.routers.auth.auth_service') as mock_service:
+            mock_service.get_all_user_ids = AsyncMock(return_value=["user-1", "user-2", "user-3"])
+            
+            response = client.get("/api/auth/internal/users")
+            
+            assert response.status_code == 200
+            data = response.json()
+            assert len(data) == 3
+            assert data[0]["user_id"] == "user-1"
+    
+    def test_get_user_internal(self, app, client, mock_user):
+        """Should get user info by ID"""
+        with patch('app.routers.auth.auth_service') as mock_service:
+            mock_service.get_user = AsyncMock(return_value=mock_user)
+            
+            response = client.get(f"/api/auth/internal/users/{mock_user.id}")
+            
+            assert response.status_code == 200
+            data = response.json()
+            assert data["user_id"] == mock_user.id
+            assert data["email"] == mock_user.email
+    
+    def test_get_user_internal_not_found(self, app, client):
+        """Should return 404 if user not found"""
+        with patch('app.routers.auth.auth_service') as mock_service:
+            mock_service.get_user = AsyncMock(return_value=None)
+            
+            response = client.get("/api/auth/internal/users/nonexistent")
+            
+            assert response.status_code == 404
+
+
+class TestRegistrationEndpoint:
+    """Tests for open registration endpoint"""
+    
+    def test_register_disabled(self, app, client):
+        """Should return 403 when registration is disabled"""
+        with patch.dict(os.environ, {"ALLOW_OPEN_REGISTRATION": "false"}):
+            response = client.post("/api/auth/register", json={
+                "username": "newuser",
+                "first_name": "New",
+                "last_name": "User",
+                "email": "new@test.com",
+                "password": "password123"
+            })
+            
+            assert response.status_code == 403
+    
+    def test_register_username_taken(self, app, client):
+        """Should return 400 if username taken"""
+        with patch.dict(os.environ, {"ALLOW_OPEN_REGISTRATION": "true"}):
+            with patch('app.routers.auth.auth_service') as mock_service:
+                mock_service.get_user_by_username = AsyncMock(return_value=MagicMock())
+                
+                response = client.post("/api/auth/register", json={
+                    "username": "existinguser",
+                    "first_name": "New",
+                    "last_name": "User",
+                    "email": "new@test.com",
+                    "password": "password123"
+                })
+                
+                assert response.status_code == 400
+                assert "Username already taken" in response.json()["detail"]
+    
+    def test_register_email_taken(self, app, client):
+        """Should return 400 if email taken"""
+        with patch.dict(os.environ, {"ALLOW_OPEN_REGISTRATION": "true"}):
+            with patch('app.routers.auth.auth_service') as mock_service:
+                mock_service.get_user_by_username = AsyncMock(return_value=None)
+                mock_service.get_user_by_email = AsyncMock(return_value=MagicMock())
+                
+                response = client.post("/api/auth/register", json={
+                    "username": "newuser",
+                    "first_name": "New",
+                    "last_name": "User",
+                    "email": "existing@test.com",
+                    "password": "password123"
+                })
+                
+                assert response.status_code == 400
+                assert "Email already in use" in response.json()["detail"]
+    
+    def test_register_success(self, app, client, mock_db_session):
+        """Should register user successfully"""
+        from app.models import UserResponse
+        
+        with patch.dict(os.environ, {"ALLOW_OPEN_REGISTRATION": "true"}):
+            with patch('app.routers.auth.auth_service') as mock_service, \
+                 patch('app.routers.auth.hash_password_async', new_callable=AsyncMock) as mock_hash:
+                mock_service.get_user_by_username = AsyncMock(return_value=None)
+                mock_service.get_user_by_email = AsyncMock(return_value=None)
+                mock_hash.return_value = "hashed_password"
+                
+                now = datetime.now(timezone.utc)
+                mock_response = UserResponse(
+                    id="new-user-123",
+                    username="newuser",
+                    first_name="New",
+                    last_name="User",
+                    email="new@test.com",
+                    role=UserRole.MEMBER,
+                    created_at=now,
+                    updated_at=now
+                )
+                mock_service._to_response.return_value = mock_response
+                mock_service.create_access_token.return_value = ("token123", 3600)
+                
+                response = client.post("/api/auth/register", json={
+                    "username": "newuser",
+                    "first_name": "New",
+                    "last_name": "User",
+                    "email": "new@test.com",
+                    "password": "password123"
+                })
+                
+                assert response.status_code == 201
+                data = response.json()
+                assert data["access_token"] == "token123"
+    
+    def test_register_exception(self, app, client, mock_db_session):
+        """Should return 500 on exception"""
+        with patch.dict(os.environ, {"ALLOW_OPEN_REGISTRATION": "true"}):
+            with patch('app.routers.auth.auth_service') as mock_service, \
+                 patch('app.routers.auth.hash_password_async', new_callable=AsyncMock) as mock_hash:
+                mock_service.get_user_by_username = AsyncMock(return_value=None)
+                mock_service.get_user_by_email = AsyncMock(return_value=None)
+                mock_hash.side_effect = Exception("Test error")
+                
+                response = client.post("/api/auth/register", json={
+                    "username": "newuser",
+                    "first_name": "New",
+                    "last_name": "User",
+                    "email": "new@test.com",
+                    "password": "password123"
+                })
+                
+                assert response.status_code == 500
+
+
+class TestGetInviteEndpoint:
+    """Tests for get_invite endpoint"""
+    
+    def test_get_invite_success(self, app, client, mock_owner, mock_db_session):
+        """Should get invite by ID"""
+        from app.models import InviteResponse
+        
+        async def mock_get_current_user():
+            return mock_owner
+        app.dependency_overrides[get_current_user] = mock_get_current_user
+        
+        now = datetime.now(timezone.utc)
+        mock_invite = MagicMock()
+        mock_invite.id = "invite-123"
+        mock_invite.email = "test@test.com"
+        mock_invite.role = UserRole.MEMBER
+        mock_invite.status = InviteStatus.PENDING
+        mock_invite.invited_by_username = "owner"
+        mock_invite.invited_by_name = "Test Owner"
+        mock_invite.created_at = now
+        mock_invite.expires_at = now + timedelta(hours=72)
+        mock_invite.accepted_at = None
+        
+        mock_response = InviteResponse(
+            id="invite-123",
+            email="test@test.com",
+            role=UserRole.MEMBER,
+            status=InviteStatus.PENDING,
+            invited_by="owner",
+            invited_by_name="Test Owner",
+            created_at=now,
+            expires_at=now + timedelta(hours=72)
+        )
+        
+        # Mock the database execute to return our mock invite
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = mock_invite
+        mock_db_session.execute = AsyncMock(return_value=mock_result)
+        
+        with patch('app.routers.auth.auth_service') as mock_service:
+            mock_service._invite_to_response.return_value = mock_response
+            
+            response = client.get(
+                "/api/auth/invites/invite-123",
+                headers={"Authorization": "Bearer token123"}
+            )
+            
+            assert response.status_code == 200
+            data = response.json()
+            assert data["id"] == "invite-123"
+    
+    def test_get_invite_not_found(self, app, client, mock_owner, mock_db_session):
+        """Should return 404 if invite not found"""
+        async def mock_get_current_user():
+            return mock_owner
+        app.dependency_overrides[get_current_user] = mock_get_current_user
+        
+        # Mock the database execute to return None
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_db_session.execute = AsyncMock(return_value=mock_result)
+        
+        response = client.get(
+            "/api/auth/invites/nonexistent",
+            headers={"Authorization": "Bearer token123"}
+        )
+        
+        assert response.status_code == 404
+
+
+class TestCreateInviteEndpoint:
+    """Tests for create_invite endpoint error handling"""
+    
+    def test_create_invite_value_error(self, app, client, mock_owner):
+        """Should return 400 on value error"""
+        async def mock_get_current_user():
+            return mock_owner
+        app.dependency_overrides[get_current_user] = mock_get_current_user
+        
+        with patch('app.routers.auth.auth_service') as mock_service:
+            mock_service.create_invite = AsyncMock(side_effect=ValueError("Invalid email"))
+            
+            response = client.post(
+                "/api/auth/invites",
+                headers={"Authorization": "Bearer token123"},
+                json={"email": "invalid@test.com"}
+            )
+            
+            assert response.status_code == 400
+    
+    def test_create_invite_permission_error(self, app, client, mock_owner):
+        """Should return 400 on permission error"""
+        async def mock_get_current_user():
+            return mock_owner
+        app.dependency_overrides[get_current_user] = mock_get_current_user
+        
+        with patch('app.routers.auth.auth_service') as mock_service:
+            mock_service.create_invite = AsyncMock(side_effect=PermissionError("Not allowed"))
+            
+            response = client.post(
+                "/api/auth/invites",
+                headers={"Authorization": "Bearer token123"},
+                json={"email": "test@test.com"}
+            )
+            
+            assert response.status_code == 400
+
+
+class TestAcceptInviteEndpoint:
+    """Tests for accept_invite endpoint error handling"""
+    
+    def test_accept_invite_value_error(self, client):
+        """Should return 400 on value error"""
+        with patch('app.routers.auth.auth_service') as mock_service:
+            mock_service.accept_invite = AsyncMock(side_effect=ValueError("Invalid token"))
+            
+            response = client.post("/api/auth/invite/accept", json={
+                "token": "invalid-token",
+                "username": "newuser",
+                "first_name": "New",
+                "last_name": "User",
+                "password": "password123"
+            })
+            
+            assert response.status_code == 400
+
+
+class TestVerifyTokenEdgeCases:
+    """Tests for verify_token edge cases"""
+    
+    def test_verify_token_user_inactive(self, client, mock_user):
+        """Should return invalid for inactive user"""
+        mock_user.is_active = False
+        
+        with patch('app.routers.auth.auth_service') as mock_service:
+            from app.models import TokenPayload
+            mock_service.verify_token.return_value = TokenPayload(
+                sub=mock_user.id,
+                username=mock_user.username,
+                role=mock_user.role,
+                exp=datetime.now(timezone.utc) + timedelta(hours=1),
+                iat=datetime.now(timezone.utc)
+            )
+            mock_service.decode_token_payload.return_value = {"service": False}
+            mock_service.get_user = AsyncMock(return_value=mock_user)
+            
+            response = client.post(
+                "/api/auth/verify",
+                headers={"Authorization": "Bearer token123"}
+            )
+            
+            assert response.status_code == 200
+            assert response.json()["valid"] is False
+    
+    def test_verify_token_user_not_found(self, client):
+        """Should return invalid if user not found"""
+        with patch('app.routers.auth.auth_service') as mock_service:
+            from app.models import TokenPayload
+            mock_service.verify_token.return_value = TokenPayload(
+                sub="nonexistent",
+                username="test",
+                role=UserRole.MEMBER,
+                exp=datetime.now(timezone.utc) + timedelta(hours=1),
+                iat=datetime.now(timezone.utc)
+            )
+            mock_service.decode_token_payload.return_value = {"service": False}
+            mock_service.get_user = AsyncMock(return_value=None)
+            
+            response = client.post(
+                "/api/auth/verify",
+                headers={"Authorization": "Bearer token123"}
+            )
+            
+            assert response.status_code == 200
+            assert response.json()["valid"] is False
+
+
+class TestGetCurrentUserEdgeCases:
+    """Tests for get_current_user edge cases"""
+    
+    async def test_get_current_user_invalid_token(self):
+        """Should return None for invalid token"""
+        from fastapi.security import HTTPAuthorizationCredentials
+        
+        mock_credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="invalid")
+        mock_db = AsyncMock()
+        
+        with patch('app.routers.auth.auth_service') as mock_service:
+            mock_service.verify_token.return_value = None
+            
+            result = await get_current_user(mock_credentials, mock_db)
+            
+            assert result is None
+    
+    async def test_get_current_user_user_not_found(self):
+        """Should return None if user not found"""
+        from fastapi.security import HTTPAuthorizationCredentials
+        from app.models import TokenPayload
+        
+        mock_credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="token123")
+        mock_db = AsyncMock()
+        
+        with patch('app.routers.auth.auth_service') as mock_service:
+            mock_service.verify_token.return_value = TokenPayload(
+                sub="nonexistent",
+                username="test",
+                role=UserRole.MEMBER,
+                exp=datetime.now(timezone.utc) + timedelta(hours=1),
+                iat=datetime.now(timezone.utc)
+            )
+            mock_service.get_user = AsyncMock(return_value=None)
+            
+            result = await get_current_user(mock_credentials, mock_db)
+            
+            assert result is None
+    
+    async def test_get_current_user_inactive_user(self):
+        """Should return None for inactive user"""
+        from fastapi.security import HTTPAuthorizationCredentials
+        from app.models import TokenPayload
+        
+        mock_credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="token123")
+        mock_db = AsyncMock()
+        
+        mock_user = MagicMock()
+        mock_user.is_active = False
+        
+        with patch('app.routers.auth.auth_service') as mock_service:
+            mock_service.verify_token.return_value = TokenPayload(
+                sub="user-123",
+                username="test",
+                role=UserRole.MEMBER,
+                exp=datetime.now(timezone.utc) + timedelta(hours=1),
+                iat=datetime.now(timezone.utc)
+            )
+            mock_service.get_user = AsyncMock(return_value=mock_user)
+            
+            result = await get_current_user(mock_credentials, mock_db)
+            
+            assert result is None
