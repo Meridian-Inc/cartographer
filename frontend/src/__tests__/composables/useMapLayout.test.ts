@@ -13,6 +13,8 @@ describe('useMapLayout', () => {
   let clearPositions: ReturnType<typeof useMapLayout>['clearPositions'];
   let exportLayout: ReturnType<typeof useMapLayout>['exportLayout'];
   let updatePosition: ReturnType<typeof useMapLayout>['updatePosition'];
+  let importLayout: ReturnType<typeof useMapLayout>['importLayout'];
+  let cleanUpLayout: ReturnType<typeof useMapLayout>['cleanUpLayout'];
   let positions: ReturnType<typeof useMapLayout>['positions'];
 
   beforeEach(() => {
@@ -21,6 +23,8 @@ describe('useMapLayout', () => {
     clearPositions = layout.clearPositions;
     exportLayout = layout.exportLayout;
     updatePosition = layout.updatePosition;
+    importLayout = layout.importLayout;
+    cleanUpLayout = layout.cleanUpLayout;
     positions = layout.positions;
     // Clear any shared state
     clearPositions();
@@ -180,6 +184,194 @@ describe('useMapLayout', () => {
       updatePosition('node1', 300, 400);
 
       expect(positions.get('node1')).toEqual({ x: 300, y: 400 });
+    });
+  });
+
+  describe('importLayout', () => {
+    it('parses valid JSON layout', () => {
+      const layoutData: SavedLayout = {
+        version: 1,
+        timestamp: '2024-06-15T12:00:00Z',
+        positions: {
+          'node1': { x: 100, y: 200 },
+          'node2': { x: 300, y: 400 },
+        },
+        root: { id: 'root', name: 'Network' },
+      };
+
+      const result = importLayout(JSON.stringify(layoutData));
+
+      expect(result.version).toBe(1);
+      expect(result.timestamp).toBe('2024-06-15T12:00:00Z');
+      expect(result.positions['node1']).toEqual({ x: 100, y: 200 });
+      expect(result.positions['node2']).toEqual({ x: 300, y: 400 });
+    });
+
+    it('throws on invalid JSON', () => {
+      expect(() => importLayout('not valid json')).toThrow();
+    });
+
+    it('handles empty positions object', () => {
+      const layoutData: SavedLayout = {
+        version: 1,
+        timestamp: '2024-06-15T12:00:00Z',
+        positions: {},
+        root: { id: 'root', name: 'Network' },
+      };
+
+      const result = importLayout(JSON.stringify(layoutData));
+      expect(result.positions).toEqual({});
+    });
+  });
+
+  describe('cleanUpLayout', () => {
+    it('positions root node at the left margin', () => {
+      const root: TreeNode = {
+        id: 'root',
+        name: 'Network',
+        children: [],
+      };
+
+      cleanUpLayout(root);
+
+      expect((root as any).fx).toBe(60); // marginX
+      expect((root as any).fy).toBe(400); // canvasHeight / 2
+    });
+
+    it('arranges direct children in a column', () => {
+      const root: TreeNode = {
+        id: 'root',
+        name: 'Network',
+        children: [
+          { id: 'group1', name: 'Group 1', role: 'group', children: [
+            { id: '192.168.1.1', name: 'Device 1', role: 'server', parentId: 'root' },
+            { id: '192.168.1.2', name: 'Device 2', role: 'server', parentId: 'root' },
+          ]},
+        ],
+      };
+
+      cleanUpLayout(root);
+
+      // Devices should be positioned at depth 1
+      const device1 = root.children![0].children![0];
+      const device2 = root.children![0].children![1];
+
+      expect((device1 as any).fx).toBe(280); // marginX + 1 * columnWidth
+      expect((device2 as any).fx).toBe(280);
+      // Y positions should be vertically distributed
+      expect((device1 as any).fy).toBeDefined();
+      expect((device2 as any).fy).toBeDefined();
+    });
+
+    it('clears existing positions before arranging', () => {
+      const root: TreeNode = {
+        id: 'root',
+        name: 'Network',
+        fx: 999,
+        fy: 999,
+        children: [],
+      };
+
+      // Add some positions to internal map
+      updatePosition('root', 500, 500);
+
+      cleanUpLayout(root);
+
+      // Internal positions should be cleared
+      expect(positions.size).toBe(0);
+      // Root should have new position
+      expect((root as any).fx).toBe(60);
+    });
+
+    it('handles nested hierarchy with parentId chain', () => {
+      const root: TreeNode = {
+        id: 'root',
+        name: 'Network',
+        children: [
+          { id: 'group1', name: 'Group 1', role: 'group', children: [
+            { id: '192.168.1.1', name: 'Router', role: 'gateway/router', parentId: 'root' },
+            { id: '192.168.1.10', name: 'Switch', role: 'switch/ap', parentId: '192.168.1.1' },
+          ]},
+        ],
+      };
+
+      cleanUpLayout(root);
+
+      const router = root.children![0].children![0];
+      const switchNode = root.children![0].children![1];
+
+      // Router at depth 1, switch at depth 2
+      expect((router as any).fx).toBe(280); // depth 1
+      expect((switchNode as any).fx).toBe(500); // depth 2
+    });
+
+    it('sorts nodes by IP address within same parent', () => {
+      const root: TreeNode = {
+        id: 'root',
+        name: 'Network',
+        children: [
+          { id: 'group1', name: 'Group 1', role: 'group', children: [
+            { id: '192.168.1.100', name: 'Device C', ip: '192.168.1.100', role: 'server', parentId: 'root' },
+            { id: '192.168.1.1', name: 'Device A', ip: '192.168.1.1', role: 'server', parentId: 'root' },
+            { id: '192.168.1.50', name: 'Device B', ip: '192.168.1.50', role: 'server', parentId: 'root' },
+          ]},
+        ],
+      };
+
+      cleanUpLayout(root);
+
+      const devices = root.children![0].children!;
+      // After sorting by IP, order should be: .1, .50, .100
+      // The one with lowest Y should be first in sort order
+      const sortedByY = [...devices].sort((a, b) => (a as any).fy - (b as any).fy);
+      expect(sortedByY[0].ip).toBe('192.168.1.1');
+      expect(sortedByY[1].ip).toBe('192.168.1.50');
+      expect(sortedByY[2].ip).toBe('192.168.1.100');
+    });
+
+    it('handles empty children array', () => {
+      const root: TreeNode = {
+        id: 'root',
+        name: 'Network',
+        children: [],
+      };
+
+      // Should not throw
+      expect(() => cleanUpLayout(root)).not.toThrow();
+      expect((root as any).fx).toBe(60);
+    });
+
+    it('handles circular parentId references gracefully', () => {
+      const root: TreeNode = {
+        id: 'root',
+        name: 'Network',
+        children: [
+          { id: 'group1', name: 'Group 1', role: 'group', children: [
+            { id: 'node1', name: 'Node 1', role: 'server', parentId: 'node2' },
+            { id: 'node2', name: 'Node 2', role: 'server', parentId: 'node1' },
+          ]},
+        ],
+      };
+
+      // Should not throw or infinite loop
+      expect(() => cleanUpLayout(root)).not.toThrow();
+    });
+
+    it('handles nodes without parentId', () => {
+      const root: TreeNode = {
+        id: 'root',
+        name: 'Network',
+        children: [
+          { id: 'group1', name: 'Group 1', role: 'group', children: [
+            { id: '192.168.1.1', name: 'Device 1', role: 'server' }, // No parentId
+          ]},
+        ],
+      };
+
+      // Should not throw
+      expect(() => cleanUpLayout(root)).not.toThrow();
+      const device = root.children![0].children![0];
+      expect((device as any).fx).toBeDefined();
     });
   });
 });

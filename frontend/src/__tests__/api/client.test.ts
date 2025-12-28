@@ -2,9 +2,9 @@
  * Tests for api/client.ts
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import axios, { AxiosError } from 'axios';
-import { extractErrorMessage, toApiError } from '../../api/client';
+import { extractErrorMessage, toApiError, setOnUnauthorized } from '../../api/client';
 
 // Helper to create mock axios errors
 function createAxiosError(
@@ -82,6 +82,26 @@ describe('api/client', () => {
       const apiError = toApiError('string error');
       expect(apiError.status).toBe(0);
       expect(apiError.message).toBe('Unknown error');
+    });
+  });
+
+  describe('setOnUnauthorized', () => {
+    it('accepts a callback function', () => {
+      const callback = vi.fn();
+      // Should not throw
+      expect(() => setOnUnauthorized(callback)).not.toThrow();
+    });
+
+    it('can be called multiple times to update callback', () => {
+      const callback1 = vi.fn();
+      const callback2 = vi.fn();
+
+      setOnUnauthorized(callback1);
+      setOnUnauthorized(callback2);
+
+      // Should not throw - just updates internal state
+      expect(callback1).not.toHaveBeenCalled();
+      expect(callback2).not.toHaveBeenCalled();
     });
   });
 });
