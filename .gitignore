@@ -17,6 +17,12 @@ yarn-error.log
 dist/
 .cache/
 .dev-logs/
+
+# Coverage reports
+coverage.xml
+coverage/
+htmlcov/
+.coverage
 .dev-pids/
 
 # IDEs and Editors
