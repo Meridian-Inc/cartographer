@@ -1,5 +1,8 @@
 # 🗺️ Cartographer
 
+[![Tests](https://github.com/DevArtech/cartographer/actions/workflows/tests.yml/badge.svg)](https://github.com/DevArtech/cartographer/actions/workflows/tests.yml)
+[![codecov](https://codecov.io/gh/DevArtech/cartographer/graph/badge.svg)](https://codecov.io/gh/DevArtech/cartographer)
+
 [![Network Map](https://raw.githubusercontent.com/DevArtech/cartographer/refs/heads/main/assets/application.png)](https://cartographer.artzima.dev/embed/yJLRHFuiajaxkWvLc44Gm0f4)
 
 > 🖱️ **[Click the image to view the interactive map](https://cartographer.artzima.dev/embed/yJLRHFuiajaxkWvLc44Gm0f4)**
@@ -345,6 +348,49 @@ python run_load_tests.py -s metrics -u 100 -r 20 -t 300
 | Failure Rate | < 0.1% | < 1% | > 5% |
 
 See `load-tests/README.md` for advanced usage, distributed testing, CI/CD integration, and test customization.
+
+## Tests
+
+Cartographer maintains comprehensive test coverage across all services, validated by CI on every push and pull request.
+
+### Running Tests Locally
+
+**Backend services (Python):**
+```bash
+# Backend gateway
+cd backend && pip install -r requirements.txt
+pytest tests/ --cov=app --cov-report=term-missing
+
+# Individual microservices
+cd assistant-service && pytest tests/ --cov=app
+cd auth-service && pytest tests/ --cov=app
+cd health-service && pytest tests/ --cov=app
+cd metrics-service && pytest tests/ --cov=app
+cd notification-service && pytest tests/ --cov=app
+```
+
+**Frontend (TypeScript/Vue):**
+```bash
+cd frontend && npm ci
+npm run test           # Run tests once
+npm run test:coverage  # Run with coverage report
+```
+
+### Coverage Requirements
+
+| Service | Minimum Coverage |
+|---------|-----------------|
+| Backend | 90% |
+| Frontend | — |
+| Assistant Service | 95% |
+| Auth Service | 95% |
+| Health Service | 95% |
+| Metrics Service | 95% |
+| Notification Service | 80% |
+
+### CI
+
+A unified [Tests workflow](https://github.com/DevArtech/cartographer/actions/workflows/tests.yml) runs all services in parallel on every push/PR to `main`. Coverage reports are uploaded to [Codecov](https://codecov.io/gh/DevArtech/cartographer).
 
 ## Contributing
 
