@@ -1,9 +1,9 @@
 # 🗺️ Cartographer
 
-[![Tests](https://github.com/DevArtech/cartographer/actions/workflows/tests.yml/badge.svg)](https://github.com/DevArtech/cartographer/actions/workflows/tests.yml)
-[![codecov](https://codecov.io/gh/DevArtech/cartographer/graph/badge.svg)](https://codecov.io/gh/Meridian-Inc/cartographer)
+[![Tests](https://github.com/Meridian-Inc/cartographer/actions/workflows/tests.yml/badge.svg)](https://github.com/Meridian-Inc/cartographer/actions/workflows/tests.yml)
+[![codecov](https://codecov.io/gh/Meridian-Inc/cartographer/graph/badge.svg)](https://codecov.io/gh/Meridian-Inc/cartographer)
 
-[![Network Map](https://raw.githubusercontent.com/DevArtech/cartographer/refs/heads/main/assets/application.png)](https://cartographer.artzima.dev/embed/yJLRHFuiajaxkWvLc44Gm0f4)
+[![Network Map](https://raw.githubusercontent.com/Meridian-Inc/cartographer/refs/heads/main/assets/application.png)](https://cartographer.artzima.dev/embed/yJLRHFuiajaxkWvLc44Gm0f4)
 
 > 🖱️ **[Click the image to view the interactive map](https://cartographer.artzima.dev/embed/yJLRHFuiajaxkWvLc44Gm0f4)**
 
@@ -219,7 +219,7 @@ If you run [Ollama](https://ollama.ai) locally, no API key is needed — just ma
 
 Cartographer can alert you when things go wrong on your network:
 
-![Discord Notification](https://raw.githubusercontent.com/DevArtech/cartographer/refs/heads/main/assets/notification.png)
+![Discord Notification](https://raw.githubusercontent.com/Meridian-Inc/cartographer/refs/heads/main/assets/notification.png)
 
 - **Device down** — Know immediately when a server, router, or important device stops responding.
 - **Device recovered** — Get a heads-up when things come back online.
@@ -390,7 +390,7 @@ npm run test:coverage  # Run with coverage report
 
 ### CI
 
-A unified [Tests workflow](https://github.com/DevArtech/cartographer/actions/workflows/tests.yml) runs all services in parallel on every push/PR to `main`. Coverage reports are uploaded to [Codecov](https://codecov.io/gh/DevArtech/cartographer).
+A unified [Tests workflow](https://github.com/Meridian-Inc/cartographer/actions/workflows/tests.yml) runs all services in parallel on every push/PR to `main`. Coverage reports are uploaded to [Codecov](https://codecov.io/gh/Meridian-Inc/cartographer).
 
 ## Contributing
 

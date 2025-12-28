@@ -25,7 +25,7 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          file: backend/coverage.xml
+          files: backend/coverage.xml
           flags: backend
 
   frontend:
@@ -46,7 +46,7 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          file: frontend/coverage/coverage-final.json
+          files: frontend/coverage/coverage-final.json
           flags: frontend
 
   assistant-service:
@@ -73,7 +73,7 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          file: assistant-service/coverage.xml
+          files: assistant-service/coverage.xml
           flags: assistant-service
 
   auth-service:
@@ -94,7 +94,7 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          file: auth-service/coverage.xml
+          files: auth-service/coverage.xml
           flags: auth-service
 
   health-service:
@@ -115,7 +115,7 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          file: health-service/coverage.xml
+          files: health-service/coverage.xml
           flags: health-service
 
   metrics-service:
@@ -136,7 +136,7 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          file: metrics-service/coverage.xml
+          files: metrics-service/coverage.xml
           flags: metrics-service
 
   notification-service:
@@ -157,5 +157,5 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          file: notification-service/coverage.xml
+          files: notification-service/coverage.xml
           flags: notification-service
