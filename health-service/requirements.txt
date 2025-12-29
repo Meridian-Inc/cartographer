@@ -1,6 +1,7 @@
 fastapi==0.115.2
 uvicorn==0.30.6
 pydantic==2.9.2
+pydantic-settings==2.6.1
 httpx==0.27.2
 aioping==0.4.0
 ping3==4.0.8

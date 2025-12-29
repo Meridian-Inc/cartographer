@@ -1,17 +1,16 @@
-from fastapi import APIRouter, HTTPException, Query
-from typing import List, Optional
 from datetime import datetime
 
+from fastapi import APIRouter, HTTPException, Query
+
 from ..models import (
-    DeviceMetrics,
-    HealthCheckRequest,
     BatchHealthResponse,
-    DeviceToMonitor,
+    DeviceMetrics,
+    GatewayTestIPConfig,
+    GatewayTestIPsResponse,
+    HealthCheckRequest,
     MonitoringConfig,
     MonitoringStatus,
     RegisterDevicesRequest,
-    GatewayTestIPConfig,
-    GatewayTestIPsResponse,
     SetGatewayTestIPsRequest,
     SpeedTestResult,
 )
@@ -25,7 +24,7 @@ router = APIRouter(prefix="/health", tags=["health"])
 async def check_single_device(
     ip: str,
     include_ports: bool = Query(False, description="Include port scanning"),
-    include_dns: bool = Query(True, description="Include DNS resolution")
+    include_dns: bool = Query(True, description="Include DNS resolution"),
 ):
     """
     Check the health of a single device by IP address.
@@ -35,7 +34,7 @@ async def check_single_device(
         metrics = await health_checker.check_device_health(
             ip=ip,
             include_ports=include_ports,
-            include_dns=include_dns
+            include_dns=include_dns,
         )
         return metrics
     except Exception as e:
@@ -50,25 +49,22 @@ async def check_multiple_devices(request: HealthCheckRequest):
     """
     if not request.ips:
         raise HTTPException(status_code=400, detail="No IPs provided")
-    
+
     if len(request.ips) > 100:
         raise HTTPException(status_code=400, detail="Maximum 100 IPs per request")
-    
+
     try:
         metrics = await health_checker.check_multiple_devices(
             ips=request.ips,
             include_ports=request.include_ports,
-            include_dns=request.include_dns
+            include_dns=request.include_dns,
         )
-        return BatchHealthResponse(
-            devices=metrics,
-            check_timestamp=datetime.utcnow()
-        )
+        return BatchHealthResponse(devices=metrics, check_timestamp=datetime.utcnow())
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/cached/{ip}", response_model=Optional[DeviceMetrics])
+@router.get("/cached/{ip}", response_model=DeviceMetrics | None)
 async def get_cached_metrics(ip: str):
     """
     Get cached metrics for a device without performing a new check.
@@ -138,26 +134,27 @@ async def check_dns(ip: str):
 
 # ==================== Monitoring Endpoints ====================
 
+
 @router.post("/monitoring/devices")
 async def register_devices(request: RegisterDevicesRequest):
     """
     Register devices for passive monitoring.
     These devices will be checked periodically in the background.
-    
+
     Args:
         request: Contains list of IPs and network_id (UUID string)
     """
     # Create mapping of IP to network_id (now a UUID string)
     devices_map = {ip: request.network_id for ip in request.ips}
     health_checker.set_monitored_devices(devices_map)
-    
+
     # Sync with notification service so ML anomaly detection tracks only current devices
     await sync_devices_with_notification_service(request.ips, network_id=request.network_id)
-    
+
     return {
         "message": f"Registered {len(request.ips)} devices for monitoring",
         "devices": request.ips,
-        "network_id": request.network_id
+        "network_id": request.network_id,
     }
 
 
@@ -171,10 +168,10 @@ async def get_monitored_devices():
 async def clear_monitored_devices():
     """Clear all devices from monitoring"""
     health_checker.set_monitored_devices({})
-    
+
     # Sync with notification service to clear device tracking
     await sync_devices_with_notification_service([])
-    
+
     return {"message": "Cleared all monitored devices"}
 
 
@@ -228,16 +225,17 @@ async def trigger_immediate_check():
     """
     if not health_checker.get_monitored_devices():
         raise HTTPException(status_code=400, detail="No devices registered for monitoring")
-    
+
     await health_checker._perform_monitoring_check()
     return {
         "message": "Check completed",
         "checked_devices": len(health_checker.get_monitored_devices()),
-        "timestamp": datetime.utcnow()
+        "timestamp": datetime.utcnow(),
     }
 
 
 # ==================== Gateway Test IP Endpoints ====================
+
 
 # Note: Specific route must come before parameterized routes
 @router.get("/gateway/test-ips/all")
@@ -273,7 +271,7 @@ async def set_gateway_test_ips(gateway_ip: str, request: SetGatewayTestIPsReques
     """
     if request.gateway_ip != gateway_ip:
         raise HTTPException(status_code=400, detail="Gateway IP in path must match request body")
-    
+
     config = health_checker.set_gateway_test_ips(gateway_ip, request.test_ips)
     return config
 
@@ -308,7 +306,7 @@ async def check_gateway_test_ips(gateway_ip: str):
     config = health_checker.get_gateway_test_ips(gateway_ip)
     if config is None:
         raise HTTPException(status_code=404, detail="No test IPs configured for this gateway")
-    
+
     return await health_checker.check_gateway_test_ips(gateway_ip)
 
 
@@ -322,13 +320,14 @@ async def get_cached_test_ip_metrics(gateway_ip: str):
 
 # ==================== Speed Test Endpoints ====================
 
+
 @router.post("/speedtest", response_model=SpeedTestResult)
-async def run_speed_test(gateway_ip: Optional[str] = None):
+async def run_speed_test(gateway_ip: str | None = None):
     """
     Run an ISP speed test.
     This is a manual operation that takes 30-60 seconds to complete.
     Returns download/upload speeds in Mbps.
-    
+
     Args:
         gateway_ip: Optional gateway IP to associate this test with (for storage/retrieval)
     """
@@ -344,7 +343,7 @@ async def run_gateway_speed_test(gateway_ip: str):
     return await health_checker.run_speed_test(gateway_ip)
 
 
-@router.get("/gateway/{gateway_ip}/speedtest", response_model=Optional[SpeedTestResult])
+@router.get("/gateway/{gateway_ip}/speedtest", response_model=SpeedTestResult | None)
 async def get_gateway_speed_test(gateway_ip: str):
     """
     Get the last speed test result for a gateway.
@@ -362,8 +361,4 @@ async def get_all_speed_tests():
     Returns a dict mapping gateway_ip -> SpeedTestResult
     """
     results = health_checker.get_all_speed_tests()
-    return {
-        gateway_ip: result.model_dump(mode="json")
-        for gateway_ip, result in results.items()
-    }
-
+    return {gateway_ip: result.model_dump(mode="json") for gateway_ip, result in results.items()}

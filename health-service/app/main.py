@@ -1,9 +1,10 @@
-import os
 import logging
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from .config import settings
 from .routers.health import router as health_router
 from .services.health_checker import health_checker
 from .services.usage_middleware import UsageTrackingMiddleware
@@ -19,30 +20,27 @@ async def lifespan(app: FastAPI):
     # Startup: Start the background monitoring loop
     logger.info("Starting background health monitoring...")
     health_checker.start_monitoring()
-    
+
     yield
-    
+
     # Shutdown: Stop the background monitoring loop
     logger.info("Stopping background health monitoring...")
     health_checker.stop_monitoring()
 
 
 def create_app() -> FastAPI:
-    # Check if docs should be disabled (default: enabled)
-    disable_docs = os.environ.get("DISABLE_DOCS", "false").lower() == "true"
-    
     app = FastAPI(
         title="Cartographer Health Service",
         description="Health monitoring microservice for network devices",
         version="0.1.0",
         lifespan=lifespan,
-        docs_url=None if disable_docs else "/docs",
-        redoc_url=None if disable_docs else "/redoc",
-        openapi_url=None if disable_docs else "/openapi.json",
+        docs_url=None if settings.disable_docs else "/docs",
+        redoc_url=None if settings.disable_docs else "/redoc",
+        openapi_url=None if settings.disable_docs else "/openapi.json",
     )
 
     # Allow CORS for development and integration with main app
-    allowed_origins = os.environ.get("CORS_ORIGINS", "*").split(",")
+    allowed_origins = settings.cors_origins.split(",")
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allowed_origins,
@@ -50,7 +48,7 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    
+
     # Usage tracking middleware - reports endpoint usage to metrics service
     app.add_middleware(UsageTrackingMiddleware, service_name="health-service")
 
@@ -62,7 +60,7 @@ def create_app() -> FastAPI:
         return {
             "service": "Cartographer Health Service",
             "status": "running",
-            "version": "0.1.0"
+            "version": "0.1.0",
         }
 
     @app.get("/healthz")
@@ -74,4 +72,3 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
-
