@@ -47,13 +47,57 @@ class TestGetResend:
                 assert resend is not None
     
     def test_handles_import_error(self):
-        """Should handle missing resend module"""
+        """Should handle missing resend module gracefully"""
+        from app.services import email_service
+        email_service._resend = None  # Reset to force reimport
+        
+        # Mock the import statement to raise ImportError
+        import builtins
+        original_import = builtins.__import__
+        
+        def mock_import(name, *args, **kwargs):
+            if name == 'resend':
+                raise ImportError("No module named 'resend'")
+            return original_import(name, *args, **kwargs)
+        
+        with patch.object(builtins, '__import__', side_effect=mock_import):
+            result = _get_resend()
+            assert result is None
+    
+    def test_sets_api_key_when_configured(self):
+        """Should set API key when resend is imported successfully"""
         from app.services import email_service
         email_service._resend = None  # Reset
         
-        # Simulate the import error handling by testing the fallback path
-        # The actual import error is handled in _get_resend
-        assert True  # This code path is tested implicitly by other tests
+        # Create a mock resend module
+        mock_resend_module = MagicMock()
+        mock_resend_module.api_key = None
+        
+        import builtins
+        original_import = builtins.__import__
+        
+        def mock_import(name, *args, **kwargs):
+            if name == 'resend':
+                return mock_resend_module
+            return original_import(name, *args, **kwargs)
+        
+        with patch.object(builtins, '__import__', side_effect=mock_import), \
+             patch.object(settings, 'resend_api_key', 'test-api-key'):
+            result = _get_resend()
+            
+            assert result is mock_resend_module
+            assert mock_resend_module.api_key == 'test-api-key'
+    
+    def test_returns_cached_resend(self):
+        """Should return cached resend module on subsequent calls"""
+        from app.services import email_service
+        
+        mock_cached = MagicMock()
+        email_service._resend = mock_cached
+        
+        result = _get_resend()
+        
+        assert result is mock_cached
 
 
 class TestSendInvitationEmail:

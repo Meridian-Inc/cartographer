@@ -47,20 +47,20 @@ def send_invitation_email(
     if not is_email_configured():
         logger.warning(f"Email not configured - invitation for {to_email} not sent")
         return None
-
+    
     resend = _get_resend()
     if not resend:
         return None
-
+    
     # Build the invitation URL
     invite_url = f"{settings.application_url}/accept-invite?token={invite_token}"
-
+    
     # Role display name
     role_display = {
         "member": "Member",
         "admin": "Admin"
     }.get(role, role)
-
+    
     # HTML email template
     html_content = f"""
 <!DOCTYPE html>
@@ -134,7 +134,7 @@ def send_invitation_email(
 </body>
 </html>
 """
-
+    
     # Plain text fallback
     text_content = f"""
 You're Invited to Cartographer!
@@ -151,7 +151,7 @@ If you didn't expect this invitation, you can safely ignore this email.
 ---
 Cartographer - Network Mapping Tool
 """
-
+    
     try:
         params = {
             "from": settings.email_from,
@@ -160,13 +160,13 @@ Cartographer - Network Mapping Tool
             "html": html_content,
             "text": text_content,
         }
-
+        
         result = resend.Emails.send(params)
         email_id = result.get("id") if isinstance(result, dict) else getattr(result, "id", None)
-
+        
         logger.info(f"Invitation email sent to {to_email} (ID: {email_id})")
         return email_id
-
+        
     except Exception as e:
         logger.error(f"Failed to send invitation email to {to_email}: {e}")
         return None

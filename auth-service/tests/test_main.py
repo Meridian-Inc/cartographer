@@ -70,6 +70,18 @@ class TestEndpoints:
         
         assert response.status_code == 200
         assert response.json()["status"] == "healthy"
+    
+    def test_ready_endpoint(self):
+        """Should return ready status"""
+        from app.main import create_app
+        
+        app = create_app()
+        client = TestClient(app, raise_server_exceptions=False)
+        
+        response = client.get("/ready")
+        
+        assert response.status_code == 200
+        assert response.json()["status"] == "ready"
 
 
 class TestLifespan:
