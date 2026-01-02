@@ -62,15 +62,22 @@ def on_test_start(environment, **kwargs):
     print("🔐 Authenticating for capacity discovery test...")
     print("="*70)
     
-    # Use the environment's runner to get an HTTP client
-    client = environment.runner.user_classes[0](environment).client
+    # Create a temporary HTTP client for authentication
+    import httpx
+    
+    base_url = environment.host
+    if not base_url:
+        print("⚠️  Warning: No host specified, authentication will be handled per-user")
+        print("="*70 + "\n")
+        return
     
     try:
-        response = client.post(
-            "/api/auth/login",
-            json={"username": USERNAME, "password": PASSWORD},
-            name="[SETUP] /api/auth/login"
-        )
+        # Use httpx for authentication instead of Locust's client
+        with httpx.Client(base_url=base_url, timeout=10.0) as client:
+            response = client.post(
+                "/api/auth/login",
+                json={"username": USERNAME, "password": PASSWORD}
+            )
         
         if response.status_code == 200:
             data = response.json()
