@@ -56,7 +56,8 @@ class CapacityDiscoveryShape(LoadTestShape):
     
     def __init__(self):
         super().__init__()
-        self.start_time = time.time()
+        # Don't initialize start_time here - do it on first tick()
+        # self.start_time will be set when tick() is first called
         
         # Read configuration from environment if available
         import os
@@ -85,6 +86,11 @@ class CapacityDiscoveryShape(LoadTestShape):
         Returns the current target user count and spawn rate.
         Returns None to stop the test.
         """
+        # Initialize start_time on first tick (not in __init__)
+        if self.start_time is None:
+            self.start_time = time.time()
+            print(f"[DEBUG] Initialized start_time at {self.start_time}")
+        
         if self.stopped:
             return None
         
