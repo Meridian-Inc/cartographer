@@ -9,9 +9,13 @@ Adds indexes for frequently queried columns.
 
 Impact: +15-20 concurrent users expected
 Risk: Low (uses CONCURRENTLY to avoid table locks)
+
+Note: This migration runs outside of a transaction because
+CREATE INDEX CONCURRENTLY cannot run inside a transaction block.
 """
 
 from alembic import op
+from sqlalchemy import text
 
 # revision identifiers, used by Alembic.
 revision = "003_performance_indexes"
@@ -21,38 +25,54 @@ depends_on = None
 
 
 def upgrade() -> None:
-    """Add performance indexes."""
+    """Add performance indexes.
+    
+    Note: We use connection.execute() with AUTOCOMMIT isolation level
+    because CREATE INDEX CONCURRENTLY cannot run in a transaction.
+    """
+    
+    connection = op.get_bind()
+    
+    # Set autocommit mode (no transaction)
+    connection.execute(text("COMMIT"))
     
     # Username lookups (login endpoint)
-    # Use CONCURRENTLY to avoid locking the users table
-    op.execute(
-        """
+    connection.execute(
+        text("""
         CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_users_username_active
         ON users(username) WHERE deleted_at IS NULL
-        """
+        """)
     )
     
     # Email lookups (invite, password reset)
-    op.execute(
-        """
+    connection.execute(
+        text("""
         CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_users_email_active
         ON users(email) WHERE deleted_at IS NULL
-        """
+        """)
     )
     
     # Active invites lookup
-    op.execute(
-        """
+    connection.execute(
+        text("""
         CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_invites_email_status
         ON invites(email, status)
-        """
+        """)
     )
 
 
 def downgrade() -> None:
-    """Remove performance indexes."""
+    """Remove performance indexes.
     
-    op.execute("DROP INDEX CONCURRENTLY IF EXISTS idx_users_username_active")
-    op.execute("DROP INDEX CONCURRENTLY IF EXISTS idx_users_email_active")
-    op.execute("DROP INDEX CONCURRENTLY IF EXISTS idx_invites_email_status")
+    Note: DROP INDEX CONCURRENTLY also requires autocommit mode.
+    """
+    
+    connection = op.get_bind()
+    
+    # Set autocommit mode (no transaction)
+    connection.execute(text("COMMIT"))
+    
+    connection.execute(text("DROP INDEX CONCURRENTLY IF EXISTS idx_users_username_active"))
+    connection.execute(text("DROP INDEX CONCURRENTLY IF EXISTS idx_users_email_active"))
+    connection.execute(text("DROP INDEX CONCURRENTLY IF EXISTS idx_invites_email_status"))
 
