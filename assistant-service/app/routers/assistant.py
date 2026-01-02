@@ -164,7 +164,27 @@ def get_provider(
 
 @router.get("/config", response_model=AssistantConfig)
 async def get_config(user: AuthenticatedUser = Depends(require_auth)):
-    """Get assistant configuration and provider status. Requires authentication."""
+    """
+    Get assistant configuration and provider status. Requires authentication.
+    
+    Implements caching with 5-minute TTL to avoid repeated provider checks.
+    """
+    cache_key = "assistant:config"
+    redis = await get_redis()
+    
+    # Try cache first
+    if redis:
+        try:
+            cached = await redis.get(cache_key)
+            if cached:
+                logger.debug(f"Cache HIT: {cache_key}")
+                cached_data = json.loads(cached)
+                # Convert back to AssistantConfig model
+                return AssistantConfig(**cached_data)
+        except Exception as e:
+            logger.warning(f"Cache read error: {e}")
+    
+    # Cache miss - compute result
     providers_status = []
 
     # Fetch all provider statuses concurrently
@@ -221,11 +241,26 @@ async def get_config(user: AuthenticatedUser = Depends(require_auth)):
             default = status.provider
             break
 
-    return AssistantConfig(
+    result = AssistantConfig(
         providers=list(providers_status),
         default_provider=default,
         network_context_enabled=True,
     )
+    
+    # Cache the result (best effort)
+    if redis:
+        try:
+            # Convert Pydantic model to dict for JSON serialization
+            await redis.setex(
+                cache_key,
+                settings.cache_ttl_providers,
+                json.dumps(result.model_dump())
+            )
+            logger.debug(f"Cache SET: {cache_key} (TTL: {settings.cache_ttl_providers}s)")
+        except Exception as e:
+            logger.warning(f"Cache write error: {e}")
+
+    return result
 
 
 @router.get("/providers")

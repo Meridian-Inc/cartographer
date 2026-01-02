@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     redis_db: int = 1
 
     # Caching
-    cache_ttl_providers: int = 300  # 5 minutes (providers don't change often)
+    cache_ttl_providers: int = 3600  # 1 hour (provider availability rarely changes)
 
     # Rate limiting
     assistant_chat_limit_per_day: int = 99999
