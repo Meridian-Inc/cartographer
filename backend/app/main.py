@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
 from .database import init_db
+from .migrations.add_performance_indexes import add_performance_indexes
 from .migrations.migrate_layout import migrate_layout_to_database
 from .migrations.migrate_network_id_to_uuid import migrate_network_ids_to_uuid
 from .routers.assistant_proxy import router as assistant_proxy_router
@@ -54,6 +55,14 @@ async def run_migrations() -> None:
             logger.info("Layout migration completed")
     except Exception as e:
         logger.warning(f"Layout migration failed (non-fatal): {e}")
+
+    # Migration: Performance indexes
+    try:
+        logger.info("Running performance index migration...")
+        await add_performance_indexes()
+        logger.info("Performance indexes ensured")
+    except Exception as e:
+        logger.warning(f"Performance index migration failed (non-fatal): {e}")
 
 
 @asynccontextmanager

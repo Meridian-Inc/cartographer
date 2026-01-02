@@ -10,13 +10,16 @@ from .config import get_settings
 
 settings = get_settings()
 
-# Create async engine
+# Create async engine with optimized connection pool
+# Backend is the main gateway - needs largest pool to handle proxy traffic
 engine = create_async_engine(
     settings.database_url,
     echo=settings.debug,
-    pool_pre_ping=True,
-    pool_size=5,
-    max_overflow=10,
+    pool_pre_ping=True,  # Verify connections before use
+    pool_size=40,  # Increased from 5 - main gateway handles all traffic
+    max_overflow=60,  # Increased from 10 - allow burst capacity
+    pool_timeout=30,  # Seconds to wait for connection from pool
+    pool_recycle=3600,  # Recycle connections after 1 hour to prevent stale connections
 )
 
 # Session factory
