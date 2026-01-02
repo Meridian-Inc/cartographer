@@ -3,8 +3,9 @@ Service for managing user notification preferences from database.
 """
 
 import logging
-from typing import Optional, List, Dict, Any
 from datetime import datetime
+from typing import Any
+
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -34,7 +35,7 @@ class UserPreferencesService:
         db: AsyncSession,
         user_id: str,
         network_id: str,
-    ) -> Optional[UserNetworkNotificationPrefs]:
+    ) -> UserNetworkNotificationPrefs | None:
         """Get user's notification preferences for a specific network"""
         result = await db.execute(
             select(UserNetworkNotificationPrefs)
@@ -50,7 +51,7 @@ class UserPreferencesService:
         db: AsyncSession,
         user_id: str,
         network_id: str,
-        user_email: Optional[str] = None,
+        user_email: str | None = None,
     ) -> UserNetworkNotificationPrefs:
         """Get or create user's notification preferences for a network"""
         prefs = await self.get_network_preferences(db, user_id, network_id)
@@ -91,7 +92,7 @@ class UserPreferencesService:
         db: AsyncSession,
         user_id: str,
         network_id: str,
-        update_data: Dict[str, Any],
+        update_data: dict[str, Any],
     ) -> UserNetworkNotificationPrefs:
         """Update user's network notification preferences"""
         prefs = await self.get_or_create_network_preferences(db, user_id, network_id)
@@ -125,7 +126,7 @@ class UserPreferencesService:
         self,
         db: AsyncSession,
         user_id: str,
-    ) -> Optional[UserGlobalNotificationPrefs]:
+    ) -> UserGlobalNotificationPrefs | None:
         """Get user's global notification preferences"""
         result = await db.execute(
             select(UserGlobalNotificationPrefs)
@@ -137,7 +138,7 @@ class UserPreferencesService:
         self,
         db: AsyncSession,
         user_id: str,
-        user_email: Optional[str] = None,
+        user_email: str | None = None,
     ) -> UserGlobalNotificationPrefs:
         """Get or create user's global notification preferences"""
         prefs = await self.get_global_preferences(db, user_id)
@@ -162,7 +163,7 @@ class UserPreferencesService:
         self,
         db: AsyncSession,
         user_id: str,
-        update_data: Dict[str, Any],
+        update_data: dict[str, Any],
     ) -> UserGlobalNotificationPrefs:
         """Update user's global notification preferences"""
         prefs = await self.get_or_create_global_preferences(db, user_id)
@@ -182,7 +183,7 @@ class UserPreferencesService:
         self,
         db: AsyncSession,
         user_id: str,
-    ) -> Optional[DiscordUserLink]:
+    ) -> DiscordUserLink | None:
         """Get user's Discord OAuth link"""
         result = await db.execute(
             select(DiscordUserLink)
@@ -190,7 +191,7 @@ class UserPreferencesService:
         )
         return result.scalar_one_or_none()
     
-    async def get_user_email(self, db: AsyncSession, user_id: str) -> Optional[str]:
+    async def get_user_email(self, db: AsyncSession, user_id: str) -> str | None:
         """Get user's email from the users table in the database"""
         try:
             # Query the users table directly using raw SQL
@@ -212,7 +213,7 @@ class UserPreferencesService:
         db: AsyncSession,
         network_id: str,
         notification_type: NotificationType,
-    ) -> List[UserNetworkNotificationPrefs]:
+    ) -> list[UserNetworkNotificationPrefs]:
         """Get all users in a network who have this notification type enabled"""
         result = await db.execute(
             select(UserNetworkNotificationPrefs)
@@ -239,7 +240,7 @@ class UserPreferencesService:
         self,
         db: AsyncSession,
         notification_type: NotificationType,
-    ) -> List[UserGlobalNotificationPrefs]:
+    ) -> list[UserGlobalNotificationPrefs]:
         """Get all users who have global notifications enabled for this type"""
         if notification_type == NotificationType.CARTOGRAPHER_UP:
             result = await db.execute(
@@ -274,7 +275,7 @@ class UserPreferencesService:
         self,
         db: AsyncSession,
         network_id: str,
-    ) -> List[str]:
+    ) -> list[str]:
         """Get all user IDs who are members of a network (owner + users with permissions)"""
         try:
             from sqlalchemy import text

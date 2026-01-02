@@ -5,27 +5,24 @@ Separate system for managing Cartographer Up/Down notifications.
 Users can subscribe to receive notifications when Cartographer itself goes up or down.
 """
 
-import os
 import json
 import logging
 import uuid
-from pathlib import Path
-from typing import Dict, List, Optional
 from datetime import datetime
 
+from ..config import settings
 from ..models import (
     NetworkEvent,
-    NotificationType,
+    NotificationChannel,
     NotificationPriority,
     NotificationRecord,
-    NotificationChannel,
+    NotificationType,
 )
 
 logger = logging.getLogger(__name__)
 
 # Persistence
-DATA_DIR = Path(os.environ.get("NOTIFICATION_DATA_DIR", "/app/data"))
-SUBSCRIPTIONS_FILE = DATA_DIR / "cartographer_status_subscriptions.json"
+SUBSCRIPTIONS_FILE = settings.data_dir / "cartographer_status_subscriptions.json"
 
 
 class CartographerStatusSubscription:
@@ -42,15 +39,15 @@ class CartographerStatusSubscription:
         email_enabled: bool = False,
         discord_enabled: bool = False,
         discord_delivery_method: str = "dm",
-        discord_guild_id: Optional[str] = None,
-        discord_channel_id: Optional[str] = None,
-        discord_user_id: Optional[str] = None,
+        discord_guild_id: str | None = None,
+        discord_channel_id: str | None = None,
+        discord_user_id: str | None = None,
         minimum_priority: str = "medium",
         quiet_hours_enabled: bool = False,
         quiet_hours_start: str = "22:00",
         quiet_hours_end: str = "08:00",
-        quiet_hours_bypass_priority: Optional[str] = None,
-        timezone: Optional[str] = None,
+        quiet_hours_bypass_priority: str | None = None,
+        timezone: str | None = None,
     ):
         self.user_id = user_id
         self.email_address = email_address
@@ -136,14 +133,14 @@ class CartographerStatusService:
     """
     
     def __init__(self):
-        self._subscriptions: Dict[str, CartographerStatusSubscription] = {}
+        self._subscriptions: dict[str, CartographerStatusSubscription] = {}
         self._load_subscriptions()
         self._migrate_from_global_preferences()
     
     def _save_subscriptions(self):
         """Save subscriptions to disk"""
         try:
-            DATA_DIR.mkdir(parents=True, exist_ok=True)
+            settings.data_dir.mkdir(parents=True, exist_ok=True)
             
             data = {
                 user_id: sub.to_dict()
@@ -177,30 +174,30 @@ class CartographerStatusService:
         except Exception as e:
             logger.error(f"Failed to load Cartographer status subscriptions: {e}")
     
-    def get_subscription(self, user_id: str) -> Optional[CartographerStatusSubscription]:
+    def get_subscription(self, user_id: str) -> CartographerStatusSubscription | None:
         """Get subscription for a user"""
         return self._subscriptions.get(user_id)
     
     def create_or_update_subscription(
         self,
         user_id: str,
-        email_address: Optional[str] = None,
-        cartographer_up_enabled: Optional[bool] = None,
-        cartographer_down_enabled: Optional[bool] = None,
-        cartographer_up_priority: Optional[str] = None,
-        cartographer_down_priority: Optional[str] = None,
-        email_enabled: Optional[bool] = None,
-        discord_enabled: Optional[bool] = None,
-        discord_delivery_method: Optional[str] = None,
-        discord_guild_id: Optional[str] = None,
-        discord_channel_id: Optional[str] = None,
-        discord_user_id: Optional[str] = None,
-        minimum_priority: Optional[str] = None,
-        quiet_hours_enabled: Optional[bool] = None,
-        quiet_hours_start: Optional[str] = None,
-        quiet_hours_end: Optional[str] = None,
-        quiet_hours_bypass_priority: Optional[str] = None,
-        timezone: Optional[str] = None,
+        email_address: str | None = None,
+        cartographer_up_enabled: bool | None = None,
+        cartographer_down_enabled: bool | None = None,
+        cartographer_up_priority: str | None = None,
+        cartographer_down_priority: str | None = None,
+        email_enabled: bool | None = None,
+        discord_enabled: bool | None = None,
+        discord_delivery_method: str | None = None,
+        discord_guild_id: str | None = None,
+        discord_channel_id: str | None = None,
+        discord_user_id: str | None = None,
+        minimum_priority: str | None = None,
+        quiet_hours_enabled: bool | None = None,
+        quiet_hours_start: str | None = None,
+        quiet_hours_end: str | None = None,
+        quiet_hours_bypass_priority: str | None = None,
+        timezone: str | None = None,
         # Use sentinel value to distinguish between "not provided" and "set to None"
         _bypass_priority_provided: bool = False,
         _timezone_provided: bool = False,
@@ -287,11 +284,11 @@ class CartographerStatusService:
         logger.info(f"Deleted Cartographer status subscription for user {user_id}")
         return True
     
-    def get_all_subscriptions(self) -> List[CartographerStatusSubscription]:
+    def get_all_subscriptions(self) -> list[CartographerStatusSubscription]:
         """Get all subscriptions"""
         return list(self._subscriptions.values())
-    
-    def get_subscribers_for_event(self, event_type: NotificationType) -> List[CartographerStatusSubscription]:
+
+    def get_subscribers_for_event(self, event_type: NotificationType) -> list[CartographerStatusSubscription]:
         """Get all subscribers for a specific event type who have at least one notification channel enabled"""
         if event_type == NotificationType.CARTOGRAPHER_UP:
             return [

@@ -4,25 +4,20 @@ Email notification service using Resend.
 Sends notification emails for network events and anomalies.
 """
 
-import os
 import logging
-from typing import Optional, Dict, Any
 from datetime import datetime
 
+from ..config import settings
 from ..models import (
     NetworkEvent,
-    NotificationType,
+    NotificationChannel,
     NotificationPriority,
     NotificationRecord,
-    NotificationChannel,
+    NotificationType,
 )
+from ..utils import get_notification_icon, get_priority_color_hex
 
 logger = logging.getLogger(__name__)
-
-# Resend configuration
-RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
-EMAIL_FROM = os.environ.get("EMAIL_FROM", "Cartographer <notifications@cartographer.app>")
-APPLICATION_URL = os.environ.get("APPLICATION_URL", "http://localhost:5173")
 
 # Lazy load resend module
 _resend = None
@@ -34,8 +29,9 @@ def _get_resend():
     if _resend is None:
         try:
             import resend
-            if RESEND_API_KEY:
-                resend.api_key = RESEND_API_KEY
+
+            if settings.resend_api_key:
+                resend.api_key = settings.resend_api_key
             _resend = resend
         except ImportError:
             logger.warning("Resend module not installed")
@@ -45,41 +41,15 @@ def _get_resend():
 
 def is_email_configured() -> bool:
     """Check if email sending is configured"""
-    return bool(RESEND_API_KEY)
+    return settings.is_email_configured
 
 
-def _get_priority_color(priority: NotificationPriority) -> str:
-    """Get color for priority level"""
-    colors = {
-        NotificationPriority.LOW: "#64748b",  # slate
-        NotificationPriority.MEDIUM: "#f59e0b",  # amber
-        NotificationPriority.HIGH: "#f97316",  # orange
-        NotificationPriority.CRITICAL: "#ef4444",  # red
-    }
-    return colors.get(priority, "#64748b")
-
-
-def _get_notification_icon(event_type: NotificationType) -> str:
-    """Get emoji icon for notification type"""
-    icons = {
-        NotificationType.DEVICE_OFFLINE: "🔴",
-        NotificationType.DEVICE_ONLINE: "🟢",
-        NotificationType.DEVICE_DEGRADED: "🟡",
-        NotificationType.ANOMALY_DETECTED: "⚠️",
-        NotificationType.HIGH_LATENCY: "🐌",
-        NotificationType.PACKET_LOSS: "📉",
-        NotificationType.ISP_ISSUE: "🌐",
-        NotificationType.SECURITY_ALERT: "🔒",
-        NotificationType.SCHEDULED_MAINTENANCE: "🔧",
-        NotificationType.SYSTEM_STATUS: "ℹ️",
-    }
-    return icons.get(event_type, "📢")
 
 
 def _build_notification_email_html(event: NetworkEvent) -> str:
     """Build HTML email content for a network event notification"""
-    icon = _get_notification_icon(event.event_type)
-    priority_color = _get_priority_color(event.priority)
+    icon = get_notification_icon(event.event_type)
+    priority_color = get_priority_color_hex(event.priority)
     
     # Build device info section if available
     device_info_html = ""
@@ -180,7 +150,7 @@ def _build_notification_email_html(event: NetworkEvent) -> str:
                             <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
                                 <tr>
                                     <td style="padding: 24px 0 0;">
-                                        <a href="{APPLICATION_URL}" style="display: inline-block; padding: 12px 24px; background: linear-gradient(135deg, #0891b2 0%, #0e7490 100%); color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 600; border-radius: 8px;">
+                                        <a href="{settings.application_url}" style="display: inline-block; padding: 12px 24px; background: linear-gradient(135deg, #0891b2 0%, #0e7490 100%); color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 600; border-radius: 8px;">
                                             View Network Map
                                         </a>
                                     </td>
@@ -194,7 +164,7 @@ def _build_notification_email_html(event: NetworkEvent) -> str:
                         <td style="padding: 24px 40px; background-color: #f8fafc; border-radius: 0 0 12px 12px; border-top: 1px solid #e2e8f0;">
                             <p style="margin: 0; color: #94a3b8; font-size: 12px; text-align: center;">
                                 Cartographer Network Monitoring<br>
-                                <a href="{APPLICATION_URL}/settings/notifications" style="color: #0891b2;">Manage notification preferences</a>
+                                <a href="{settings.application_url}/settings/notifications" style="color: #0891b2;">Manage notification preferences</a>
                             </p>
                         </td>
                     </tr>
@@ -210,7 +180,7 @@ def _build_notification_email_html(event: NetworkEvent) -> str:
 
 def _build_notification_email_text(event: NetworkEvent) -> str:
     """Build plain text email content for a network event notification"""
-    icon = _get_notification_icon(event.event_type)
+    icon = get_notification_icon(event.event_type)
     
     text_content = f"""
 {icon} Cartographer Alert: {event.title}
@@ -259,8 +229,8 @@ Additional Details:
 ---
 Event detected at {event.timestamp.strftime('%Y-%m-%d %H:%M:%S UTC')}
 
-View your network map: {APPLICATION_URL}
-Manage notifications: {APPLICATION_URL}/settings/notifications
+View your network map: {settings.application_url}
+Manage notifications: {settings.application_url}/settings/notifications
 
 ---
 Cartographer Network Monitoring
@@ -301,7 +271,7 @@ async def send_notification_email(
         return record
     
     try:
-        icon = _get_notification_icon(event.event_type)
+        icon = get_notification_icon(event.event_type)
         subject = f"{icon} {event.title}"
         
         if event.priority == NotificationPriority.CRITICAL:
@@ -313,7 +283,7 @@ async def send_notification_email(
         text_content = _build_notification_email_text(event)
         
         params = {
-            "from": EMAIL_FROM,
+            "from": settings.email_from,
             "to": [to_email],
             "subject": subject,
             "html": html_content,
@@ -338,7 +308,7 @@ async def send_notification_email(
     return record
 
 
-async def send_test_email(to_email: str) -> Dict[str, Any]:
+async def send_test_email(to_email: str) -> dict[str, any]:
     """Send a test notification email"""
     test_event = NetworkEvent(
         event_id="test-event",

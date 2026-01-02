@@ -5,19 +5,18 @@ Periodically checks GitHub for new Cartographer versions and sends
 SYSTEM_STATUS notifications to subscribed users when updates are available.
 """
 
-import os
-import json
 import asyncio
+import json
 import logging
-import httpx
-from pathlib import Path
-from typing import Optional, Tuple
 from datetime import datetime
 
+import httpx
+
+from ..config import settings
 from ..models import (
     NetworkEvent,
-    NotificationType,
     NotificationPriority,
+    NotificationType,
 )
 
 logger = logging.getLogger(__name__)
@@ -26,14 +25,10 @@ logger = logging.getLogger(__name__)
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/DevArtech/cartographer/main/VERSION"
 CHANGELOG_URL = "https://github.com/DevArtech/cartographer/blob/main/CHANGELOG.md"
 CHECK_INTERVAL_SECONDS = 60 * 60  # Check every hour
-DATA_DIR = Path(os.environ.get("NOTIFICATION_DATA_DIR", "/app/data"))
-VERSION_STATE_FILE = DATA_DIR / "version_state.json"
-
-# Current version - read from VERSION file or environment
-CURRENT_VERSION = os.environ.get("CARTOGRAPHER_VERSION", "0.1.1")
+VERSION_STATE_FILE = settings.data_dir / "version_state.json"
 
 
-def parse_version(version: str) -> Optional[Tuple[int, int, int]]:
+def parse_version(version: str) -> tuple[int, int, int] | None:
     """Parse version string into (major, minor, patch) tuple"""
     import re
     match = re.match(r'^v?(\d+)\.(\d+)\.(\d+)', version.strip())
@@ -42,7 +37,7 @@ def parse_version(version: str) -> Optional[Tuple[int, int, int]]:
     return (int(match.group(1)), int(match.group(2)), int(match.group(3)))
 
 
-def compare_versions(current: str, latest: str) -> Tuple[bool, Optional[str]]:
+def compare_versions(current: str, latest: str) -> tuple[bool, str | None]:
     """
     Compare two versions.
     
@@ -67,7 +62,7 @@ def compare_versions(current: str, latest: str) -> Tuple[bool, Optional[str]]:
     return False, None
 
 
-def get_update_priority(update_type: Optional[str]) -> NotificationPriority:
+def get_update_priority(update_type: str | None) -> NotificationPriority:
     """Get notification priority based on update type"""
     if update_type == "major":
         return NotificationPriority.HIGH
@@ -77,7 +72,7 @@ def get_update_priority(update_type: Optional[str]) -> NotificationPriority:
         return NotificationPriority.LOW
 
 
-def get_update_title(update_type: Optional[str], version: str) -> str:
+def get_update_title(update_type: str | None, version: str) -> str:
     """Get notification title based on update type"""
     if update_type == "major":
         return f"🚀 Major Update Available: Cartographer v{version}"
@@ -87,7 +82,7 @@ def get_update_title(update_type: Optional[str], version: str) -> str:
         return f"🔧 Bug Fixes Available: Cartographer v{version}"
 
 
-def get_update_message(update_type: Optional[str], current: str, latest: str) -> str:
+def get_update_message(update_type: str | None, current: str, latest: str) -> str:
     """Get notification message based on update type"""
     base_message = f"A new version of Cartographer is available. You are running v{current}, and v{latest} is now available."
     
@@ -105,10 +100,10 @@ class VersionChecker:
     """
     
     def __init__(self):
-        self._checker_task: Optional[asyncio.Task] = None
-        self._last_notified_version: Optional[str] = None
-        self._last_check_time: Optional[datetime] = None
-        self._http_client: Optional[httpx.AsyncClient] = None
+        self._checker_task: asyncio.Task | None = None
+        self._last_notified_version: str | None = None
+        self._last_check_time: datetime | None = None
+        self._http_client: httpx.AsyncClient | None = None
         
         # Load previous state
         self._load_state()
@@ -130,11 +125,11 @@ class VersionChecker:
     def _save_state(self):
         """Save version checker state to disk"""
         try:
-            DATA_DIR.mkdir(parents=True, exist_ok=True)
+            settings.data_dir.mkdir(parents=True, exist_ok=True)
             state = {
                 "last_notified_version": self._last_notified_version,
                 "last_check_time": self._last_check_time.isoformat() if self._last_check_time else None,
-                "current_version": CURRENT_VERSION,
+                "current_version": settings.cartographer_version,
             }
             with open(VERSION_STATE_FILE, 'w') as f:
                 json.dump(state, f, indent=2)
@@ -148,7 +143,7 @@ class VersionChecker:
         
         self._http_client = httpx.AsyncClient(timeout=30.0)
         self._checker_task = asyncio.create_task(self._checker_loop())
-        logger.info(f"Version checker started (current version: {CURRENT_VERSION})")
+        logger.info(f"Version checker started (current version: {settings.cartographer_version})")
     
     async def stop(self):
         """Stop the background version checker"""
@@ -181,7 +176,7 @@ class VersionChecker:
                 logger.error(f"Error in version checker loop: {e}")
                 await asyncio.sleep(300)  # Wait 5 minutes on error
     
-    async def _fetch_latest_version(self) -> Optional[str]:
+    async def _fetch_latest_version(self) -> str | None:
         """Fetch the latest version from GitHub"""
         if not self._http_client:
             return None
@@ -203,10 +198,10 @@ class VersionChecker:
         self._last_check_time = datetime.utcnow()
         
         # Compare versions
-        has_update, update_type = compare_versions(CURRENT_VERSION, latest_version)
+        has_update, update_type = compare_versions(settings.cartographer_version, latest_version)
         
         if not has_update:
-            logger.debug(f"No update available (current: {CURRENT_VERSION}, latest: {latest_version})")
+            logger.debug(f"No update available (current: {settings.cartographer_version}, latest: {latest_version})")
             self._save_state()
             return
         
@@ -215,7 +210,7 @@ class VersionChecker:
             logger.debug(f"Already notified about version {latest_version}")
             return
         
-        logger.info(f"New version available: {latest_version} (current: {CURRENT_VERSION}, type: {update_type})")
+        logger.info(f"New version available: {latest_version} (current: {settings.cartographer_version}, type: {update_type})")
         
         # Send the notification using the shared helper
         await self._send_update_notification(latest_version, update_type)
@@ -251,11 +246,11 @@ class VersionChecker:
             return {
                 "success": False,
                 "error": "Failed to fetch latest version from GitHub",
-                "current_version": CURRENT_VERSION,
+                "current_version": settings.cartographer_version,
             }
         
         self._last_check_time = datetime.utcnow()
-        has_update, update_type = compare_versions(CURRENT_VERSION, latest_version)
+        has_update, update_type = compare_versions(settings.cartographer_version, latest_version)
         
         notification_sent = False
         notification_results = None
@@ -275,7 +270,7 @@ class VersionChecker:
         
         result = {
             "success": True,
-            "current_version": CURRENT_VERSION,
+            "current_version": settings.cartographer_version,
             "latest_version": latest_version,
             "has_update": has_update,
             "update_type": update_type,
@@ -307,10 +302,10 @@ class VersionChecker:
             event_type=NotificationType.SYSTEM_STATUS,
             priority=get_update_priority(update_type),
             title=get_update_title(update_type, latest_version),
-            message=get_update_message(update_type, CURRENT_VERSION, latest_version),
+            message=get_update_message(update_type, settings.cartographer_version, latest_version),
             details={
                 "update_type": update_type,
-                "current_version": CURRENT_VERSION,
+                "current_version": settings.cartographer_version,
                 "latest_version": latest_version,
                 "changelog_url": CHANGELOG_URL,
                 "is_version_update": True,
@@ -337,7 +332,7 @@ class VersionChecker:
     def get_status(self) -> dict:
         """Get current version checker status"""
         return {
-            "current_version": CURRENT_VERSION,
+            "current_version": settings.cartographer_version,
             "last_notified_version": self._last_notified_version,
             "last_check_time": self._last_check_time.isoformat() if self._last_check_time else None,
             "check_interval_seconds": CHECK_INTERVAL_SECONDS,

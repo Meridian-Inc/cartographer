@@ -19,7 +19,6 @@ from app.models import (
     ScheduledBroadcastStatus,
 )
 
-
 class TestPreferencesManagement:
     """Tests for preferences management"""
     
@@ -1046,7 +1045,7 @@ class TestPersistence:
     
     def test_save_preferences_creates_directory(self, notification_manager_instance, tmp_path):
         """Should create data directory if not exists"""
-        with patch('app.services.notification_manager.DATA_DIR', tmp_path / "new_dir"):
+        with patch('app.services.notification_manager.settings.notification_data_dir', str(tmp_path / "new_dir")):
             with patch('app.services.notification_manager.PREFERENCES_FILE', tmp_path / "new_dir" / "prefs.json"):
                 notification_manager_instance._save_preferences()
         
@@ -1075,7 +1074,7 @@ class TestPersistence:
             )
         )
         
-        with patch('app.services.notification_manager.DATA_DIR', tmp_path):
+        with patch('app.services.notification_manager.settings.notification_data_dir', str(tmp_path)):
             with patch('app.services.notification_manager.HISTORY_FILE', tmp_path / "history.json"):
                 notification_manager_instance._save_history()
         

@@ -1,22 +1,23 @@
 """
 Unit tests for version checker service.
 """
-import pytest
-from datetime import datetime
-from unittest.mock import patch, MagicMock, AsyncMock
 import asyncio
+from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
+from app.config import settings
+from app.models import NotificationPriority
 from app.services.version_checker import (
-    parse_version,
+    VersionChecker,
     compare_versions,
+    get_update_message,
     get_update_priority,
     get_update_title,
-    get_update_message,
-    VersionChecker,
+    parse_version,
     version_checker,
-    CURRENT_VERSION,
 )
-from app.models import NotificationPriority
 
 
 class TestVersionParsing:
@@ -211,7 +212,7 @@ class TestVersionChecker:
     async def test_check_now_no_update(self, version_checker_instance):
         """Should indicate no update available"""
         with patch.object(version_checker_instance, '_fetch_latest_version', AsyncMock(return_value="0.1.0")):
-            with patch('app.services.version_checker.CURRENT_VERSION', '0.1.0'):
+            with patch('app.services.version_checker.settings.cartographer_version', '0.1.0'):
                 result = await version_checker_instance.check_now()
         
         assert result["success"] is True
@@ -220,7 +221,7 @@ class TestVersionChecker:
     async def test_check_now_has_update(self, version_checker_instance):
         """Should indicate update available"""
         with patch.object(version_checker_instance, '_fetch_latest_version', AsyncMock(return_value="2.0.0")):
-            with patch('app.services.version_checker.CURRENT_VERSION', '1.0.0'):
+            with patch('app.services.version_checker.settings.cartographer_version', '1.0.0'):
                 result = await version_checker_instance.check_now()
         
         assert result["success"] is True

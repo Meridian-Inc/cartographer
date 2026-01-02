@@ -5,32 +5,29 @@ Passively trains on network metrics to detect anomalous behavior patterns.
 Uses statistical methods and simple ML techniques suitable for real-time detection.
 """
 
-import os
 import json
-import math
 import logging
-from pathlib import Path
-from typing import Optional, Dict, List, Tuple, Any
-from datetime import datetime, timedelta
+import math
 from collections import deque
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timedelta
 
+from ..config import settings
 from ..models import (
-    DeviceBaseline,
     AnomalyDetectionResult,
     AnomalyType,
-    NetworkEvent,
-    NotificationType,
-    NotificationPriority,
+    DeviceBaseline,
     MLModelStatus,
+    NetworkEvent,
+    NotificationPriority,
+    NotificationType,
 )
 
 logger = logging.getLogger(__name__)
 
 # Persistence
-DATA_DIR = Path(os.environ.get("NOTIFICATION_DATA_DIR", "/app/data"))
-BASELINES_FILE = DATA_DIR / "device_baselines.json"
-MODEL_STATE_FILE = DATA_DIR / "ml_model_state.json"
+BASELINES_FILE = settings.data_dir / "device_baselines.json"
+MODEL_STATE_FILE = settings.data_dir / "ml_model_state.json"
 
 # Detection thresholds
 LATENCY_ZSCORE_THRESHOLD = 3.0  # Standard deviations from mean
@@ -72,7 +69,7 @@ class LatencyStats:
     def std_dev(self) -> float:
         return math.sqrt(self.variance) if self.variance > 0 else 0.0
     
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         return {
             "count": self.count,
             "mean": self.mean,
@@ -82,7 +79,7 @@ class LatencyStats:
         }
     
     @classmethod
-    def from_dict(cls, data: Dict) -> "LatencyStats":
+    def from_dict(cls, data: dict) -> "LatencyStats":
         stats = cls()
         stats.count = data.get("count", 0)
         stats.mean = data.get("mean", 0.0)
@@ -96,7 +93,7 @@ class LatencyStats:
 class DeviceStats:
     """Comprehensive statistics for a device"""
     device_ip: str
-    device_name: Optional[str] = None
+    device_name: str | None = None
     
     # Check statistics
     total_checks: int = 0
@@ -110,14 +107,14 @@ class DeviceStats:
     packet_loss_stats: LatencyStats = field(default_factory=LatencyStats)
     
     # Time-based patterns (hour -> success rate)
-    hourly_patterns: Dict[int, Tuple[int, int]] = field(default_factory=dict)  # hour -> (success, total)
+    hourly_patterns: dict[int, tuple[int, int]] = field(default_factory=dict)  # hour -> (success, total)
     
     # Day of week patterns
-    daily_patterns: Dict[int, Tuple[int, int]] = field(default_factory=dict)  # dow -> (success, total)
+    daily_patterns: dict[int, tuple[int, int]] = field(default_factory=dict)  # dow -> (success, total)
     
     # Recent state tracking
-    last_state: Optional[str] = None
-    last_check_time: Optional[datetime] = None
+    last_state: str | None = None
+    last_check_time: datetime | None = None
     consecutive_failures: int = 0
     consecutive_successes: int = 0
     
@@ -125,11 +122,11 @@ class DeviceStats:
     state_transitions: int = 0
     
     # Timestamps
-    first_seen: Optional[datetime] = None
-    last_updated: Optional[datetime] = None
+    first_seen: datetime | None = None
+    last_updated: datetime | None = None
     
-    def update_check(self, success: bool, latency_ms: Optional[float], 
-                     packet_loss: Optional[float], check_time: datetime):
+    def update_check(self, success: bool, latency_ms: float | None, 
+                     packet_loss: float | None, check_time: datetime):
         """Update statistics with a new health check result"""
         self.total_checks += 1
         
@@ -182,7 +179,7 @@ class DeviceStats:
             return 0.0
         return (self.successful_checks / self.total_checks) * 100
     
-    def get_hourly_availability(self, hour: int) -> Optional[float]:
+    def get_hourly_availability(self, hour: int) -> float | None:
         """Get availability for a specific hour"""
         if hour not in self.hourly_patterns:
             return None
@@ -191,7 +188,7 @@ class DeviceStats:
             return None
         return (succ / total) * 100
     
-    def get_expected_state_for_time(self, dt: datetime) -> Tuple[str, float]:
+    def get_expected_state_for_time(self, dt: datetime) -> tuple[str, float]:
         """Predict expected state for a given time based on patterns"""
         hour = dt.hour
         hour_avail = self.get_hourly_availability(hour)
@@ -256,7 +253,7 @@ class DeviceStats:
         
         return self.availability > availability_threshold
     
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         """Serialize to dictionary"""
         return {
             "device_ip": self.device_ip,
@@ -278,7 +275,7 @@ class DeviceStats:
         }
     
     @classmethod
-    def from_dict(cls, data: Dict) -> "DeviceStats":
+    def from_dict(cls, data: dict) -> "DeviceStats":
         """Deserialize from dictionary"""
         stats = cls(
             device_ip=data["device_ip"],
@@ -321,10 +318,10 @@ class AnomalyDetector:
     MODEL_VERSION = "1.0.0"
     
     def __init__(self):
-        self._device_stats: Dict[str, DeviceStats] = {}
+        self._device_stats: dict[str, DeviceStats] = {}
         self._anomalies_detected: int = 0
         self._false_positives: int = 0
-        self._last_training: Optional[datetime] = None
+        self._last_training: datetime | None = None
         # Track devices we've sent offline notifications for
         # so we can send online notifications when they recover
         self._notified_offline: set = set()
@@ -339,7 +336,7 @@ class AnomalyDetector:
     def _save_state(self):
         """Save model state to disk"""
         try:
-            DATA_DIR.mkdir(parents=True, exist_ok=True)
+            settings.data_dir.mkdir(parents=True, exist_ok=True)
             
             state = {
                 "version": self.MODEL_VERSION,
@@ -395,9 +392,9 @@ class AnomalyDetector:
         except Exception as e:
             logger.error(f"Failed to load anomaly detector state: {e}")
     
-    def train(self, device_ip: str, success: bool, latency_ms: Optional[float] = None,
-              packet_loss: Optional[float] = None, device_name: Optional[str] = None,
-              check_time: Optional[datetime] = None):
+    def train(self, device_ip: str, success: bool, latency_ms: float | None = None,
+              packet_loss: float | None = None, device_name: str | None = None,
+              check_time: datetime | None = None):
         """
         Train the model with a new data point.
         Called passively after each health check.
@@ -430,9 +427,9 @@ class AnomalyDetector:
         self,
         device_ip: str,
         success: bool,
-        latency_ms: Optional[float] = None,
-        packet_loss: Optional[float] = None,
-        check_time: Optional[datetime] = None,
+        latency_ms: float | None = None,
+        packet_loss: float | None = None,
+        check_time: datetime | None = None,
     ) -> AnomalyDetectionResult:
         """
         Analyze a health check result for anomalies.
@@ -586,11 +583,11 @@ class AnomalyDetector:
         self,
         device_ip: str,
         success: bool,
-        latency_ms: Optional[float] = None,
-        packet_loss: Optional[float] = None,
-        device_name: Optional[str] = None,
-        previous_state: Optional[str] = None,
-    ) -> Optional[NetworkEvent]:
+        latency_ms: float | None = None,
+        packet_loss: float | None = None,
+        device_name: str | None = None,
+        previous_state: str | None = None,
+    ) -> NetworkEvent | None:
         """
         Analyze a health check and create a NetworkEvent if notification-worthy.
         
@@ -803,7 +800,7 @@ class AnomalyDetector:
         
         return event
     
-    def get_device_baseline(self, device_ip: str) -> Optional[DeviceBaseline]:
+    def get_device_baseline(self, device_ip: str) -> DeviceBaseline | None:
         """Get the learned baseline for a device"""
         stats = self._device_stats.get(device_ip)
         if not stats:
@@ -893,7 +890,7 @@ class AnomalyDetector:
         self._save_state()
         logger.info("Reset all anomaly detection data")
     
-    def sync_current_devices(self, device_ips: List[str]):
+    def sync_current_devices(self, device_ips: list[str]):
         """
         Sync the list of devices currently in the network.
         

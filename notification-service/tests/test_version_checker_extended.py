@@ -9,29 +9,29 @@ Covers:
 - State persistence
 """
 
-import os
-import json
 import asyncio
-import pytest
+import json
+import os
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 # Set test environment
 os.environ["NOTIFICATION_DATA_DIR"] = "/tmp/test_notification_data_version"
 
+from app.config import settings
+from app.models import NotificationPriority
 from app.services.version_checker import (
-    parse_version,
+    VERSION_STATE_FILE,
+    VersionChecker,
     compare_versions,
+    get_update_message,
     get_update_priority,
     get_update_title,
-    get_update_message,
-    VersionChecker,
-    DATA_DIR,
-    VERSION_STATE_FILE,
-    CURRENT_VERSION,
+    parse_version,
 )
-from app.models import NotificationPriority
 
 
 class TestParseVersion:
@@ -215,7 +215,7 @@ class TestVersionChecker:
     
     def test_load_state_with_file(self, checker):
         """Test loading state from existing file."""
-        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        settings.data_dir.mkdir(parents=True, exist_ok=True)
         
         state = {
             "last_notified_version": "1.0.0",
@@ -231,7 +231,7 @@ class TestVersionChecker:
     
     def test_load_state_corrupted(self, checker):
         """Test loading state from corrupted file."""
-        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        settings.data_dir.mkdir(parents=True, exist_ok=True)
         
         with open(VERSION_STATE_FILE, 'w') as f:
             f.write("not valid json")
@@ -241,7 +241,7 @@ class TestVersionChecker:
     
     def test_save_state(self, checker):
         """Test saving state to file."""
-        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        settings.data_dir.mkdir(parents=True, exist_ok=True)
         
         checker._last_notified_version = "1.0.0"
         checker._last_check_time = datetime.utcnow()
@@ -330,7 +330,7 @@ class TestVersionChecker:
     async def test_check_for_updates_no_update(self, checker):
         """Test checking for updates when none available."""
         mock_response = MagicMock()
-        mock_response.text = CURRENT_VERSION  # Same version
+        mock_response.text = settings.cartographer_version  # Same version
         mock_response.raise_for_status = MagicMock()
         
         mock_client = MagicMock()
@@ -363,7 +363,7 @@ class TestVersionChecker:
     async def test_check_now_no_client(self, checker):
         """Test check_now creates temporary client."""
         mock_response = MagicMock()
-        mock_response.text = CURRENT_VERSION
+        mock_response.text = settings.cartographer_version
         mock_response.raise_for_status = MagicMock()
         
         with patch('httpx.AsyncClient') as mock_client_class:
@@ -375,7 +375,7 @@ class TestVersionChecker:
             result = await checker.check_now()
         
         assert result["success"] is True
-        assert result["current_version"] == CURRENT_VERSION
+        assert result["current_version"] == settings.cartographer_version
     
     @pytest.mark.asyncio
     async def test_check_now_fetch_failure(self, checker):
@@ -475,7 +475,7 @@ class TestVersionChecker:
         
         status = checker.get_status()
         
-        assert status["current_version"] == CURRENT_VERSION
+        assert status["current_version"] == settings.cartographer_version
         assert status["last_notified_version"] == "1.0.0"
         assert status["is_running"] is False
     

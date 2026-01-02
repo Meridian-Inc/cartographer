@@ -5,52 +5,49 @@ Coordinates notification preferences, rate limiting, and dispatching
 notifications across all channels (email, Discord).
 """
 
-import os
-import json
 import asyncio
+import json
 import logging
-from pathlib import Path
-from typing import Optional, Dict, List, Any
-from datetime import datetime, timedelta
-from collections import deque
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import uuid
+from collections import deque
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from ..config import settings
 from ..models import (
-    NotificationPreferences,
-    NotificationPreferencesUpdate,
+    DiscordConfig,
+    EmailConfig,
     GlobalUserPreferences,
     GlobalUserPreferencesUpdate,
     NetworkEvent,
-    NotificationType,
-    NotificationPriority,
-    NotificationRecord,
     NotificationChannel,
     NotificationHistoryResponse,
+    NotificationPreferences,
+    NotificationPreferencesUpdate,
+    NotificationPriority,
+    NotificationRecord,
     NotificationStatsResponse,
+    NotificationType,
+    ScheduledBroadcast,
+    ScheduledBroadcastCreate,
+    ScheduledBroadcastResponse,
+    ScheduledBroadcastStatus,
+    ScheduledBroadcastUpdate,
     TestNotificationRequest,
     TestNotificationResponse,
-    EmailConfig,
-    DiscordConfig,
-    ScheduledBroadcast,
-    ScheduledBroadcastStatus,
-    ScheduledBroadcastCreate,
-    ScheduledBroadcastUpdate,
-    ScheduledBroadcastResponse,
 )
-from .email_service import send_notification_email, send_test_email, is_email_configured
-from .discord_service import discord_service, send_discord_notification, send_test_discord, is_discord_configured
 from .anomaly_detector import anomaly_detector
+from .discord_service import discord_service, is_discord_configured, send_discord_notification, send_test_discord
+from .email_service import is_email_configured, send_notification_email, send_test_email
 
 logger = logging.getLogger(__name__)
 
 # Persistence
-DATA_DIR = Path(os.environ.get("NOTIFICATION_DATA_DIR", "/app/data"))
-PREFERENCES_FILE = DATA_DIR / "notification_preferences.json"
-GLOBAL_PREFERENCES_FILE = DATA_DIR / "global_user_preferences.json"
-HISTORY_FILE = DATA_DIR / "notification_history.json"
-SCHEDULED_FILE = DATA_DIR / "scheduled_broadcasts.json"
-SILENCED_DEVICES_FILE = DATA_DIR / "silenced_devices.json"
+PREFERENCES_FILE = settings.data_dir / "notification_preferences.json"
+GLOBAL_PREFERENCES_FILE = settings.data_dir / "global_user_preferences.json"
+HISTORY_FILE = settings.data_dir / "notification_history.json"
+SCHEDULED_FILE = settings.data_dir / "scheduled_broadcasts.json"
+SILENCED_DEVICES_FILE = settings.data_dir / "silenced_devices.json"
 
 # Rate limiting
 MAX_HISTORY_SIZE = 1000  # Keep last 1000 notifications in memory
@@ -62,12 +59,12 @@ class NotificationManager:
     """
     
     def __init__(self):
-        self._preferences: Dict[str, NotificationPreferences] = {}
-        self._global_preferences: Dict[str, GlobalUserPreferences] = {}  # user_id -> preferences
+        self._preferences: dict[str, NotificationPreferences] = {}
+        self._global_preferences: dict[str, GlobalUserPreferences] = {}  # user_id -> preferences
         self._history: deque = deque(maxlen=MAX_HISTORY_SIZE)
-        self._rate_limits: Dict[str, deque] = {}  # network_id -> deque of timestamps
-        self._scheduled_broadcasts: Dict[str, ScheduledBroadcast] = {}
-        self._scheduler_task: Optional[asyncio.Task] = None
+        self._rate_limits: dict[str, deque] = {}  # network_id -> deque of timestamps
+        self._scheduled_broadcasts: dict[str, ScheduledBroadcast] = {}
+        self._scheduler_task: asyncio.Task | None = None
         self._silenced_devices: set = set()  # Device IPs with monitoring disabled
         
         # Load persisted data
@@ -81,7 +78,7 @@ class NotificationManager:
     def _save_preferences(self):
         """Save preferences to disk"""
         try:
-            DATA_DIR.mkdir(parents=True, exist_ok=True)
+            settings.data_dir.mkdir(parents=True, exist_ok=True)
             
             data = {
                 user_id: prefs.model_dump(mode="json")
@@ -137,7 +134,7 @@ class NotificationManager:
     def _save_history(self):
         """Save history to disk"""
         try:
-            DATA_DIR.mkdir(parents=True, exist_ok=True)
+            settings.data_dir.mkdir(parents=True, exist_ok=True)
             
             data = [record.model_dump(mode="json") for record in self._history]
             
@@ -186,7 +183,7 @@ class NotificationManager:
     def _save_scheduled_broadcasts(self):
         """Save scheduled broadcasts to disk"""
         try:
-            DATA_DIR.mkdir(parents=True, exist_ok=True)
+            settings.data_dir.mkdir(parents=True, exist_ok=True)
             
             data = {
                 broadcast_id: broadcast.model_dump(mode="json")
@@ -249,7 +246,7 @@ class NotificationManager:
     def _save_silenced_devices(self):
         """Save silenced devices list to disk"""
         try:
-            DATA_DIR.mkdir(parents=True, exist_ok=True)
+            settings.data_dir.mkdir(parents=True, exist_ok=True)
             
             with open(SILENCED_DEVICES_FILE, 'w') as f:
                 json.dump(list(self._silenced_devices), f, indent=2)
@@ -298,13 +295,13 @@ class NotificationManager:
         logger.info(f"Unsilenced device {device_ip}")
         return True
     
-    def set_silenced_devices(self, device_ips: List[str]) -> None:
+    def set_silenced_devices(self, device_ips: list[str]) -> None:
         """Set the full list of silenced devices"""
         self._silenced_devices = set(device_ips)
         self._save_silenced_devices()
         logger.info(f"Set {len(self._silenced_devices)} silenced devices")
     
-    def get_silenced_devices(self) -> List[str]:
+    def get_silenced_devices(self) -> list[str]:
         """Get list of silenced device IPs"""
         return list(self._silenced_devices)
     
@@ -343,7 +340,7 @@ class NotificationManager:
                 logger.error(f"Error in scheduler loop: {e}", exc_info=True)
                 await asyncio.sleep(60)  # Wait longer on error
     
-    async def _get_network_member_user_ids(self, network_id: str) -> List[str]:
+    async def _get_network_member_user_ids(self, network_id: str) -> list[str]:
         """
         Get all user IDs who have access to a network.
         Queries the database directly to get owner + users with permissions.
@@ -415,7 +412,7 @@ class NotificationManager:
                 logger.info(f"Sending scheduled broadcast: {broadcast.title} ({broadcast_id})")
                 await self._send_scheduled_broadcast(broadcast_id)
     
-    async def _send_scheduled_broadcast(self, broadcast_id: str, user_ids: Optional[List[str]] = None):
+    async def _send_scheduled_broadcast(self, broadcast_id: str, user_ids: list[str] | None = None):
         """
         Send a scheduled broadcast to all users in the network.
         
@@ -579,7 +576,7 @@ class NotificationManager:
             total_count=len(broadcasts),
         )
     
-    def get_scheduled_broadcast(self, broadcast_id: str) -> Optional[ScheduledBroadcast]:
+    def get_scheduled_broadcast(self, broadcast_id: str) -> ScheduledBroadcast | None:
         """Get a specific scheduled broadcast"""
         return self._scheduled_broadcasts.get(broadcast_id)
     
@@ -613,7 +610,7 @@ class NotificationManager:
         logger.info(f"Scheduled broadcast deleted: {broadcast_id}")
         return True
     
-    def mark_broadcast_seen(self, broadcast_id: str) -> Optional[ScheduledBroadcast]:
+    def mark_broadcast_seen(self, broadcast_id: str) -> ScheduledBroadcast | None:
         """
         Mark a sent broadcast as seen. Sets seen_at timestamp if not already set.
         Returns the updated broadcast, or None if not found or not sent.
@@ -639,7 +636,7 @@ class NotificationManager:
         self,
         broadcast_id: str,
         update: ScheduledBroadcastUpdate,
-    ) -> Optional[ScheduledBroadcast]:
+    ) -> ScheduledBroadcast | None:
         """
         Update a scheduled broadcast. Only pending broadcasts can be updated.
         
@@ -736,7 +733,7 @@ class NotificationManager:
             return True
         return False
     
-    def get_all_networks_with_notifications_enabled(self) -> List[str]:
+    def get_all_networks_with_notifications_enabled(self) -> list[str]:
         """Get list of network IDs with notifications enabled"""
         return [
             str(network_id) for network_id, prefs in self._preferences.items()
@@ -748,7 +745,7 @@ class NotificationManager:
     def _save_global_preferences(self):
         """Save global preferences to disk"""
         try:
-            DATA_DIR.mkdir(parents=True, exist_ok=True)
+            settings.data_dir.mkdir(parents=True, exist_ok=True)
             
             data = {
                 user_id: prefs.model_dump(mode="json")
@@ -879,7 +876,7 @@ class NotificationManager:
         
         return self._global_preferences[user_id]
     
-    def get_all_users_with_global_notifications_enabled(self, event_type: NotificationType) -> List[str]:
+    def get_all_users_with_global_notifications_enabled(self, event_type: NotificationType) -> list[str]:
         """
         Get list of user IDs who have global notifications enabled for a specific event type.
         
@@ -956,7 +953,7 @@ class NotificationManager:
         else:
             return start <= current_time <= end
     
-    def _get_current_time_for_user(self, timezone_str: Optional[str]) -> datetime:
+    def _get_current_time_for_user(self, timezone_str: str | None) -> datetime:
         """
         Get current time in the user's timezone.
         
@@ -1040,7 +1037,7 @@ class NotificationManager:
         network_id: str,
         event: NetworkEvent,
         force: bool = False,
-    ) -> List[NotificationRecord]:
+    ) -> list[NotificationRecord]:
         """
         Send a notification to a network using the network's preferences.
         
@@ -1147,10 +1144,10 @@ class NotificationManager:
     async def send_notification_to_network_members(
         self,
         network_id: str,
-        user_ids: List[str],
+        user_ids: list[str],
         event: NetworkEvent,
         force: bool = False,
-    ) -> Dict[str, List[NotificationRecord]]:
+    ) -> dict[str, list[NotificationRecord]]:
         """
         Send a notification to all network members based on the network's notification preferences.
         
@@ -1378,7 +1375,7 @@ class NotificationManager:
         network_id: str,
         event: NetworkEvent,
         force: bool = False,
-    ) -> List[NotificationRecord]:
+    ) -> list[NotificationRecord]:
         """
         Send a notification to a network (alias for send_notification_to_network for backwards compatibility).
         
@@ -1392,7 +1389,7 @@ class NotificationManager:
         """
         return await self.send_notification_to_network(network_id, event, force)
     
-    async def broadcast_notification(self, event: NetworkEvent) -> Dict[str, List[NotificationRecord]]:
+    async def broadcast_notification(self, event: NetworkEvent) -> dict[str, list[NotificationRecord]]:
         """
         Send a notification to all networks with notifications enabled.
         
@@ -1424,7 +1421,7 @@ class NotificationManager:
         logger.info(f"Broadcast complete: {len(results)} networks notified out of {len(enabled_networks)} enabled")
         return results
     
-    async def broadcast_global_notification(self, event: NetworkEvent) -> Dict[str, List[NotificationRecord]]:
+    async def broadcast_global_notification(self, event: NetworkEvent) -> dict[str, list[NotificationRecord]]:
         """
         Send a global notification (Cartographer Up/Down) to all users who have global preferences enabled.
         
@@ -1598,7 +1595,7 @@ class NotificationManager:
     
     def get_history(
         self,
-        network_id: Optional[str] = None,
+        network_id: str | None = None,
         page: int = 1,
         per_page: int = 50,
     ) -> NotificationHistoryResponse:
@@ -1622,7 +1619,7 @@ class NotificationManager:
             per_page=per_page,
         )
     
-    def get_stats(self, network_id: Optional[str] = None) -> NotificationStatsResponse:
+    def get_stats(self, network_id: str | None = None) -> NotificationStatsResponse:
         """Get notification statistics"""
         now = datetime.utcnow()
         day_ago = now - timedelta(days=1)
@@ -1665,10 +1662,10 @@ class NotificationManager:
         device_ip: str,
         success: bool,
         network_id: str,
-        latency_ms: Optional[float] = None,
-        packet_loss: Optional[float] = None,
-        device_name: Optional[str] = None,
-        previous_state: Optional[str] = None,
+        latency_ms: float | None = None,
+        packet_loss: float | None = None,
+        device_name: str | None = None,
+        previous_state: str | None = None,
     ):
         """
         Process a health check result and send notifications if needed.

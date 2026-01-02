@@ -1,12 +1,12 @@
 """
 Service for dispatching notifications to users based on their preferences.
 """
-import uuid
 import logging
-from typing import Dict, List, Optional
+import uuid
 from datetime import datetime, timezone
-from sqlalchemy.ext.asyncio import AsyncSession
+
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import (
     NetworkEvent,
@@ -129,8 +129,8 @@ class NotificationDispatchService:
         user_id: str,
         network_id: str,
         event: NetworkEvent,
-        user_email: Optional[str] = None,
-    ) -> List[NotificationRecord]:
+        user_email: str | None = None,
+    ) -> list[NotificationRecord]:
         """Send notification to a single user based on their preferences"""
         records = []
         logger.info(f"Sending notification to user {user_id} for network {network_id}")
@@ -234,10 +234,10 @@ class NotificationDispatchService:
         self,
         db: AsyncSession,
         network_id: str,
-        user_ids: List[str],
+        user_ids: list[str],
         event: NetworkEvent,
-        scheduled_at: Optional[datetime] = None,
-    ) -> Dict[str, List[NotificationRecord]]:
+        scheduled_at: datetime | None = None,
+    ) -> dict[str, list[NotificationRecord]]:
         """Send notification to all users in a network"""
         results = {}
         
@@ -267,7 +267,7 @@ class NotificationDispatchService:
         self,
         db: AsyncSession,
         event: NetworkEvent,
-    ) -> Dict[str, List[NotificationRecord]]:
+    ) -> dict[str, list[NotificationRecord]]:
         """Send global notification (Cartographer Up/Down) to all subscribed users"""
         results = {}
         

@@ -9,22 +9,22 @@ import inspect
 
 
 class TestDatabaseSettings:
-    """Tests for DatabaseSettings configuration"""
-    
+    """Tests for Settings configuration"""
+
     def test_database_settings_default(self):
         """Should have default database URL"""
-        from app.database import DatabaseSettings
-        
-        settings = DatabaseSettings()
-        
+        from app.config import Settings
+
+        settings = Settings()
+
         assert "postgresql" in settings.database_url
-    
+
     def test_database_settings_class(self):
-        """Should have DatabaseSettings class"""
-        from app.database import DatabaseSettings
-        
-        settings = DatabaseSettings()
-        
+        """Should have Settings class"""
+        from app.config import Settings
+
+        settings = Settings()
+
         assert settings is not None
         assert hasattr(settings, 'database_url')
 

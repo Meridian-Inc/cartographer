@@ -23,11 +23,10 @@ class TestCartographerStatusService:
     @pytest.fixture
     def status_service(self, temp_data_dir):
         """Create a CartographerStatusService instance"""
-        with patch('app.services.cartographer_status.DATA_DIR', temp_data_dir):
-            with patch('app.services.cartographer_status.SUBSCRIPTIONS_FILE', temp_data_dir / "subs.json"):
-                from app.services.cartographer_status import CartographerStatusService
-                with patch.object(CartographerStatusService, '_migrate_from_global_preferences'):
-                    return CartographerStatusService()
+        with patch('app.services.cartographer_status.SUBSCRIPTIONS_FILE', temp_data_dir / "subs.json"):
+            from app.services.cartographer_status import CartographerStatusService
+            with patch.object(CartographerStatusService, '_migrate_from_global_preferences'):
+                return CartographerStatusService()
     
     def test_create_subscription(self, status_service):
         """Should create new subscription"""
@@ -124,12 +123,11 @@ class TestCartographerStatusSubscribers:
     
     @pytest.fixture
     def status_service(self, temp_data_dir):
-        with patch('app.services.cartographer_status.DATA_DIR', temp_data_dir):
-            with patch('app.services.cartographer_status.SUBSCRIPTIONS_FILE', temp_data_dir / "subs.json"):
-                from app.services.cartographer_status import CartographerStatusService
-                with patch.object(CartographerStatusService, '_migrate_from_global_preferences'):
-                    return CartographerStatusService()
-    
+        with patch('app.services.cartographer_status.SUBSCRIPTIONS_FILE', temp_data_dir / "subs.json"):
+            from app.services.cartographer_status import CartographerStatusService
+            with patch.object(CartographerStatusService, '_migrate_from_global_preferences'):
+                return CartographerStatusService()
+
     def test_get_subscribers_for_cartographer_up(self, status_service):
         """Should get subscribers for CARTOGRAPHER_UP event"""
         from app.models import NotificationType

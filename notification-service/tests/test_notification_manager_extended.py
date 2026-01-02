@@ -1027,8 +1027,9 @@ class TestPreferencesPersistence:
         manager = fresh_notification_manager
         
         # Create file with invalid data
-        from app.services.notification_manager import DATA_DIR, PREFERENCES_FILE
-        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        from app.services.notification_manager import PREFERENCES_FILE
+        from app.config import settings
+        settings.data_dir.mkdir(parents=True, exist_ok=True)
         
         with open(PREFERENCES_FILE, 'w') as f:
             json.dump({"bad_key": {"invalid": "data"}}, f)
@@ -1040,8 +1041,9 @@ class TestPreferencesPersistence:
         """Test loading history migrates user_id to network_id."""
         manager = fresh_notification_manager
         
-        from app.services.notification_manager import DATA_DIR, HISTORY_FILE
-        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        from app.services.notification_manager import HISTORY_FILE
+        from app.config import settings
+        settings.data_dir.mkdir(parents=True, exist_ok=True)
         
         # Create file with old format
         old_record = {
@@ -1073,8 +1075,9 @@ class TestLoadScheduledBroadcasts:
         """Test loading broadcasts without network_id skips them."""
         manager = fresh_notification_manager
         
-        from app.services.notification_manager import DATA_DIR, SCHEDULED_FILE
-        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        from app.services.notification_manager import SCHEDULED_FILE
+        from app.config import settings
+        settings.data_dir.mkdir(parents=True, exist_ok=True)
         
         # Create file with old format (no network_id)
         old_broadcast = {

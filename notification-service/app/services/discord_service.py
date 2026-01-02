@@ -4,33 +4,27 @@ Discord notification service using Discord.py.
 Handles Discord bot integration for sending notifications to channels and DMs.
 """
 
-import os
 import asyncio
 import logging
-from typing import Optional, Dict, Any, List
 from datetime import datetime
 
+from ..config import settings
 from ..models import (
-    NetworkEvent,
-    NotificationType,
-    NotificationPriority,
-    NotificationRecord,
-    NotificationChannel,
-    DiscordConfig,
-    DiscordDeliveryMethod,
     DiscordBotInfo,
-    DiscordGuild,
     DiscordChannel,
     DiscordChannelConfig,
+    DiscordConfig,
+    DiscordDeliveryMethod,
+    DiscordGuild,
+    NetworkEvent,
+    NotificationChannel,
+    NotificationPriority,
+    NotificationRecord,
+    NotificationType,
 )
+from ..utils import get_notification_icon, get_priority_color_discord
 
 logger = logging.getLogger(__name__)
-
-# Discord configuration
-DISCORD_BOT_TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "")
-DISCORD_CLIENT_ID = os.environ.get("DISCORD_CLIENT_ID", "")
-DISCORD_CLIENT_SECRET = os.environ.get("DISCORD_CLIENT_SECRET", "")
-APPLICATION_URL = os.environ.get("APPLICATION_URL", "http://localhost:5173")
 
 # Discord bot instance (singleton)
 _discord_client = None
@@ -39,56 +33,30 @@ _bot_ready = asyncio.Event()
 
 def is_discord_configured() -> bool:
     """Check if Discord bot is configured"""
-    return bool(DISCORD_BOT_TOKEN)
+    return settings.is_discord_configured
 
 
-def get_bot_invite_url() -> Optional[str]:
+def get_bot_invite_url() -> str | None:
     """Generate Discord bot invite URL"""
-    if not DISCORD_CLIENT_ID:
+    if not settings.discord_client_id:
         return None
-    
+
     # Permissions needed:
     # - Send Messages (2048)
     # - Embed Links (16384)
     # - Read Message History (65536)
     # - View Channels (1024)
     permissions = 2048 + 16384 + 65536 + 1024
-    
-    return f"https://discord.com/api/oauth2/authorize?client_id={DISCORD_CLIENT_ID}&permissions={permissions}&scope=bot"
+
+    return f"https://discord.com/api/oauth2/authorize?client_id={settings.discord_client_id}&permissions={permissions}&scope=bot"
 
 
-def _get_priority_color(priority: NotificationPriority) -> int:
-    """Get Discord embed color for priority level"""
-    colors = {
-        NotificationPriority.LOW: 0x64748b,  # slate
-        NotificationPriority.MEDIUM: 0xf59e0b,  # amber
-        NotificationPriority.HIGH: 0xf97316,  # orange
-        NotificationPriority.CRITICAL: 0xef4444,  # red
-    }
-    return colors.get(priority, 0x64748b)
 
 
-def _get_notification_icon(event_type: NotificationType) -> str:
-    """Get emoji icon for notification type"""
-    icons = {
-        NotificationType.DEVICE_OFFLINE: "🔴",
-        NotificationType.DEVICE_ONLINE: "🟢",
-        NotificationType.DEVICE_DEGRADED: "🟡",
-        NotificationType.ANOMALY_DETECTED: "⚠️",
-        NotificationType.HIGH_LATENCY: "🐌",
-        NotificationType.PACKET_LOSS: "📉",
-        NotificationType.ISP_ISSUE: "🌐",
-        NotificationType.SECURITY_ALERT: "🔒",
-        NotificationType.SCHEDULED_MAINTENANCE: "🔧",
-        NotificationType.SYSTEM_STATUS: "ℹ️",
-    }
-    return icons.get(event_type, "📢")
-
-
-def _build_discord_embed(event: NetworkEvent) -> Dict[str, Any]:
+def _build_discord_embed(event: NetworkEvent) -> dict[str, any]:
     """Build a Discord embed for a network event"""
-    icon = _get_notification_icon(event.event_type)
-    color = _get_priority_color(event.priority)
+    icon = get_notification_icon(event.event_type)
+    color = get_priority_color_discord(event.priority)
     
     # Build embed
     embed = {
@@ -213,7 +181,7 @@ class DiscordNotificationService:
     async def _run_bot(self):
         """Run the Discord bot"""
         try:
-            await self._client.start(DISCORD_BOT_TOKEN)
+            await self._client.start(settings.discord_bot_token)
         except Exception as e:
             logger.error(f"Discord bot error: {e}")
             self._running = False
@@ -240,7 +208,7 @@ class DiscordNotificationService:
         
         return info
     
-    async def get_guilds(self) -> List[DiscordGuild]:
+    async def get_guilds(self) -> list[DiscordGuild]:
         """Get list of guilds the bot is in"""
         if not self._client or not self._ready.is_set():
             return []
@@ -256,7 +224,7 @@ class DiscordNotificationService:
         
         return guilds
     
-    async def get_channels(self, guild_id: str) -> List[DiscordChannel]:
+    async def get_channels(self, guild_id: str) -> list[DiscordChannel]:
         """Get list of text channels in a guild"""
         if not self._client or not self._ready.is_set():
             return []
@@ -314,7 +282,7 @@ class DiscordNotificationService:
             view = discord.ui.View()
             view.add_item(discord.ui.Button(
                 label="View Network Map",
-                url=APPLICATION_URL,
+                url=settings.application_url,
                 style=discord.ButtonStyle.link,
             ))
             
@@ -352,7 +320,7 @@ class DiscordNotificationService:
         
         return record
     
-    async def send_test_notification(self, config: DiscordConfig) -> Dict[str, Any]:
+    async def send_test_notification(self, config: DiscordConfig) -> dict[str, any]:
         """Send a test notification via Discord"""
         test_event = NetworkEvent(
             event_id="test-event",
@@ -393,7 +361,7 @@ async def send_discord_notification(
     return await discord_service.send_notification(config, event, notification_id)
 
 
-async def send_test_discord(config: DiscordConfig) -> Dict[str, Any]:
+async def send_test_discord(config: DiscordConfig) -> dict[str, any]:
     """Convenience function to send test Discord notification"""
     return await discord_service.send_test_notification(config)
 

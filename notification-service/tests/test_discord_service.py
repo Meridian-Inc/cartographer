@@ -1,31 +1,31 @@
 """
 Unit tests for Discord service.
 """
-import pytest
-from datetime import datetime
-from unittest.mock import patch, MagicMock, AsyncMock
 import asyncio
+from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
+from app.models import (
+    DiscordChannelConfig,
+    DiscordConfig,
+    DiscordDeliveryMethod,
+    NetworkEvent,
+    NotificationChannel,
+    NotificationPriority,
+    NotificationType,
+)
 from app.services.discord_service import (
-    is_discord_configured,
-    get_bot_invite_url,
-    _get_priority_color,
-    _get_notification_icon,
-    _build_discord_embed,
     DiscordNotificationService,
+    _build_discord_embed,
     discord_service,
+    get_bot_invite_url,
+    is_discord_configured,
     send_discord_notification,
     send_test_discord,
 )
-from app.models import (
-    NetworkEvent,
-    NotificationType,
-    NotificationPriority,
-    NotificationChannel,
-    DiscordConfig,
-    DiscordDeliveryMethod,
-    DiscordChannelConfig,
-)
+from app.utils import get_notification_icon, get_priority_color_discord
 
 
 class TestDiscordConfiguration:
@@ -33,24 +33,24 @@ class TestDiscordConfiguration:
     
     def test_is_discord_configured_false(self):
         """Should return False when no token"""
-        with patch('app.services.discord_service.DISCORD_BOT_TOKEN', ''):
+        with patch('app.services.discord_service.settings.discord_bot_token', ''):
             assert is_discord_configured() is False
     
     def test_is_discord_configured_true(self):
         """Should return True when token set"""
-        with patch('app.services.discord_service.DISCORD_BOT_TOKEN', 'test-token'):
+        with patch('app.services.discord_service.settings.discord_bot_token', 'test-token'):
             assert is_discord_configured() is True
     
     def test_get_bot_invite_url_no_client_id(self):
         """Should return None when no client ID"""
-        with patch('app.services.discord_service.DISCORD_CLIENT_ID', ''):
+        with patch('app.services.discord_service.settings.discord_client_id', ''):
             assert get_bot_invite_url() is None
-    
+
     def test_get_bot_invite_url_success(self):
         """Should generate invite URL"""
-        with patch('app.services.discord_service.DISCORD_CLIENT_ID', '123456789'):
+        with patch('app.services.discord_service.settings.discord_client_id', '123456789'):
             url = get_bot_invite_url()
-        
+
         assert url is not None
         assert "123456789" in url
         assert "discord.com" in url
@@ -58,16 +58,16 @@ class TestDiscordConfiguration:
 
 class TestDiscordHelpers:
     """Tests for Discord helper functions"""
-    
+
     def test_get_priority_color(self):
         """Should return correct colors"""
-        assert _get_priority_color(NotificationPriority.LOW) == 0x64748b
-        assert _get_priority_color(NotificationPriority.CRITICAL) == 0xef4444
-    
+        assert get_priority_color_discord(NotificationPriority.LOW) == 0x64748b
+        assert get_priority_color_discord(NotificationPriority.CRITICAL) == 0xef4444
+
     def test_get_notification_icon(self):
         """Should return correct icons"""
-        assert _get_notification_icon(NotificationType.DEVICE_OFFLINE) == "🔴"
-        assert _get_notification_icon(NotificationType.DEVICE_ONLINE) == "🟢"
+        assert get_notification_icon(NotificationType.DEVICE_OFFLINE) == "🔴"
+        assert get_notification_icon(NotificationType.DEVICE_ONLINE) == "🟢"
 
 
 class TestDiscordEmbed:
@@ -149,7 +149,7 @@ class TestDiscordNotificationService:
         """Should fail when not configured"""
         service = DiscordNotificationService()
         
-        with patch('app.services.discord_service.DISCORD_BOT_TOKEN', ''):
+        with patch('app.services.discord_service.settings.discord_bot_token', ''):
             result = await service.start()
         
         assert result is False
@@ -226,7 +226,7 @@ class TestDiscordNotificationService:
             message="Test"
         )
         
-        with patch('app.services.discord_service.DISCORD_BOT_TOKEN', ''):
+        with patch('app.services.discord_service.settings.discord_bot_token', ''):
             record = await service.send_notification(config, event, "notif-123")
         
         assert record.success is False
@@ -242,7 +242,7 @@ class TestDiscordNotificationService:
             message="Test"
         )
         
-        with patch('app.services.discord_service.DISCORD_BOT_TOKEN', 'test-token'):
+        with patch('app.services.discord_service.settings.discord_bot_token', 'test-token'):
             record = await service.send_notification(config, event, "notif-123")
         
         assert record.success is False
@@ -266,7 +266,7 @@ class TestDiscordNotificationService:
             message="Test"
         )
         
-        with patch('app.services.discord_service.DISCORD_BOT_TOKEN', 'test-token'):
+        with patch('app.services.discord_service.settings.discord_bot_token', 'test-token'):
             record = await service.send_notification(config, event, "notif-123")
         
         assert record.success is False
@@ -290,7 +290,7 @@ class TestDiscordNotificationService:
             message="Test"
         )
         
-        with patch('app.services.discord_service.DISCORD_BOT_TOKEN', 'test-token'):
+        with patch('app.services.discord_service.settings.discord_bot_token', 'test-token'):
             record = await service.send_notification(config, event, "notif-123")
         
         assert record.success is False
@@ -365,7 +365,7 @@ class TestDiscordServiceSendToChannel:
             message="Test message"
         )
         
-        with patch('app.services.discord_service.DISCORD_BOT_TOKEN', 'test-token'):
+        with patch('app.services.discord_service.settings.discord_bot_token', 'test-token'):
             record = await service.send_notification(config, event, "notif-123")
         
         assert record.success is True
@@ -394,7 +394,7 @@ class TestDiscordServiceSendToChannel:
             message="Test message"
         )
         
-        with patch('app.services.discord_service.DISCORD_BOT_TOKEN', 'test-token'):
+        with patch('app.services.discord_service.settings.discord_bot_token', 'test-token'):
             record = await service.send_notification(config, event, "notif-123")
         
         assert record.success is False
@@ -425,7 +425,7 @@ class TestDiscordServiceSendDM:
             message="Test message"
         )
         
-        with patch('app.services.discord_service.DISCORD_BOT_TOKEN', 'test-token'):
+        with patch('app.services.discord_service.settings.discord_bot_token', 'test-token'):
             record = await service.send_notification(config, event, "notif-123")
         
         assert record.success is False

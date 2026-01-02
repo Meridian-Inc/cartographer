@@ -1,26 +1,26 @@
 """
 Unit tests for email service.
 """
-import pytest
 from datetime import datetime
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
+import pytest
+
+from app.models import (
+    NetworkEvent,
+    NotificationChannel,
+    NotificationPriority,
+    NotificationType,
+)
 from app.services.email_service import (
-    is_email_configured,
-    _get_resend,
-    _get_priority_color,
-    _get_notification_icon,
     _build_notification_email_html,
     _build_notification_email_text,
+    _get_resend,
+    is_email_configured,
     send_notification_email,
     send_test_email,
 )
-from app.models import (
-    NetworkEvent,
-    NotificationType,
-    NotificationPriority,
-    NotificationChannel,
-)
+from app.utils import get_notification_icon, get_priority_color_hex
 
 
 class TestEmailConfiguration:
@@ -28,12 +28,12 @@ class TestEmailConfiguration:
     
     def test_is_email_configured_false(self):
         """Should return False when no API key"""
-        with patch('app.services.email_service.RESEND_API_KEY', ''):
+        with patch('app.services.email_service.settings.resend_api_key', ''):
             assert is_email_configured() is False
     
     def test_is_email_configured_true(self):
         """Should return True when API key set"""
-        with patch('app.services.email_service.RESEND_API_KEY', 'test-key'):
+        with patch('app.services.email_service.settings.resend_api_key', 'test-key'):
             assert is_email_configured() is True
     
     def test_get_resend_not_installed(self):
@@ -52,21 +52,21 @@ class TestEmailConfiguration:
 class TestEmailHelpers:
     """Tests for email helper functions"""
     
-    def test_get_priority_color(self):
+    def testget_priority_color_hex(self):
         """Should return correct colors"""
-        assert _get_priority_color(NotificationPriority.LOW) == "#64748b"
-        assert _get_priority_color(NotificationPriority.CRITICAL) == "#ef4444"
+        assert get_priority_color_hex(NotificationPriority.LOW) == "#64748b"
+        assert get_priority_color_hex(NotificationPriority.CRITICAL) == "#ef4444"
     
-    def test_get_notification_icon(self):
+    def testget_notification_icon(self):
         """Should return correct icons"""
-        assert _get_notification_icon(NotificationType.DEVICE_OFFLINE) == "🔴"
-        assert _get_notification_icon(NotificationType.DEVICE_ONLINE) == "🟢"
-        assert _get_notification_icon(NotificationType.SECURITY_ALERT) == "🔒"
+        assert get_notification_icon(NotificationType.DEVICE_OFFLINE) == "🔴"
+        assert get_notification_icon(NotificationType.DEVICE_ONLINE) == "🟢"
+        assert get_notification_icon(NotificationType.SECURITY_ALERT) == "🔒"
     
-    def test_get_notification_icon_default(self):
+    def testget_notification_icon_default(self):
         """Should return default icon for unknown type"""
         # Use a valid type that's not in the icons dict
-        icon = _get_notification_icon(NotificationType.CARTOGRAPHER_UP)
+        icon = get_notification_icon(NotificationType.CARTOGRAPHER_UP)
         assert icon == "📢"  # Default
 
 
@@ -156,7 +156,7 @@ class TestSendEmail:
             message="Test"
         )
         
-        with patch('app.services.email_service.RESEND_API_KEY', ''):
+        with patch('app.services.email_service.settings.resend_api_key', ''):
             record = await send_notification_email(
                 "test@example.com",
                 event,
@@ -174,7 +174,7 @@ class TestSendEmail:
             message="Test"
         )
         
-        with patch('app.services.email_service.RESEND_API_KEY', 'test-key'):
+        with patch('app.services.email_service.settings.resend_api_key', 'test-key'):
             with patch('app.services.email_service._get_resend', return_value=None):
                 record = await send_notification_email(
                     "test@example.com",
@@ -195,7 +195,7 @@ class TestSendEmail:
         mock_resend = MagicMock()
         mock_resend.Emails.send.return_value = {"id": "email-123"}
         
-        with patch('app.services.email_service.RESEND_API_KEY', 'test-key'):
+        with patch('app.services.email_service.settings.resend_api_key', 'test-key'):
             with patch('app.services.email_service._get_resend', return_value=mock_resend):
                 record = await send_notification_email(
                     "test@example.com",
@@ -217,7 +217,7 @@ class TestSendEmail:
         mock_resend = MagicMock()
         mock_resend.Emails.send.return_value = {"id": "email-123"}
         
-        with patch('app.services.email_service.RESEND_API_KEY', 'test-key'):
+        with patch('app.services.email_service.settings.resend_api_key', 'test-key'):
             with patch('app.services.email_service._get_resend', return_value=mock_resend):
                 await send_notification_email(
                     "test@example.com",
@@ -240,7 +240,7 @@ class TestSendEmail:
         mock_resend = MagicMock()
         mock_resend.Emails.send.side_effect = Exception("Send failed")
         
-        with patch('app.services.email_service.RESEND_API_KEY', 'test-key'):
+        with patch('app.services.email_service.settings.resend_api_key', 'test-key'):
             with patch('app.services.email_service._get_resend', return_value=mock_resend):
                 record = await send_notification_email(
                     "test@example.com",
@@ -256,7 +256,7 @@ class TestSendEmail:
         mock_resend = MagicMock()
         mock_resend.Emails.send.return_value = {"id": "email-123"}
         
-        with patch('app.services.email_service.RESEND_API_KEY', 'test-key'):
+        with patch('app.services.email_service.settings.resend_api_key', 'test-key'):
             with patch('app.services.email_service._get_resend', return_value=mock_resend):
                 result = await send_test_email("test@example.com")
         

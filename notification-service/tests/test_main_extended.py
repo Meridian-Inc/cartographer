@@ -31,10 +31,13 @@ from app.main import (
     _send_cartographer_down_notification,
     create_app,
     lifespan,
-    DATA_DIR,
     SERVICE_STATE_FILE,
 )
+from app.config import settings
 from app.models import NotificationType, NotificationPriority
+
+# Get DATA_DIR from settings
+DATA_DIR = settings.data_dir
 
 
 class TestServiceState:
@@ -382,9 +385,9 @@ class TestCreateApp:
     
     def test_create_app_disable_docs(self):
         """Test creating app with docs disabled."""
-        with patch.dict(os.environ, {"DISABLE_DOCS": "true"}):
+        with patch('app.main.settings.disable_docs', True):
             app = create_app()
-            
+
             assert app.docs_url is None
             assert app.redoc_url is None
     
@@ -398,128 +401,96 @@ class TestCreateApp:
 
 
 class TestMigrateNetworkIdsToUuid:
-    """Tests for network ID migration in main."""
-    
+    """Tests for network ID migration in database module."""
+
     @pytest.mark.asyncio
     async def test_migrate_network_ids_function_exists(self):
         """Test migration function exists and can be imported."""
-        from app.main import _migrate_network_ids_to_uuid
-        
+        from app.database import _migrate_network_id_to_uuid
+
         # Just verify function exists
-        assert callable(_migrate_network_ids_to_uuid)
-    
+        assert callable(_migrate_network_id_to_uuid)
+
     @pytest.mark.asyncio
     async def test_migrate_discord_user_links_integer_to_uuid(self):
         """Test migrating discord_user_links.context_id from INTEGER to UUID."""
-        from app.main import _migrate_network_ids_to_uuid
-        
-        # Mock session that returns 'integer' for context_id column type
-        mock_session = AsyncMock()
+        from app.database import _migrate_network_id_to_uuid
+
+        # Mock connection that returns 'integer' for context_id column type
+        mock_conn = AsyncMock()
         mock_result1 = MagicMock()
         mock_result1.fetchone.return_value = ('integer',)
         mock_result2 = MagicMock()
         mock_result2.fetchone.return_value = None  # No migration needed for second table
-        
+
         # Return different results for consecutive execute calls
-        mock_session.execute = AsyncMock(side_effect=[mock_result1, mock_result1, mock_result1, mock_result1, mock_result1, mock_result2])
-        mock_session.commit = AsyncMock()
-        mock_session.rollback = AsyncMock()
-        
-        mock_session_maker = MagicMock()
-        mock_session_maker.return_value.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session_maker.return_value.__aexit__ = AsyncMock(return_value=None)
-        
-        with patch('app.database.async_session_maker', mock_session_maker):
-            await _migrate_network_ids_to_uuid()
-        
+        mock_conn.execute = AsyncMock(side_effect=[mock_result1, None, None, None, None, mock_result2])
+
+        await _migrate_network_id_to_uuid(mock_conn)
+
         # Verify execute was called
-        assert mock_session.execute.called
-    
+        assert mock_conn.execute.called
+
     @pytest.mark.asyncio
     async def test_migrate_user_network_prefs_integer_to_uuid(self):
         """Test migrating user_network_notification_prefs.network_id from INTEGER to UUID."""
-        from app.main import _migrate_network_ids_to_uuid
-        
-        mock_session = AsyncMock()
+        from app.database import _migrate_network_id_to_uuid
+
+        mock_conn = AsyncMock()
         mock_result1 = MagicMock()
         mock_result1.fetchone.return_value = None  # No migration needed for first table
         mock_result2 = MagicMock()
         mock_result2.fetchone.return_value = ('bigint',)  # Second table needs migration
-        
-        mock_session.execute = AsyncMock(side_effect=[mock_result1, mock_result2, mock_result2, mock_result2, mock_result2, mock_result2])
-        mock_session.commit = AsyncMock()
-        
-        mock_session_maker = MagicMock()
-        mock_session_maker.return_value.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session_maker.return_value.__aexit__ = AsyncMock(return_value=None)
-        
-        with patch('app.database.async_session_maker', mock_session_maker):
-            await _migrate_network_ids_to_uuid()
-        
-        assert mock_session.execute.called
-    
+
+        mock_conn.execute = AsyncMock(side_effect=[mock_result1, mock_result2, None, None, None, None])
+
+        await _migrate_network_id_to_uuid(mock_conn)
+
+        assert mock_conn.execute.called
+
     @pytest.mark.asyncio
     async def test_migrate_no_migration_needed(self):
         """Test migration when columns are already UUID."""
-        from app.main import _migrate_network_ids_to_uuid
-        
-        mock_session = AsyncMock()
+        from app.database import _migrate_network_id_to_uuid
+
+        mock_conn = AsyncMock()
         mock_result = MagicMock()
         mock_result.fetchone.return_value = ('uuid',)  # Already UUID type
-        
-        mock_session.execute = AsyncMock(return_value=mock_result)
-        mock_session.commit = AsyncMock()
-        
-        mock_session_maker = MagicMock()
-        mock_session_maker.return_value.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session_maker.return_value.__aexit__ = AsyncMock(return_value=None)
-        
-        with patch('app.database.async_session_maker', mock_session_maker):
-            await _migrate_network_ids_to_uuid()
-        
-        # Should only call execute twice (for checking columns)
-        assert mock_session.execute.call_count == 2
-    
+
+        mock_conn.execute = AsyncMock(return_value=mock_result)
+
+        await _migrate_network_id_to_uuid(mock_conn)
+
+        # Should call execute twice (for checking columns)
+        assert mock_conn.execute.call_count == 2
+
     @pytest.mark.asyncio
     async def test_migrate_handles_exception(self):
         """Test migration handles database exceptions."""
-        from app.main import _migrate_network_ids_to_uuid
-        
-        mock_session = AsyncMock()
-        mock_session.execute = AsyncMock(side_effect=Exception("Database error"))
-        mock_session.rollback = AsyncMock()
-        
-        mock_session_maker = MagicMock()
-        mock_session_maker.return_value.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session_maker.return_value.__aexit__ = AsyncMock(return_value=None)
-        
-        with patch('app.database.async_session_maker', mock_session_maker):
-            # Should not raise, just log error and rollback
-            await _migrate_network_ids_to_uuid()
-        
-        mock_session.rollback.assert_called_once()
-    
+        from app.database import _migrate_network_id_to_uuid
+
+        mock_conn = AsyncMock()
+        mock_conn.execute = AsyncMock(side_effect=Exception("Database error"))
+
+        # Should raise the exception (caller handles it)
+        with pytest.raises(Exception):
+            await _migrate_network_id_to_uuid(mock_conn)
+
     @pytest.mark.asyncio
     async def test_migrate_column_not_exists(self):
         """Test migration when column doesn't exist in table."""
-        from app.main import _migrate_network_ids_to_uuid
-        
-        mock_session = AsyncMock()
+        from app.database import _migrate_network_id_to_uuid
+
+        mock_conn = AsyncMock()
         mock_result = MagicMock()
         mock_result.fetchone.return_value = None  # Column doesn't exist
-        
-        mock_session.execute = AsyncMock(return_value=mock_result)
-        mock_session.commit = AsyncMock()
-        
-        mock_session_maker = MagicMock()
-        mock_session_maker.return_value.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session_maker.return_value.__aexit__ = AsyncMock(return_value=None)
-        
-        with patch('app.database.async_session_maker', mock_session_maker):
-            await _migrate_network_ids_to_uuid()
-        
+
+        mock_conn.execute = AsyncMock(return_value=mock_result)
+
+        await _migrate_network_id_to_uuid(mock_conn)
+
         # Should complete without error
-        assert mock_session.execute.called
+        assert mock_conn.execute.called
 
 
 class TestAppEndpoints:

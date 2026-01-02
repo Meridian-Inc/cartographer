@@ -3,41 +3,32 @@ Discord OAuth service for linking user accounts.
 Supports per-network and global Discord linking.
 """
 
-import os
 import logging
 import secrets
-from typing import Optional, Dict, Any, Tuple
 from datetime import datetime, timedelta
-from sqlalchemy import select, and_
-from sqlalchemy.ext.asyncio import AsyncSession
-from urllib.parse import urlencode, quote
-import httpx
+from urllib.parse import urlencode
 
+import httpx
+from sqlalchemy import and_, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from ..config import settings
 from ..models.database import DiscordUserLink
 
 logger = logging.getLogger(__name__)
 
-# Discord OAuth configuration
-DISCORD_CLIENT_ID = os.environ.get("DISCORD_CLIENT_ID", "")
-DISCORD_CLIENT_SECRET = os.environ.get("DISCORD_CLIENT_SECRET", "")
-DISCORD_REDIRECT_URI = os.environ.get(
-    "DISCORD_REDIRECT_URI",
-    "http://localhost:8005/api/auth/discord/callback"
-)
-APPLICATION_URL = os.environ.get("APPLICATION_URL", "http://localhost:5173")
-
 # OAuth state storage (in production, use Redis or database)
-_oauth_states: Dict[str, Dict[str, Any]] = {}
+_oauth_states: dict[str, dict[str, any]] = {}
 
 
 class DiscordOAuthService:
     """Service for handling Discord OAuth flow with per-network and global context support"""
     
     def get_authorization_url(
-        self, 
-        user_id: str, 
+        self,
+        user_id: str,
         context_type: str = "global",
-        context_id: Optional[str] = None
+        context_id: str | None = None
     ) -> str:
         """
         Generate Discord OAuth authorization URL.
@@ -47,7 +38,7 @@ class DiscordOAuthService:
             context_type: "network" or "global"
             context_id: The network_id (UUID) if context_type is "network", None for "global"
         """
-        if not DISCORD_CLIENT_ID:
+        if not settings.discord_client_id:
             logger.error("DISCORD_CLIENT_ID not configured")
             raise ValueError("DISCORD_CLIENT_ID not configured. Please set DISCORD_CLIENT_ID environment variable.")
         
@@ -63,8 +54,8 @@ class DiscordOAuthService:
         # Build authorization URL
         scopes = ["identify", "email"]
         params = {
-            "client_id": DISCORD_CLIENT_ID,
-            "redirect_uri": DISCORD_REDIRECT_URI,
+            "client_id": settings.discord_client_id,
+            "redirect_uri": settings.discord_redirect_uri,
             "response_type": "code",
             "scope": " ".join(scopes),
             "state": state_token,
@@ -74,7 +65,7 @@ class DiscordOAuthService:
         query_string = urlencode(params)
         return f"https://discord.com/api/oauth2/authorize?{query_string}"
     
-    def validate_state(self, state_token: str) -> Optional[Tuple[str, str, Optional[str]]]:
+    def validate_state(self, state_token: str) -> tuple[str, str, str | None] | None:
         """
         Validate OAuth state token and return context information.
         
@@ -97,21 +88,21 @@ class DiscordOAuthService:
         del _oauth_states[state_token]  # One-time use
         return (user_id, context_type, context_id)
     
-    async def exchange_code_for_tokens(self, code: str) -> Dict[str, Any]:
+    async def exchange_code_for_tokens(self, code: str) -> dict[str, any]:
         """Exchange OAuth code for access token"""
-        if not DISCORD_CLIENT_ID or not DISCORD_CLIENT_SECRET:
-            logger.error(f"Discord OAuth not configured: CLIENT_ID={'set' if DISCORD_CLIENT_ID else 'missing'}, CLIENT_SECRET={'set' if DISCORD_CLIENT_SECRET else 'missing'}")
+        if not settings.discord_client_id or not settings.discord_client_secret:
+            logger.error(f"Discord OAuth not configured: CLIENT_ID={'set' if settings.discord_client_id else 'missing'}, CLIENT_SECRET={'set' if settings.discord_client_secret else 'missing'}")
             raise ValueError("Discord OAuth not configured. Please set DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET environment variables.")
         
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 "https://discord.com/api/oauth2/token",
                 data={
-                    "client_id": DISCORD_CLIENT_ID,
-                    "client_secret": DISCORD_CLIENT_SECRET,
+                    "client_id": settings.discord_client_id,
+                    "client_secret": settings.discord_client_secret,
                     "grant_type": "authorization_code",
                     "code": code,
-                    "redirect_uri": DISCORD_REDIRECT_URI,
+                    "redirect_uri": settings.discord_redirect_uri,
                 },
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
@@ -122,7 +113,7 @@ class DiscordOAuthService:
             
             return response.json()
     
-    async def get_user_info(self, access_token: str) -> Dict[str, Any]:
+    async def get_user_info(self, access_token: str) -> dict[str, any]:
         """Get Discord user information using access token"""
         async with httpx.AsyncClient() as client:
             response = await client.get(
@@ -142,12 +133,12 @@ class DiscordOAuthService:
         user_id: str,
         discord_id: str,
         discord_username: str,
-        discord_avatar: Optional[str],
+        discord_avatar: str | None,
         access_token: str,
-        refresh_token: Optional[str],
+        refresh_token: str | None,
         expires_in: int,
         context_type: str = "global",
-        context_id: Optional[str] = None,
+        context_id: str | None = None,
     ) -> DiscordUserLink:
         """
         Create or update Discord user link for a specific context.
@@ -199,12 +190,12 @@ class DiscordOAuthService:
             return new_link
     
     async def get_link(
-        self, 
-        db: AsyncSession, 
+        self,
+        db: AsyncSession,
         user_id: str,
         context_type: str = "global",
-        context_id: Optional[str] = None
-    ) -> Optional[DiscordUserLink]:
+        context_id: str | None = None
+    ) -> DiscordUserLink | None:
         """
         Get Discord link for user in a specific context.
         
@@ -235,11 +226,11 @@ class DiscordOAuthService:
         return result.scalar_one_or_none()
     
     async def delete_link(
-        self, 
-        db: AsyncSession, 
+        self,
+        db: AsyncSession,
         user_id: str,
         context_type: str = "global",
-        context_id: Optional[str] = None
+        context_id: str | None = None
     ) -> bool:
         """
         Delete Discord link for user in a specific context.

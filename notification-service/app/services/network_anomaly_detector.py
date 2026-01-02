@@ -3,36 +3,34 @@ Per-network isolated anomaly detector manager.
 Each network has its own ML model and device statistics.
 """
 
-import os
 import json
 import logging
-from pathlib import Path
-from typing import Optional, Dict, List
-from datetime import datetime, timedelta
 from collections import deque
+from datetime import datetime, timedelta
+from pathlib import Path
 
+from ..config import settings
+from ..models import (
+    DeviceBaseline,
+    MLModelStatus,
+    NetworkEvent,
+    NotificationPriority,
+    NotificationType,
+)
 from .anomaly_detector import (
-    DeviceStats,
     AnomalyDetectionResult,
     AnomalyType,
-    MIN_SAMPLES_FOR_BASELINE,
-    UNEXPECTED_OFFLINE_THRESHOLD,
+    DeviceStats,
     LATENCY_ZSCORE_THRESHOLD,
+    MIN_SAMPLES_FOR_BASELINE,
     PACKET_LOSS_THRESHOLD,
-)
-from ..models import (
-    NetworkEvent,
-    NotificationType,
-    NotificationPriority,
-    MLModelStatus,
-    DeviceBaseline,
+    UNEXPECTED_OFFLINE_THRESHOLD,
 )
 
 logger = logging.getLogger(__name__)
 
 # Persistence
-DATA_DIR = Path(os.environ.get("NOTIFICATION_DATA_DIR", "/app/data"))
-NETWORK_ANOMALY_DIR = DATA_DIR / "network_anomaly_detectors"
+NETWORK_ANOMALY_DIR = settings.data_dir / "network_anomaly_detectors"
 
 
 class NetworkAnomalyDetector:
@@ -46,10 +44,10 @@ class NetworkAnomalyDetector:
     def __init__(self, network_id: str, load_state: bool = True):
         self.network_id = network_id
         # Key device stats by device_ip (scoped to this network)
-        self._device_stats: Dict[str, DeviceStats] = {}
+        self._device_stats: dict[str, DeviceStats] = {}
         self._anomalies_detected: int = 0
         self._false_positives: int = 0
-        self._last_training: Optional[datetime] = None
+        self._last_training: datetime | None = None
         self._notified_offline: set = set()  # device_ips
         self._anomaly_timestamps: deque = deque(maxlen=10000)
         self._current_devices: set = set()  # device_ips
@@ -137,10 +135,10 @@ class NetworkAnomalyDetector:
         self,
         device_ip: str,
         success: bool,
-        latency_ms: Optional[float] = None,
-        packet_loss: Optional[float] = None,
-        device_name: Optional[str] = None,
-        check_time: Optional[datetime] = None,
+        latency_ms: float | None = None,
+        packet_loss: float | None = None,
+        device_name: str | None = None,
+        check_time: datetime | None = None,
     ):
         """Train the model with a new data point for this network"""
         if check_time is None:
@@ -169,9 +167,9 @@ class NetworkAnomalyDetector:
         self,
         device_ip: str,
         success: bool,
-        latency_ms: Optional[float] = None,
-        packet_loss: Optional[float] = None,
-        check_time: Optional[datetime] = None,
+        latency_ms: float | None = None,
+        packet_loss: float | None = None,
+        check_time: datetime | None = None,
     ) -> AnomalyDetectionResult:
         """Detect anomalies for a device in this network"""
         
@@ -304,11 +302,11 @@ class NetworkAnomalyDetector:
         self,
         device_ip: str,
         success: bool,
-        latency_ms: Optional[float] = None,
-        packet_loss: Optional[float] = None,
-        device_name: Optional[str] = None,
-        previous_state: Optional[str] = None,
-    ) -> Optional[NetworkEvent]:
+        latency_ms: float | None = None,
+        packet_loss: float | None = None,
+        device_name: str | None = None,
+        previous_state: str | None = None,
+    ) -> NetworkEvent | None:
         """
         Create a network event if notification-worthy.
         
@@ -484,7 +482,7 @@ class NetworkAnomalyDetector:
             }
         )
     
-    def get_device_baseline(self, device_ip: str) -> Optional[DeviceBaseline]:
+    def get_device_baseline(self, device_ip: str) -> DeviceBaseline | None:
         """Get the learned baseline for a device in this network"""
         stats = self._device_stats.get(device_ip)
         if not stats:
@@ -554,7 +552,7 @@ class NetworkAnomalyDetectorManager:
     """
     
     def __init__(self):
-        self._detectors: Dict[str, NetworkAnomalyDetector] = {}
+        self._detectors: dict[str, NetworkAnomalyDetector] = {}
         # Load existing detectors from disk on startup
         self._load_all()
     
@@ -612,11 +610,11 @@ class NetworkAnomalyDetectorManager:
         network_id: str,
         device_ip: str,
         success: bool,
-        latency_ms: Optional[float] = None,
-        packet_loss: Optional[float] = None,
-        device_name: Optional[str] = None,
-        previous_state: Optional[str] = None,
-    ) -> Optional[NetworkEvent]:
+        latency_ms: float | None = None,
+        packet_loss: float | None = None,
+        device_name: str | None = None,
+        previous_state: str | None = None,
+    ) -> NetworkEvent | None:
         """Process a health check and return event if notification-worthy"""
         detector = self.get_detector(network_id)
         return detector.create_network_event(

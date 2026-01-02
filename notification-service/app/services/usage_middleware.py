@@ -5,24 +5,24 @@ Automatically tracks endpoint usage statistics and reports them
 to the metrics service for aggregation.
 """
 
-import os
-import time
 import asyncio
 import logging
-from datetime import datetime
-from typing import Callable, List
+import time
 from collections import deque
+from collections.abc import Callable
+from datetime import datetime
 
 import httpx
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 
+from ..config import settings
+
 logger = logging.getLogger(__name__)
 
 # Configuration
 SERVICE_NAME = "notification-service"
-METRICS_SERVICE_URL = os.environ.get("METRICS_SERVICE_URL", "http://localhost:8003")
 BATCH_SIZE = 10  # Send records in batches
 BATCH_INTERVAL_SECONDS = 5.0  # Send batch every N seconds
 EXCLUDED_PATHS = {"/healthz", "/ready", "/", "/docs", "/openapi.json", "/redoc"}
@@ -72,7 +72,7 @@ class UsageTrackingMiddleware(BaseHTTPMiddleware):
         """Get or create HTTP client."""
         if self._client is None or self._client.is_closed:
             self._client = httpx.AsyncClient(
-                base_url=METRICS_SERVICE_URL,
+                base_url=settings.metrics_service_url,
                 timeout=5.0,
             )
         return self._client
@@ -100,7 +100,7 @@ class UsageTrackingMiddleware(BaseHTTPMiddleware):
             return
         
         # Collect records to send
-        records_to_send: List[dict] = []
+        records_to_send: list[dict] = []
         while self._buffer and len(records_to_send) < BATCH_SIZE:
             records_to_send.append(self._buffer.popleft().to_dict())
         

@@ -14,9 +14,8 @@ from unittest.mock import patch, MagicMock, AsyncMock
 # Set test environment
 os.environ["DATABASE_URL"] = "postgresql+asyncpg://test:test@localhost:5432/test"
 
+from app.config import settings, Settings
 from app.database import (
-    DatabaseSettings,
-    db_settings,
     get_db,
     init_db,
     _migrate_network_id_to_uuid,
@@ -25,17 +24,17 @@ from app.database import (
 
 class TestDatabaseSettings:
     """Tests for database settings."""
-    
+
     def test_default_database_url(self):
         """Test default database URL."""
         # Just verify settings are created
-        assert db_settings is not None
-    
+        assert settings is not None
+
     def test_custom_database_url(self):
         """Test custom database URL from environment."""
         with patch.dict(os.environ, {"DATABASE_URL": "postgresql+asyncpg://custom:pass@host:5432/db"}):
-            settings = DatabaseSettings()
-            assert "custom" in settings.database_url or db_settings.database_url is not None
+            test_settings = Settings()
+            assert "custom" in test_settings.database_url or settings.database_url is not None
 
 
 class TestGetDb:

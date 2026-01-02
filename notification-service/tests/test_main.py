@@ -118,32 +118,32 @@ class TestLifespanEvents:
         """Should handle startup"""
         from app.main import lifespan
         from fastapi import FastAPI
-        
+
         test_app = FastAPI()
-        
+
         with patch('app.main._get_service_state', return_value={"clean_shutdown": True}):
             with patch('app.main._save_service_state'):
-                with patch('app.main.is_discord_configured', return_value=False):
-                    with patch('app.main.notification_manager') as mock_nm:
+                with patch('app.main.settings.discord_bot_token', ""):
+                    with patch('app.main.notification_manager') as mock_nm: 
                         mock_nm.start_scheduler = AsyncMock()
                         mock_nm.stop_scheduler = AsyncMock()
                         mock_nm.broadcast_notification = AsyncMock(return_value={})
-                        
+
                         with patch('app.main.version_checker') as mock_vc:
                             mock_vc.start = AsyncMock()
                             mock_vc.stop = AsyncMock()
-                            
+
                             with patch('app.main.anomaly_detector') as mock_ad:
                                 mock_ad.save = MagicMock()
-                                
+
                                 with patch('app.main.discord_service') as mock_ds:
                                     mock_ds._running = False
-                                    
+
                                     with patch('app.main._send_cartographer_up_notification', AsyncMock()):
                                         with patch('app.main._send_cartographer_down_notification', AsyncMock()):
                                             with patch('app.main.SERVICE_STATE_FILE') as mock_path:
                                                 mock_path.exists.return_value = False
-                                                
+
                                                 async with lifespan(test_app):
                                                     pass
     
@@ -151,32 +151,32 @@ class TestLifespanEvents:
         """Should handle shutdown"""
         from app.main import lifespan
         from fastapi import FastAPI
-        
+
         test_app = FastAPI()
-        
+
         with patch('app.main._get_service_state', return_value={"clean_shutdown": True}):
             with patch('app.main._save_service_state'):
-                with patch('app.main.is_discord_configured', return_value=False):
+                with patch('app.main.settings.discord_bot_token', ""):
                     with patch('app.main.notification_manager') as mock_nm:
                         mock_nm.start_scheduler = AsyncMock()
                         mock_nm.stop_scheduler = AsyncMock()
                         mock_nm.broadcast_notification = AsyncMock(return_value={})
-                        
+
                         with patch('app.main.version_checker') as mock_vc:
                             mock_vc.start = AsyncMock()
                             mock_vc.stop = AsyncMock()
-                            
+
                             with patch('app.main.anomaly_detector') as mock_ad:
                                 mock_ad.save = MagicMock()
-                                
+
                                 with patch('app.main.discord_service') as mock_ds:
                                     mock_ds._running = False
-                                    
+
                                     with patch('app.main._send_cartographer_up_notification', AsyncMock()):
                                         with patch('app.main._send_cartographer_down_notification', AsyncMock()):
                                             with patch('app.main.SERVICE_STATE_FILE') as mock_path:
                                                 mock_path.exists.return_value = False
-                                                
+
                                                 async with lifespan(test_app):
                                                     pass
 

@@ -5,28 +5,45 @@ Handles notifications for network events and anomalies across
 multiple channels (email, Discord).
 """
 
-import os
 import asyncio
+import json
 import logging
-from pathlib import Path
-from datetime import datetime
+import os
+import subprocess
+import sys
+import uuid
 from contextlib import asynccontextmanager
+from datetime import datetime
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
-from .routers.notifications import router as notifications_router
+from .config import settings
+from .database import async_session_maker, engine, _migrate_network_id_to_uuid
 from .routers.cartographer_status import router as cartographer_status_router
+from .routers.discord_oauth import router as discord_oauth_router
+from .routers.notifications import router as notifications_router
 from .routers.user_notifications import router as user_notifications_router
 from .routers.user_notifications_send import router as user_notifications_send_router
-from .routers.discord_oauth import router as discord_oauth_router
-from .services.discord_service import discord_service, is_discord_configured
-from .services.notification_manager import notification_manager
-from .services.cartographer_status import cartographer_status_service
 from .services.anomaly_detector import anomaly_detector
+from .services.cartographer_status import cartographer_status_service
+from .services.discord_service import discord_service, send_discord_notification
+from .services.email_service import send_notification_email
 from .services.network_anomaly_detector import network_anomaly_detector_manager
-from .services.version_checker import version_checker
+from .services.notification_manager import notification_manager
 from .services.usage_middleware import UsageTrackingMiddleware
-from .models import NetworkEvent, NotificationType, NotificationPriority, get_default_priority_for_type
+from .services.version_checker import version_checker
+from .models import (
+    DiscordChannelConfig,
+    DiscordConfig,
+    DiscordDeliveryMethod,
+    NetworkEvent,
+    NotificationPriority,
+    NotificationType,
+    get_default_priority_for_type,
+)
 
 # Configure logging
 logging.basicConfig(
@@ -36,13 +53,11 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Data directory for service state
-DATA_DIR = Path(os.environ.get("NOTIFICATION_DATA_DIR", "/app/data"))
-SERVICE_STATE_FILE = DATA_DIR / "service_state.json"
+SERVICE_STATE_FILE = settings.data_dir / "service_state.json"
 
 
 def _get_service_state() -> dict:
     """Read service state from file"""
-    import json
     try:
         if SERVICE_STATE_FILE.exists():
             with open(SERVICE_STATE_FILE, 'r') as f:
@@ -54,9 +69,8 @@ def _get_service_state() -> dict:
 
 def _save_service_state(clean_shutdown: bool):
     """Save service state to file"""
-    import json
     try:
-        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        settings.data_dir.mkdir(parents=True, exist_ok=True)
         state = {
             "clean_shutdown": clean_shutdown,
             "last_shutdown": datetime.utcnow().isoformat() if clean_shutdown else None,
@@ -68,96 +82,16 @@ def _save_service_state(clean_shutdown: bool):
         logger.warning(f"Failed to save service state: {e}")
 
 
-async def _migrate_network_ids_to_uuid():
-    """Migrate network_id and context_id columns from INTEGER to UUID if needed."""
-    from .database import async_session_maker
-    from sqlalchemy import text
-    
-    async with async_session_maker() as session:
-        try:
-            # Check if discord_user_links.context_id is INTEGER and convert to UUID
-            result = await session.execute(text("""
-                SELECT data_type 
-                FROM information_schema.columns 
-                WHERE table_name = 'discord_user_links' 
-                AND column_name = 'context_id'
-            """))
-            row = result.fetchone()
-            
-            if row and row[0] in ('integer', 'bigint'):
-                logger.info("Migrating discord_user_links.context_id from INTEGER to UUID...")
-                
-                # Add new UUID column
-                await session.execute(text("""
-                    ALTER TABLE discord_user_links 
-                    ADD COLUMN IF NOT EXISTS context_id_new UUID
-                """))
-                
-                # We can't reliably map old integer IDs to UUIDs, so we'll clear existing network links
-                # Global links (context_id IS NULL) are preserved
-                await session.execute(text("""
-                    UPDATE discord_user_links 
-                    SET context_id_new = NULL 
-                    WHERE context_type = 'network'
-                """))
-                
-                # Drop old column and rename new one
-                await session.execute(text("ALTER TABLE discord_user_links DROP COLUMN context_id"))
-                await session.execute(text("ALTER TABLE discord_user_links RENAME COLUMN context_id_new TO context_id"))
-                
-                await session.commit()
-                logger.info("discord_user_links.context_id migration complete")
-            
-            # Check if user_network_notification_prefs.network_id is INTEGER and convert to UUID
-            result = await session.execute(text("""
-                SELECT data_type 
-                FROM information_schema.columns 
-                WHERE table_name = 'user_network_notification_prefs' 
-                AND column_name = 'network_id'
-            """))
-            row = result.fetchone()
-            
-            if row and row[0] in ('integer', 'bigint'):
-                logger.info("Migrating user_network_notification_prefs.network_id from INTEGER to UUID...")
-                
-                # For this table, we need to drop existing rows since we can't map old IDs
-                # Users will need to reconfigure their notification preferences
-                await session.execute(text("DELETE FROM user_network_notification_prefs"))
-                
-                # Drop old column and recreate as UUID
-                await session.execute(text("ALTER TABLE user_network_notification_prefs DROP COLUMN network_id"))
-                await session.execute(text("""
-                    ALTER TABLE user_network_notification_prefs 
-                    ADD COLUMN network_id UUID NOT NULL
-                """))
-                
-                # Recreate index
-                await session.execute(text("""
-                    CREATE INDEX IF NOT EXISTS ix_user_network_notification_prefs_network_id 
-                    ON user_network_notification_prefs(network_id)
-                """))
-                
-                await session.commit()
-                logger.info("user_network_notification_prefs.network_id migration complete")
-            
-            logger.info("Network ID UUID migration check complete")
-            
-        except Exception as e:
-            logger.error(f"Error during network_id UUID migration: {e}", exc_info=True)
-            await session.rollback()
-
-
-async def _send_cartographer_status_notification(event_type: str, downtime_minutes: int = None, message: str = None):
+async def _send_cartographer_status_notification(
+    event_type: str,
+    downtime_minutes: int | None = None,
+    message: str | None = None,
+):
     """
     Send Cartographer status notification directly (without HTTP).
-    
+
     This is called during startup/shutdown when the HTTP server isn't available.
     """
-    import uuid
-    from .services.email_service import send_notification_email, is_email_configured
-    from .services.discord_service import discord_service, is_discord_configured, send_discord_notification
-    from .models import DiscordConfig, DiscordDeliveryMethod, DiscordChannelConfig, get_default_priority_for_type
-    
     try:
         # Map event type to NotificationType
         if event_type == "up":
@@ -187,14 +121,14 @@ async def _send_cartographer_status_notification(event_type: str, downtime_minut
         
         # Get subscribers
         subscribers = cartographer_status_service.get_subscribers_for_event(notification_type)
-        
+
         if not subscribers:
             logger.info(f"No subscribers found for {event_type} notification")
             return 0
-        
+
         # Check available services
-        email_available = is_email_configured()
-        discord_available = is_discord_configured()
+        email_available = settings.is_email_configured
+        discord_available = settings.is_discord_configured
         
         if not email_available and not discord_available:
             logger.warning("Cannot send Cartographer status notifications: Neither email nor Discord is configured")
@@ -299,10 +233,6 @@ async def lifespan(app: FastAPI):
     # Run database migrations
     logger.info("Running database migrations...")
     try:
-        import subprocess
-        import sys
-        from pathlib import Path
-        
         # Get the app directory (parent of app/)
         app_dir = Path(__file__).parent.parent
         
@@ -313,9 +243,6 @@ async def lifespan(app: FastAPI):
         else:
             # First, check if we need to stamp the database (for migration from old version table)
             # This handles the case where tables exist but the new version table doesn't track them
-            from .database import async_session_maker, engine
-            from sqlalchemy import text
-            
             async def check_and_stamp_version():
                 """Check if tables exist but version table is empty, and stamp if needed."""
                 async with async_session_maker() as session:
@@ -398,7 +325,8 @@ async def lifespan(app: FastAPI):
             # Run inline migration for network_id/context_id to UUID
             # This handles cases where Alembic migrations conflict or fail
             logger.info("Checking for network_id/context_id UUID migration...")
-            await _migrate_network_ids_to_uuid()
+            async with engine.begin() as conn:
+                await _migrate_network_id_to_uuid(conn)
                 
     except FileNotFoundError:
         logger.warning("Alembic not found, skipping migrations. Install alembic to enable automatic migrations.")
@@ -413,7 +341,7 @@ async def lifespan(app: FastAPI):
     was_clean_shutdown = previous_state.get("clean_shutdown", False)
     
     # Start Discord bot if configured
-    if is_discord_configured():
+    if settings.is_discord_configured:
         logger.info("Starting Discord bot...")
         try:
             success = await discord_service.start()
@@ -481,9 +409,6 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application"""
-    # Check if docs should be disabled (default: enabled)
-    disable_docs = os.environ.get("DISABLE_DOCS", "false").lower() == "true"
-    
     app = FastAPI(
         title="Cartographer Notification Service",
         description="Notification service for network events and anomalies. "
@@ -491,16 +416,15 @@ def create_app() -> FastAPI:
                     "ML-based anomaly detection.",
         version="0.1.0",
         lifespan=lifespan,
-        docs_url=None if disable_docs else "/docs",
-        redoc_url=None if disable_docs else "/redoc",
-        openapi_url=None if disable_docs else "/openapi.json",
+        docs_url=None if settings.disable_docs else "/docs",
+        redoc_url=None if settings.disable_docs else "/redoc",
+        openapi_url=None if settings.disable_docs else "/openapi.json",
     )
-    
+
     # CORS configuration
-    allowed_origins = os.environ.get("CORS_ORIGINS", "*").split(",")
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=allowed_origins,
+        allow_origins=settings.cors_origins_list,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

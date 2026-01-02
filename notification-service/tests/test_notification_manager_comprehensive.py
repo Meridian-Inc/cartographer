@@ -206,7 +206,7 @@ class TestPersistenceSave:
         
         notification_manager_instance._preferences["test"] = NotificationPreferences(network_id="test")
         
-        with patch('app.services.notification_manager.DATA_DIR', read_only_dir):
+        with patch('app.services.notification_manager.settings.notification_data_dir', str(read_only_dir)):
             with patch('app.services.notification_manager.PREFERENCES_FILE', read_only_dir / "readonly_dir" / "prefs.json"):
                 with patch('app.services.notification_manager.logger.error') as mock_error:
                     # Force an error by making directory creation fail
@@ -224,7 +224,7 @@ class TestPersistenceSave:
             )
         )
         
-        with patch('app.services.notification_manager.DATA_DIR', tmp_path):
+        with patch('app.services.notification_manager.settings.notification_data_dir', str(tmp_path)):
             with patch('builtins.open', side_effect=IOError("Write failed")):
                 with patch('app.services.notification_manager.logger.error') as mock_error:
                     notification_manager_instance._save_history()
@@ -241,7 +241,7 @@ class TestPersistenceSave:
             created_by="admin"
         )
         
-        with patch('app.services.notification_manager.DATA_DIR', tmp_path):
+        with patch('app.services.notification_manager.settings.notification_data_dir', str(tmp_path)):
             with patch('builtins.open', side_effect=IOError("Write failed")):
                 with patch('app.services.notification_manager.logger.error') as mock_error:
                     notification_manager_instance._save_scheduled_broadcasts()
@@ -251,7 +251,7 @@ class TestPersistenceSave:
         """Should handle silenced devices save errors"""
         notification_manager_instance._silenced_devices.add("192.168.1.1")
         
-        with patch('app.services.notification_manager.DATA_DIR', tmp_path):
+        with patch('app.services.notification_manager.settings.notification_data_dir', str(tmp_path)):
             with patch('builtins.open', side_effect=IOError("Write failed")):
                 with patch('app.services.notification_manager.logger.error') as mock_error:
                     notification_manager_instance._save_silenced_devices()
@@ -261,7 +261,7 @@ class TestPersistenceSave:
         """Should handle global preferences save errors"""
         notification_manager_instance._global_preferences["user1"] = GlobalUserPreferences(user_id="user1")
         
-        with patch('app.services.notification_manager.DATA_DIR', tmp_path):
+        with patch('app.services.notification_manager.settings.notification_data_dir', str(tmp_path)):
             with patch('builtins.open', side_effect=IOError("Write failed")):
                 with patch('app.services.notification_manager.logger.error') as mock_error:
                     notification_manager_instance._save_global_preferences()

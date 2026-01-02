@@ -3,33 +3,20 @@ Database configuration and session management for notification service.
 Uses the same PostgreSQL instance as the main application.
 """
 
-import os
 import logging
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy.orm import DeclarativeBase
+
 from sqlalchemy import text
-from pydantic_settings import BaseSettings
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import DeclarativeBase
+
+from .config import settings
 
 logger = logging.getLogger(__name__)
 
 
-class DatabaseSettings(BaseSettings):
-    """Database settings loaded from environment variables."""
-    database_url: str = os.environ.get(
-        "DATABASE_URL",
-        "postgresql+asyncpg://cartographer:cartographer_secret@localhost:5432/cartographer"
-    )
-    
-    class Config:
-        env_file = ".env"
-        extra = "ignore"
-
-
-db_settings = DatabaseSettings()
-
 # Create async engine
 engine = create_async_engine(
-    db_settings.database_url,
+    settings.database_url,
     echo=False,
     pool_pre_ping=True,
     pool_size=5,

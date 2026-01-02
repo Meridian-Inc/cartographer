@@ -9,36 +9,36 @@ Covers:
 - Error handling
 """
 
-import os
-import pytest
 import asyncio
+import os
 from datetime import datetime
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 # Set test environment
 os.environ["DISCORD_BOT_TOKEN"] = ""
 os.environ["DISCORD_CLIENT_ID"] = "123456789"
 
-from app.services.discord_service import (
-    is_discord_configured,
-    get_bot_invite_url,
-    _get_priority_color,
-    _get_notification_icon,
-    _build_discord_embed,
-    DiscordNotificationService,
-    discord_service,
-    send_discord_notification,
-    send_test_discord,
-    send_discord_dm,
-)
 from app.models import (
-    NetworkEvent,
-    NotificationType,
-    NotificationPriority,
+    DiscordChannelConfig,
     DiscordConfig,
     DiscordDeliveryMethod,
-    DiscordChannelConfig,
+    NetworkEvent,
+    NotificationPriority,
+    NotificationType,
 )
+from app.services.discord_service import (
+    DiscordNotificationService,
+    _build_discord_embed,
+    discord_service,
+    get_bot_invite_url,
+    is_discord_configured,
+    send_discord_dm,
+    send_discord_notification,
+    send_test_discord,
+)
+from app.utils import get_notification_icon, get_priority_color_discord
 
 
 class TestDiscordConfiguration:
@@ -46,110 +46,110 @@ class TestDiscordConfiguration:
     
     def test_is_discord_configured_true(self):
         """Test is_discord_configured when token is set."""
-        with patch('app.services.discord_service.DISCORD_BOT_TOKEN', 'test-token'):
+        with patch('app.services.discord_service.settings.discord_bot_token', 'test-token'):
             from app.services.discord_service import is_discord_configured as check_configured
             assert check_configured() is True
     
     def test_is_discord_configured_false(self):
         """Test is_discord_configured when token is not set."""
-        with patch('app.services.discord_service.DISCORD_BOT_TOKEN', ''):
+        with patch('app.services.discord_service.settings.discord_bot_token', ''):
             from app.services.discord_service import is_discord_configured as check_configured
             assert check_configured() is False
     
     def test_get_bot_invite_url_with_client_id(self):
         """Test getting invite URL with client ID set."""
-        with patch('app.services.discord_service.DISCORD_CLIENT_ID', '123456789'):
+        with patch('app.services.discord_service.settings.discord_client_id', '123456789'):
             url = get_bot_invite_url()
-            
+
             assert url is not None
             assert "123456789" in url
             assert "authorize" in url
-    
+
     def test_get_bot_invite_url_without_client_id(self):
         """Test getting invite URL without client ID."""
-        with patch('app.services.discord_service.DISCORD_CLIENT_ID', ''):
+        with patch('app.services.discord_service.settings.discord_client_id', ''):
             url = get_bot_invite_url()
-            
+
             assert url is None
 
 
 class TestPriorityColorAndIcons:
     """Tests for priority color and notification icon functions."""
     
-    def test_get_priority_color_low(self):
+    def testget_priority_color_discord_low(self):
         """Test color for LOW priority."""
-        color = _get_priority_color(NotificationPriority.LOW)
+        color = get_priority_color_discord(NotificationPriority.LOW)
         assert color == 0x64748b
     
-    def test_get_priority_color_medium(self):
+    def testget_priority_color_discord_medium(self):
         """Test color for MEDIUM priority."""
-        color = _get_priority_color(NotificationPriority.MEDIUM)
+        color = get_priority_color_discord(NotificationPriority.MEDIUM)
         assert color == 0xf59e0b
     
-    def test_get_priority_color_high(self):
+    def testget_priority_color_discord_high(self):
         """Test color for HIGH priority."""
-        color = _get_priority_color(NotificationPriority.HIGH)
+        color = get_priority_color_discord(NotificationPriority.HIGH)
         assert color == 0xf97316
     
-    def test_get_priority_color_critical(self):
+    def testget_priority_color_discord_critical(self):
         """Test color for CRITICAL priority."""
-        color = _get_priority_color(NotificationPriority.CRITICAL)
+        color = get_priority_color_discord(NotificationPriority.CRITICAL)
         assert color == 0xef4444
     
-    def test_get_notification_icon_device_offline(self):
+    def testget_notification_icon_device_offline(self):
         """Test icon for DEVICE_OFFLINE."""
-        icon = _get_notification_icon(NotificationType.DEVICE_OFFLINE)
+        icon = get_notification_icon(NotificationType.DEVICE_OFFLINE)
         assert icon == "🔴"
     
-    def test_get_notification_icon_device_online(self):
+    def testget_notification_icon_device_online(self):
         """Test icon for DEVICE_ONLINE."""
-        icon = _get_notification_icon(NotificationType.DEVICE_ONLINE)
+        icon = get_notification_icon(NotificationType.DEVICE_ONLINE)
         assert icon == "🟢"
     
-    def test_get_notification_icon_device_degraded(self):
+    def testget_notification_icon_device_degraded(self):
         """Test icon for DEVICE_DEGRADED."""
-        icon = _get_notification_icon(NotificationType.DEVICE_DEGRADED)
+        icon = get_notification_icon(NotificationType.DEVICE_DEGRADED)
         assert icon == "🟡"
     
-    def test_get_notification_icon_anomaly_detected(self):
+    def testget_notification_icon_anomaly_detected(self):
         """Test icon for ANOMALY_DETECTED."""
-        icon = _get_notification_icon(NotificationType.ANOMALY_DETECTED)
+        icon = get_notification_icon(NotificationType.ANOMALY_DETECTED)
         assert icon == "⚠️"
     
-    def test_get_notification_icon_high_latency(self):
+    def testget_notification_icon_high_latency(self):
         """Test icon for HIGH_LATENCY."""
-        icon = _get_notification_icon(NotificationType.HIGH_LATENCY)
+        icon = get_notification_icon(NotificationType.HIGH_LATENCY)
         assert icon == "🐌"
     
-    def test_get_notification_icon_packet_loss(self):
+    def testget_notification_icon_packet_loss(self):
         """Test icon for PACKET_LOSS."""
-        icon = _get_notification_icon(NotificationType.PACKET_LOSS)
+        icon = get_notification_icon(NotificationType.PACKET_LOSS)
         assert icon == "📉"
     
-    def test_get_notification_icon_isp_issue(self):
+    def testget_notification_icon_isp_issue(self):
         """Test icon for ISP_ISSUE."""
-        icon = _get_notification_icon(NotificationType.ISP_ISSUE)
+        icon = get_notification_icon(NotificationType.ISP_ISSUE)
         assert icon == "🌐"
     
-    def test_get_notification_icon_security_alert(self):
+    def testget_notification_icon_security_alert(self):
         """Test icon for SECURITY_ALERT."""
-        icon = _get_notification_icon(NotificationType.SECURITY_ALERT)
+        icon = get_notification_icon(NotificationType.SECURITY_ALERT)
         assert icon == "🔒"
     
-    def test_get_notification_icon_scheduled_maintenance(self):
+    def testget_notification_icon_scheduled_maintenance(self):
         """Test icon for SCHEDULED_MAINTENANCE."""
-        icon = _get_notification_icon(NotificationType.SCHEDULED_MAINTENANCE)
+        icon = get_notification_icon(NotificationType.SCHEDULED_MAINTENANCE)
         assert icon == "🔧"
     
-    def test_get_notification_icon_system_status(self):
+    def testget_notification_icon_system_status(self):
         """Test icon for SYSTEM_STATUS."""
-        icon = _get_notification_icon(NotificationType.SYSTEM_STATUS)
+        icon = get_notification_icon(NotificationType.SYSTEM_STATUS)
         assert icon == "ℹ️"
     
-    def test_get_notification_icon_default(self):
+    def testget_notification_icon_default(self):
         """Test default icon for unknown type."""
         # Use a mock to test default case
-        icon = _get_notification_icon(MagicMock())
+        icon = get_notification_icon(MagicMock())
         assert icon == "📢"
 
 
@@ -274,7 +274,7 @@ class TestDiscordNotificationService:
         """Test starting when already running."""
         service._running = True
         
-        with patch('app.services.discord_service.DISCORD_BOT_TOKEN', 'test-token'):
+        with patch('app.services.discord_service.settings.discord_bot_token', 'test-token'):
             result = await service.start()
         
         assert result is True
@@ -403,7 +403,7 @@ class TestDiscordNotificationService:
     @pytest.mark.asyncio
     async def test_send_notification_not_configured(self, service):
         """Test sending notification when not configured."""
-        with patch('app.services.discord_service.DISCORD_BOT_TOKEN', ''):
+        with patch('app.services.discord_service.settings.discord_bot_token', ''):
             config = DiscordConfig(enabled=True)
             event = NetworkEvent(
                 event_type=NotificationType.DEVICE_OFFLINE,
