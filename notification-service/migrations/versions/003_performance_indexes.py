@@ -52,19 +52,19 @@ def upgrade() -> None:
         """)
     )
     
-    # Discord user link lookups (by user_id)
+    # Discord user link lookups (by user_id and context)
     connection.execute(
         text("""
-        CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_discord_links_user
-        ON discord_user_links(user_id)
+        CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_discord_links_user_context
+        ON discord_user_links(user_id, context_type, context_id)
         """)
     )
     
-    # Discord user link lookups (by discord_user_id)
+    # Discord user link lookups (by discord_id for reverse lookup)
     connection.execute(
         text("""
-        CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_discord_links_discord_user
-        ON discord_user_links(discord_user_id)
+        CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_discord_links_discord_id
+        ON discord_user_links(discord_id)
         """)
     )
 
@@ -82,6 +82,6 @@ def downgrade() -> None:
     
     connection.execute(text("DROP INDEX CONCURRENTLY IF EXISTS idx_user_network_prefs_user_network"))
     connection.execute(text("DROP INDEX CONCURRENTLY IF EXISTS idx_user_global_prefs_user"))
-    connection.execute(text("DROP INDEX CONCURRENTLY IF EXISTS idx_discord_links_user"))
-    connection.execute(text("DROP INDEX CONCURRENTLY IF EXISTS idx_discord_links_discord_user"))
+    connection.execute(text("DROP INDEX CONCURRENTLY IF EXISTS idx_discord_links_user_context"))
+    connection.execute(text("DROP INDEX CONCURRENTLY IF EXISTS idx_discord_links_discord_id"))
 
