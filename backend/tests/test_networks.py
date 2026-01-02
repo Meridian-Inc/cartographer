@@ -261,7 +261,7 @@ class TestGetNetworkMemberUserIds:
 
     async def test_network_not_found(self, mock_db):
         """Should raise 404 when network doesn't exist"""
-        from app.routers.networks import get_network_member_user_ids
+        from app.services.network_service import get_network_member_user_ids
 
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = None
@@ -274,7 +274,7 @@ class TestGetNetworkMemberUserIds:
 
     async def test_returns_owner_and_members(self, mock_db, sample_network):
         """Should return all user IDs with access"""
-        from app.routers.networks import get_network_member_user_ids
+        from app.services.network_service import get_network_member_user_ids
 
         # First call returns network
         mock_network_result = MagicMock()
@@ -297,7 +297,7 @@ class TestGetNetworkMemberUserIds:
 
     async def test_returns_unique_user_ids(self, mock_db, sample_network):
         """Should return unique user IDs (no duplicates)"""
-        from app.routers.networks import get_network_member_user_ids
+        from app.services.network_service import get_network_member_user_ids
 
         # First call returns network
         mock_network_result = MagicMock()
