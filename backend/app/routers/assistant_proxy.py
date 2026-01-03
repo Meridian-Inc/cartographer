@@ -10,6 +10,7 @@ Performance optimizations:
 """
 
 import json
+
 from fastapi import APIRouter, Depends, Request
 
 from ..config import get_settings

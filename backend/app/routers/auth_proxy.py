@@ -65,19 +65,20 @@ async def get_session(
 ):
     """
     Get current session information. Requires authentication.
-    
+
     Cached per-user for 60 seconds to reduce auth service load.
     """
     cache_key = cache.make_key("session", user.user_id)
-    
+
     async def fetch_session():
         response = await proxy_auth_request("GET", "/session", request)
         # Extract JSON from response
         if hasattr(response, "body"):
             import json
+
             return json.loads(response.body)
         return response
-    
+
     return await cache.get_or_compute(cache_key, fetch_session, ttl=60)
 
 

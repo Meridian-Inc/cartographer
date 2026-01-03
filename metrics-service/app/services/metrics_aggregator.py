@@ -19,7 +19,6 @@ import httpx
 import jwt
 
 from ..config import settings
-from .http_client import http_client
 from ..models import (
     CheckHistoryEntry,
     DeviceRole,
@@ -40,6 +39,7 @@ from ..models import (
     TestIPMetrics,
     UptimeMetrics,
 )
+from .http_client import http_client
 from .redis_publisher import redis_publisher
 
 logger = logging.getLogger(__name__)
@@ -179,9 +179,7 @@ class MetricsAggregator:
 
                 # No legacy layout - this is expected in multi-tenant mode
                 # Clients must provide network_id
-                logger.debug(
-                    "No legacy layout found - network_id required for multi-tenant mode"
-                )
+                logger.debug("No legacy layout found - network_id required for multi-tenant mode")
                 return None
         except httpx.ConnectError:
             logger.warning("Backend service unavailable - cannot fetch network layout")
@@ -214,9 +212,7 @@ class MetricsAggregator:
             if response.status_code == 200:
                 return response.json()
             # Fallback to old endpoint if new one doesn't exist
-            logger.warning(
-                "New metrics endpoint not available, falling back to config endpoint"
-            )
+            logger.warning("New metrics endpoint not available, falling back to config endpoint")
             response = await http_client.get(
                 f"{settings.health_service_url}/api/health/gateway/test-ips/all"
             )

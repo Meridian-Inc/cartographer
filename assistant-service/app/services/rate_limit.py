@@ -57,6 +57,52 @@ def is_role_exempt(user_role: str) -> bool:
     return user_role.lower() in settings.rate_limit_exempt_roles
 
 
+async def _create_new_user_limit(session, user_id: str, is_exempt: bool, default_limit: int) -> int:
+    """Create a new user rate limit record and return the effective limit."""
+    from ..db_models import UserRateLimit
+
+    user_limit = UserRateLimit(
+        user_id=user_id,
+        daily_limit=UNLIMITED_LIMIT if is_exempt else None,
+        is_role_exempt=is_exempt,
+    )
+    session.add(user_limit)
+    await session.commit()
+
+    if is_exempt:
+        logger.info(f"[RateLimit] Created unlimited limit for exempt user {user_id}")
+        return UNLIMITED_LIMIT
+    return default_limit
+
+
+async def _handle_exemption_change(
+    session, user_limit, user_id: str, user_role: str | None, is_exempt: bool, default_limit: int
+) -> int:
+    """Handle changes in user exemption status and return the effective limit."""
+    if is_exempt and not user_limit.is_role_exempt:
+        user_limit.daily_limit = UNLIMITED_LIMIT
+        user_limit.is_role_exempt = True
+        await session.commit()
+        logger.info(
+            f"[RateLimit] User {user_id} is now exempt (role: {user_role}), set to unlimited"
+        )
+        return UNLIMITED_LIMIT
+
+    if not is_exempt and user_limit.is_role_exempt:
+        user_limit.daily_limit = None
+        user_limit.is_role_exempt = False
+        await session.commit()
+        logger.info(
+            f"[RateLimit] User {user_id} lost exemption (role: {user_role}), reverted to default"
+        )
+        return default_limit
+
+    if is_exempt:
+        return UNLIMITED_LIMIT
+
+    return user_limit.daily_limit if user_limit.daily_limit is not None else default_limit
+
+
 async def get_user_limit(user_id: str, default_limit: int, user_role: str | None = None) -> int:
     """
     Get the effective daily limit for a user.
@@ -65,8 +111,6 @@ async def get_user_limit(user_id: str, default_limit: int, user_role: str | None
     1. If user role is in ASSISTANT_RATE_LIMIT_EXEMPT_ROLES -> unlimited (-1)
     2. If user has a custom limit in the database -> use that
     3. Otherwise -> use default_limit from env var
-
-    Also handles syncing role exemption status to the database.
 
     Args:
         user_id: The user's ID
@@ -79,77 +123,28 @@ async def get_user_limit(user_id: str, default_limit: int, user_role: str | None
     from ..database import AsyncSessionLocal
     from ..db_models import UserRateLimit
 
-    # Check if user role is exempt from rate limiting
     is_exempt = user_role and is_role_exempt(user_role)
 
-    # Database not configured, fall back to role-based check only
     if AsyncSessionLocal is None:
-        if is_exempt:
-            return UNLIMITED_LIMIT
-        return default_limit
+        return UNLIMITED_LIMIT if is_exempt else default_limit
 
     try:
         async with AsyncSessionLocal() as session:
-            # Get or create user rate limit record
             result = await session.execute(
                 select(UserRateLimit).where(UserRateLimit.user_id == user_id)
             )
             user_limit = result.scalar_one_or_none()
 
             if user_limit is None:
-                # Create new record
-                user_limit = UserRateLimit(
-                    user_id=user_id,
-                    daily_limit=UNLIMITED_LIMIT if is_exempt else None,  # NULL = use default
-                    is_role_exempt=is_exempt,
-                )
-                session.add(user_limit)
-                await session.commit()
+                return await _create_new_user_limit(session, user_id, is_exempt, default_limit)
 
-                if is_exempt:
-                    logger.info(f"[RateLimit] Created unlimited limit for exempt user {user_id}")
-                    return UNLIMITED_LIMIT
-                return default_limit
-
-            # User exists - handle role exemption changes
-            if is_exempt and not user_limit.is_role_exempt:
-                # User became exempt (e.g., promoted to admin)
-                user_limit.daily_limit = UNLIMITED_LIMIT
-                user_limit.is_role_exempt = True
-                await session.commit()
-                logger.info(
-                    f"[RateLimit] User {user_id} is now exempt (role: {user_role}), set to unlimited"
-                )
-                return UNLIMITED_LIMIT
-
-            if not is_exempt and user_limit.is_role_exempt:
-                # User lost exemption (e.g., demoted from admin)
-                user_limit.daily_limit = None  # Revert to default
-                user_limit.is_role_exempt = False
-                await session.commit()
-                logger.info(
-                    f"[RateLimit] User {user_id} lost exemption (role: {user_role}), reverted to default"
-                )
-                return default_limit
-
-            # User still exempt - keep unlimited
-            if is_exempt:
-                return UNLIMITED_LIMIT
-
-            # Return stored limit or default
-            if user_limit.daily_limit is not None:
-                # Custom limit set (could be -1 for manual unlimited, or positive for custom)
-                return user_limit.daily_limit
-
-            # NULL means use system default
-            return default_limit
+            return await _handle_exemption_change(
+                session, user_limit, user_id, user_role, is_exempt, default_limit
+            )
 
     except Exception as e:
         logger.error(f"[RateLimit] Error getting user limit: {e}")
-        # Fall back to role-based check
-        if is_exempt:
-            return UNLIMITED_LIMIT
-        return default_limit
+        return UNLIMITED_LIMIT if is_exempt else default_limit
 
 
 async def check_rate_limit(

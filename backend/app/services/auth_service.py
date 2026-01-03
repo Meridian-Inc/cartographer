@@ -12,16 +12,16 @@ Performance optimizations:
 - Local JWT decode for expired token fast-fail
 """
 
-import json
 import hashlib
+import json
 import logging
 
 import jwt
 from fastapi import HTTPException
 
 from ..config import get_settings
-from .http_client import http_pool
 from .cache_service import cache_service
+from .http_client import http_pool
 
 logger = logging.getLogger(__name__)
 

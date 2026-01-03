@@ -67,6 +67,31 @@ async def get_redis() -> aioredis.Redis | None:
     return _redis_client
 
 
+async def _cache_get(redis: aioredis.Redis | None, key: str) -> Any | None:
+    """Read from cache (best effort, returns None on error)"""
+    if not redis:
+        return None
+    try:
+        cached = await redis.get(key)
+        if cached:
+            logger.debug(f"Cache HIT: {key}")
+            return json.loads(cached)
+    except Exception as e:
+        logger.warning(f"Cache read error: {e}")
+    return None
+
+
+async def _cache_set(redis: aioredis.Redis | None, key: str, value: Any, ttl: int) -> None:
+    """Write to cache (best effort, ignores errors)"""
+    if not redis:
+        return
+    try:
+        await redis.setex(key, ttl, json.dumps(value))
+        logger.debug(f"Cache SET: {key} (TTL: {ttl}s)")
+    except Exception as e:
+        logger.warning(f"Cache write error: {e}")
+
+
 # ==================== Model List Cache ====================
 
 
@@ -115,6 +140,48 @@ class ModelCache:
 
 # Global model cache
 model_cache = ModelCache()
+
+
+async def _get_provider_status(provider_type: ModelProvider) -> ProviderStatus:
+    """Get the status of a single provider including availability and models."""
+    try:
+        provider = get_provider(provider_type)
+        available = await provider.is_available()
+
+        if not available:
+            return ProviderStatus(
+                provider=provider_type,
+                available=False,
+                configured=False,
+                default_model=provider.default_model,
+            )
+
+        models = []
+        error_msg = None
+        try:
+            models = await model_cache.get_models(provider_type, provider)
+        except Exception as e:
+            logger.warning(f"Failed to list models for {provider_type.value}: {e}")
+            error_msg = f"Could not list models: {str(e)}"
+            models = [provider.default_model]
+
+        return ProviderStatus(
+            provider=provider_type,
+            available=True,
+            configured=True,
+            default_model=provider.default_model,
+            available_models=models,
+            error=error_msg,
+        )
+    except Exception as e:
+        logger.error(f"Error checking provider {provider_type.value}: {e}")
+        return ProviderStatus(
+            provider=provider_type,
+            available=False,
+            configured=False,
+            default_model="",
+            error=str(e),
+        )
 
 
 # System prompt for the assistant
@@ -185,53 +252,8 @@ async def get_config(user: AuthenticatedUser = Depends(require_auth)):
             logger.warning(f"Cache read error: {e}")
 
     # Cache miss - compute result
-    providers_status = []
-
-    # Fetch all provider statuses concurrently
-    async def get_provider_status(provider_type: ModelProvider) -> ProviderStatus:
-        try:
-            provider = get_provider(provider_type)
-            available = await provider.is_available()
-
-            if not available:
-                return ProviderStatus(
-                    provider=provider_type,
-                    available=False,
-                    configured=False,
-                    default_model=provider.default_model,
-                )
-
-            # Try to get models, but don't fail the whole provider if this fails
-            models = []
-            error_msg = None
-            try:
-                models = await model_cache.get_models(provider_type, provider)
-            except Exception as e:
-                logger.warning(f"Failed to list models for {provider_type.value}: {e}")
-                error_msg = f"Could not list models: {str(e)}"
-                # Use default model as fallback
-                models = [provider.default_model]
-
-            return ProviderStatus(
-                provider=provider_type,
-                available=True,
-                configured=True,
-                default_model=provider.default_model,
-                available_models=models,
-                error=error_msg,
-            )
-        except Exception as e:
-            logger.error(f"Error checking provider {provider_type.value}: {e}")
-            return ProviderStatus(
-                provider=provider_type,
-                available=False,
-                configured=False,
-                default_model="",
-                error=str(e),
-            )
-
     # Run all provider checks concurrently
-    tasks = [get_provider_status(pt) for pt in ModelProvider]
+    tasks = [_get_provider_status(pt) for pt in ModelProvider]
     providers_status = await asyncio.gather(*tasks)
 
     # Determine default provider (first available)
@@ -261,6 +283,24 @@ async def get_config(user: AuthenticatedUser = Depends(require_auth)):
     return result
 
 
+async def _get_provider_info(provider_type: ModelProvider) -> dict:
+    """Get info for a single provider (availability and default model)."""
+    try:
+        provider = get_provider(provider_type)
+        available = await provider.is_available()
+        return {
+            "provider": provider_type.value,
+            "available": available,
+            "default_model": provider.default_model,
+        }
+    except Exception as e:
+        return {
+            "provider": provider_type.value,
+            "available": False,
+            "error": str(e),
+        }
+
+
 @router.get("/providers")
 async def list_providers(user: AuthenticatedUser = Depends(require_auth)):
     """
@@ -272,48 +312,16 @@ async def list_providers(user: AuthenticatedUser = Depends(require_auth)):
     redis = await get_redis()
 
     # Try cache first
-    if redis:
-        try:
-            cached = await redis.get(cache_key)
-            if cached:
-                logger.debug(f"Cache HIT: {cache_key}")
-                return json.loads(cached)
-        except Exception as e:
-            logger.warning(f"Cache read error: {e}")
+    cached = await _cache_get(redis, cache_key)
+    if cached:
+        return cached
 
     # Cache miss - compute result
-    result = []
-
-    for provider_type in ModelProvider:
-        try:
-            provider = get_provider(provider_type)
-            available = await provider.is_available()
-
-            result.append(
-                {
-                    "provider": provider_type.value,
-                    "available": available,
-                    "default_model": provider.default_model,
-                }
-            )
-        except Exception as e:
-            result.append(
-                {
-                    "provider": provider_type.value,
-                    "available": False,
-                    "error": str(e),
-                }
-            )
-
+    result = [await _get_provider_info(provider_type) for provider_type in ModelProvider]
     response = {"providers": result}
 
     # Cache the result (best effort)
-    if redis:
-        try:
-            await redis.setex(cache_key, settings.cache_ttl_providers, json.dumps(response))
-            logger.debug(f"Cache SET: {cache_key} (TTL: {settings.cache_ttl_providers}s)")
-        except Exception as e:
-            logger.warning(f"Cache write error: {e}")
+    await _cache_set(redis, cache_key, response, settings.cache_ttl_providers)
 
     return response
 

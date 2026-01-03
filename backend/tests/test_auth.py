@@ -82,7 +82,9 @@ class TestVerifyTokenWithAuthService:
             mock.set = AsyncMock(return_value=True)
             yield mock
 
-    async def test_valid_token_returns_user(self, mock_http_pool, mock_cache_service, mock_auth_response):
+    async def test_valid_token_returns_user(
+        self, mock_http_pool, mock_cache_service, mock_auth_response
+    ):
         """Valid token should return AuthenticatedUser"""
         import json
 
@@ -123,7 +125,9 @@ class TestVerifyTokenWithAuthService:
 
     async def test_auth_service_503_raises_exception(self, mock_http_pool, mock_cache_service):
         """503 from http_pool should be re-raised"""
-        mock_http_pool.side_effect = HTTPException(status_code=503, detail="Auth service unavailable")
+        mock_http_pool.side_effect = HTTPException(
+            status_code=503, detail="Auth service unavailable"
+        )
 
         with pytest.raises(HTTPException) as exc_info:
             await verify_token_with_auth_service("token")

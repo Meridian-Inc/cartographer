@@ -89,14 +89,15 @@ async def get_config(
 ):
     """Proxy get metrics config. Requires authentication. Cached for 5 minutes."""
     cache_key = "metrics:config"
-    
+
     async def fetch_config():
         response = await proxy_metrics_request("GET", "/config")
         if hasattr(response, "body"):
             import json
+
             return json.loads(response.body)
         return response
-    
+
     return await cache.get_or_compute(cache_key, fetch_config, ttl=300)
 
 
@@ -118,14 +119,14 @@ async def get_summary(
 ):
     """
     Proxy get network summary. Requires authentication.
-    
+
     Cached for 15 seconds per network - lighter weight than full snapshot.
-    
+
     Args:
         network_id: Optional network ID for multi-tenant mode.
     """
     cache_key = cache.make_key("metrics", "summary", network_id or "default")
-    
+
     async def fetch_summary():
         params = {}
         if network_id is not None:
@@ -133,9 +134,10 @@ async def get_summary(
         response = await proxy_metrics_request("GET", "/summary", params=params if params else None)
         if hasattr(response, "body"):
             import json
+
             return json.loads(response.body)
         return response
-    
+
     return await cache.get_or_compute(cache_key, fetch_summary, ttl=15)
 
 
@@ -259,17 +261,20 @@ async def get_usage_stats(
 ):
     """Proxy get usage stats. Requires authentication. Cached for 30 seconds."""
     cache_key = cache.make_key("metrics", "usage", "stats", service or "all")
-    
+
     async def fetch_stats():
         params = {}
         if service:
             params["service"] = service
-        response = await proxy_metrics_request("GET", "/usage/stats", params=params if params else None)
+        response = await proxy_metrics_request(
+            "GET", "/usage/stats", params=params if params else None
+        )
         if hasattr(response, "body"):
             import json
+
             return json.loads(response.body)
         return response
-    
+
     return await cache.get_or_compute(cache_key, fetch_stats, ttl=30)
 
 

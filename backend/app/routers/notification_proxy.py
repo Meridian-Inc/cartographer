@@ -17,6 +17,7 @@ Performance optimizations:
 """
 
 import json
+
 from fastapi import APIRouter, Depends, Query
 
 from ..dependencies import AuthenticatedUser, require_auth, require_owner, require_write_access

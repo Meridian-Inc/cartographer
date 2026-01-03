@@ -105,78 +105,81 @@ class AnthropicProvider(BaseProvider):
         # Extract text from content blocks
         return "".join(block.text for block in response.content if hasattr(block, "text"))
 
+    def _fetch_models_sync(self) -> list[str]:
+        """Synchronously fetch all models from Anthropic API with pagination."""
+        client = self._get_sync_client()
+        all_models = []
+        after_id = None
+
+        while True:
+            page = (
+                client.models.list(limit=100, after_id=after_id)
+                if after_id
+                else client.models.list(limit=100)
+            )
+
+            for model in page.data:
+                logger.debug(f"Found Anthropic model: {model.id}")
+                all_models.append(model.id)
+
+            if not page.has_more:
+                break
+            after_id = page.last_id
+
+        return all_models
+
+    @staticmethod
+    def _get_model_version_priority(model_name: str) -> int:
+        """Get version priority for model sorting (lower = newer/better)."""
+        if "sonnet-4" in model_name or "claude-4" in model_name:
+            return 0
+        if "3-7" in model_name or "3.7" in model_name:
+            return 1
+        if "3-5" in model_name or "3.5" in model_name:
+            return 2
+        if "opus" in model_name:
+            return 3
+        if "3" in model_name:
+            return 4
+        return 10
+
+    @staticmethod
+    def _get_model_type_priority(model_name: str) -> int:
+        """Get model type priority for sorting (lower = preferred)."""
+        if "sonnet" in model_name:
+            return 0
+        if "haiku" in model_name:
+            return 1
+        if "opus" in model_name:
+            return 2
+        return 5
+
+    @staticmethod
+    def _get_model_date_suffix(model_name: str) -> int:
+        """Extract date suffix from model name for sorting (higher = newer)."""
+        for part in reversed(model_name.split("-")):
+            if part.isdigit() and len(part) == 8:
+                return int(part)
+        return 0
+
+    def _model_sort_key(self, model_name: str) -> tuple[int, int, int, str]:
+        """Generate sort key for model ordering (newest/best first)."""
+        return (
+            self._get_model_version_priority(model_name),
+            self._get_model_type_priority(model_name),
+            -self._get_model_date_suffix(model_name),
+            model_name,
+        )
+
     async def list_models(self) -> list[str]:
         """List available Anthropic models using the Models API"""
-
-        # Use sync client in a thread pool to avoid async issues with the models API
-        def fetch_models_sync():
-            client = self._get_sync_client()
-            all_models = []
-            after_id = None
-
-            while True:
-                # Call models.list with pagination
-                if after_id:
-                    page = client.models.list(limit=100, after_id=after_id)
-                else:
-                    page = client.models.list(limit=100)
-
-                # Collect model IDs
-                for model in page.data:
-                    model_id = model.id
-                    logger.debug(f"Found Anthropic model: {model_id}")
-                    all_models.append(model_id)
-
-                # Check for more pages
-                if not page.has_more:
-                    break
-
-                after_id = page.last_id
-
-            return all_models
-
-        # Run sync function in thread pool
         loop = asyncio.get_event_loop()
-        all_models = await loop.run_in_executor(None, fetch_models_sync)
+        all_models = await loop.run_in_executor(None, self._fetch_models_sync)
 
         logger.info(f"Retrieved {len(all_models)} models from Anthropic API")
 
         if not all_models:
             raise RuntimeError("Anthropic API returned no models")
 
-        # Sort with newest/best models first
-        def sort_key(model_name: str):
-            # Priority by model family (newest first)
-            version_priority = 10
-            if "sonnet-4" in model_name or "claude-4" in model_name:
-                version_priority = 0
-            elif "3-7" in model_name or "3.7" in model_name:
-                version_priority = 1
-            elif "3-5" in model_name or "3.5" in model_name:
-                version_priority = 2
-            elif "opus" in model_name:
-                version_priority = 3
-            elif "3" in model_name:
-                version_priority = 4
-
-            # Model type priority
-            type_priority = 5
-            if "sonnet" in model_name:
-                type_priority = 0
-            elif "haiku" in model_name:
-                type_priority = 1
-            elif "opus" in model_name:
-                type_priority = 2
-
-            # Get date suffix if present (newer dates first)
-            date_suffix = 0
-            parts = model_name.split("-")
-            for part in reversed(parts):
-                if part.isdigit() and len(part) == 8:
-                    date_suffix = int(part)
-                    break
-
-            return (version_priority, type_priority, -date_suffix, model_name)
-
-        all_models.sort(key=sort_key)
+        all_models.sort(key=self._model_sort_key)
         return all_models

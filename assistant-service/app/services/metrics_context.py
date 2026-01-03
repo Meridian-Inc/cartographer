@@ -315,111 +315,286 @@ class MetricsContextService:
 
         return str((row - 1) * cols + col + start_num - 1)
 
+    def _find_gateway_node(self, gw_ip: str, nodes: dict[str, Any]) -> dict[str, Any] | None:
+        """Find the gateway node by IP address."""
+        for node_id, node in nodes.items():
+            if node.get("ip") == gw_ip:
+                logger.debug(f"Found gateway node for {gw_ip}: {node.get('name')}")
+                return node
+        logger.warning(f"Could not find gateway node for IP {gw_ip}")
+        return None
+
+    def _normalize_status(self, status: Any) -> str:
+        """Normalize status to lowercase string."""
+        if isinstance(status, str):
+            return status.lower()
+        if isinstance(status, dict):
+            return status.get("value", "unknown").lower()
+        return "unknown"
+
+    def _format_test_ips(self, test_ips: list[dict[str, Any]]) -> list[str]:
+        """Format test IP connectivity information."""
+        lines = []
+        healthy = sum(1 for t in test_ips if self._normalize_status(t.get("status")) == "healthy")
+        lines.append(f"    External Connectivity: {healthy}/{len(test_ips)} test IPs healthy")
+
+        for t in test_ips:
+            tip_display = t.get("ip", "Unknown")
+            if t.get("label"):
+                tip_display += f" ({t['label']})"
+            lines.append(f"      - {tip_display}: {self._normalize_status(t.get('status'))}")
+
+        return lines
+
+    def _format_speed_test(self, speed_test: dict[str, Any]) -> list[str]:
+        """Format speed test results."""
+        lines = []
+        if not speed_test.get("success"):
+            lines.append(
+                f"    Speed Test: Failed - {speed_test.get('error_message', 'Unknown error')}"
+            )
+            return lines
+
+        download = speed_test.get("download_mbps")
+        upload = speed_test.get("upload_mbps")
+        if download is not None or upload is not None:
+            download_str = f"{download:.1f}" if download is not None else "N/A"
+            upload_str = f"{upload:.1f}" if upload is not None else "N/A"
+            lines.append(f"    Speed Test: ↓{download_str} Mbps / ↑{upload_str} Mbps")
+
+        if speed_test.get("ping_ms") is not None:
+            lines.append(f"    ISP Latency: {speed_test['ping_ms']:.1f}ms")
+
+        if speed_test.get("client_isp"):
+            lines.append(f"    ISP: {speed_test['client_isp']}")
+
+        server_sponsor = speed_test.get("server_sponsor")
+        server_location = speed_test.get("server_location")
+        if server_sponsor or server_location:
+            server_info = server_sponsor or ""
+            if server_location:
+                server_info += f" ({server_location})" if server_info else server_location
+            lines.append(f"    Test Server: {server_info}")
+
+        timestamp = speed_test.get("timestamp")
+        if timestamp:
+            ts_str = (
+                timestamp
+                if isinstance(timestamp, str)
+                else (timestamp.isoformat() if hasattr(timestamp, "isoformat") else str(timestamp))
+            )
+            lines.append(f"    Tested: {ts_str}")
+
+        return lines
+
     def _format_gateway_info(self, gateway: dict[str, Any], nodes: dict[str, Any]) -> str:
         """Format gateway/ISP information, including notes from the gateway node"""
         lines = []
-
         gw_ip = gateway.get("gateway_ip", "Unknown")
         lines.append(f"\n  Gateway: {gw_ip}")
 
-        # Find the gateway node to get its name and notes
-        # The nodes dict is keyed by node_id, so we need to search by IP
-        gateway_node = None
-        for node_id, node in nodes.items():
-            node_ip = node.get("ip")
-            if node_ip and node_ip == gw_ip:
-                gateway_node = node
-                logger.debug(f"Found gateway node for {gw_ip}: {node.get('name')}")
-                break
-
+        gateway_node = self._find_gateway_node(gw_ip, nodes)
         if gateway_node:
             gw_name = gateway_node.get("name")
             if gw_name and gw_name != gw_ip:
                 lines.append(f"    Name: {gw_name}")
-        else:
-            logger.warning(f"Could not find gateway node for IP {gw_ip}")
 
-        # Test IPs (external connectivity)
         test_ips = gateway.get("test_ips", [])
         if test_ips:
-            # Count healthy test IPs - status can be "healthy" string or HealthStatus enum value
-            healthy = 0
-            for t in test_ips:
-                status = t.get("status")
-                # Handle both string "healthy" and potential dict/object forms
-                if isinstance(status, str):
-                    if status.lower() == "healthy":
-                        healthy += 1
-                elif isinstance(status, dict):
-                    # In case it's serialized as {"value": "healthy"}
-                    if status.get("value", "").lower() == "healthy":
-                        healthy += 1
-                logger.debug(f"Test IP {t.get('ip')}: status={status}, type={type(status)}")
+            lines.extend(self._format_test_ips(test_ips))
 
-            lines.append(f"    External Connectivity: {healthy}/{len(test_ips)} test IPs healthy")
-
-            # List individual test IPs with their status
-            for t in test_ips:
-                tip_ip = t.get("ip", "Unknown")
-                tip_label = t.get("label", "")
-                tip_status = t.get("status", "unknown")
-                if isinstance(tip_status, str):
-                    tip_status = tip_status.lower()
-                elif isinstance(tip_status, dict):
-                    tip_status = tip_status.get("value", "unknown").lower()
-
-                tip_display = f"{tip_ip}"
-                if tip_label:
-                    tip_display += f" ({tip_label})"
-                lines.append(f"      - {tip_display}: {tip_status}")
-
-        # Speed test results
         speed_test = gateway.get("last_speed_test")
-        if speed_test and speed_test.get("success"):
-            download = speed_test.get("download_mbps")
-            upload = speed_test.get("upload_mbps")
-            ping = speed_test.get("ping_ms")
+        if speed_test:
+            lines.extend(self._format_speed_test(speed_test))
 
-            if download is not None or upload is not None:
-                download_str = f"{download:.1f}" if download is not None else "N/A"
-                upload_str = f"{upload:.1f}" if upload is not None else "N/A"
-                lines.append(f"    Speed Test: ↓{download_str} Mbps / ↑{upload_str} Mbps")
-            if ping is not None:
-                lines.append(f"    ISP Latency: {ping:.1f}ms")
-
-            isp = speed_test.get("client_isp")
-            if isp:
-                lines.append(f"    ISP: {isp}")
-
-            # Server info
-            server_sponsor = speed_test.get("server_sponsor")
-            server_location = speed_test.get("server_location")
-            if server_sponsor or server_location:
-                server_info = server_sponsor or ""
-                if server_location:
-                    server_info += f" ({server_location})" if server_info else server_location
-                lines.append(f"    Test Server: {server_info}")
-
-            # Timestamp of the test
-            timestamp = speed_test.get("timestamp")
-            if timestamp:
-                if isinstance(timestamp, str):
-                    lines.append(f"    Tested: {timestamp}")
-                else:
-                    lines.append(
-                        f"    Tested: {timestamp.isoformat() if hasattr(timestamp, 'isoformat') else str(timestamp)}"
-                    )
-        elif speed_test and not speed_test.get("success"):
-            # Show error if speed test failed
-            error_msg = speed_test.get("error_message", "Unknown error")
-            lines.append(f"    Speed Test: Failed - {error_msg}")
-
-        # Include notes from the gateway node
         if gateway_node and gateway_node.get("notes"):
-            notes = gateway_node.get("notes")
-            lines.append(f"    Notes: {notes}")
+            lines.append(f"    Notes: {gateway_node['notes']}")
 
         return "\n".join(lines)
+
+    def _normalize_node_role(self, role: Any) -> str:
+        """Normalize a node role to a standard string."""
+        if not isinstance(role, str):
+            return "unknown"
+        role = role.lower()
+        if "gateway" in role or "router" in role:
+            return "gateway/router"
+        if "switch" in role or "ap" in role or "access" in role:
+            return "switch/ap"
+        return role
+
+    def _group_nodes_by_role(self, nodes: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
+        """Group nodes by their role, excluding group nodes."""
+        nodes_by_role: dict[str, list[dict[str, Any]]] = {}
+        for node_id, node in nodes.items():
+            role = self._normalize_node_role(node.get("role", "unknown"))
+            if role == "group":
+                continue
+            if role not in nodes_by_role:
+                nodes_by_role[role] = []
+            nodes_by_role[role].append(node)
+        return nodes_by_role
+
+    def _format_health_summary(self, snapshot: dict[str, Any]) -> list[str]:
+        """Format the network health summary section."""
+        lines = ["\n📊 NETWORK SUMMARY"]
+        lines.append(f"Total Devices: {snapshot.get('total_nodes', 0)}")
+        lines.append("Health Status:")
+        lines.append(f"  ✅ Healthy: {snapshot.get('healthy_nodes', 0)}")
+        if snapshot.get("degraded_nodes", 0) > 0:
+            lines.append(f"  ⚠️  Degraded: {snapshot['degraded_nodes']}")
+        if snapshot.get("unhealthy_nodes", 0) > 0:
+            lines.append(f"  ❌ Unhealthy: {snapshot['unhealthy_nodes']}")
+        if snapshot.get("unknown_nodes", 0) > 0:
+            lines.append(f"  ❓ Unknown: {snapshot['unknown_nodes']}")
+        return lines
+
+    def _format_nodes_by_role(self, nodes_by_role: dict[str, list[dict[str, Any]]]) -> list[str]:
+        """Format nodes organized by role."""
+        role_order = [
+            "gateway/router",
+            "firewall",
+            "switch/ap",
+            "server",
+            "service",
+            "nas",
+            "client",
+            "unknown",
+        ]
+        role_labels = {
+            "gateway/router": "🌐 GATEWAYS & ROUTERS",
+            "firewall": "🛡️  FIREWALLS",
+            "switch/ap": "📡 SWITCHES & ACCESS POINTS",
+            "server": "🖥️  SERVERS",
+            "service": "⚙️  SERVICES",
+            "nas": "💾 NAS DEVICES",
+            "client": "💻 CLIENT DEVICES",
+            "unknown": "❓ UNKNOWN DEVICES",
+        }
+        lines = []
+        for role in role_order:
+            if role in nodes_by_role and nodes_by_role[role]:
+                lines.append(f"\n{role_labels.get(role, role.upper())}")
+                lines.append("-" * 40)
+                for node in nodes_by_role[role]:
+                    lines.append(self._format_node_info(node))
+        return lines
+
+    def _format_gateways_section(
+        self, gateways: list[dict[str, Any]], nodes: dict[str, Any]
+    ) -> list[str]:
+        """Format the gateway/ISP connectivity section."""
+        if not gateways:
+            return []
+        lines = ["\n🌍 ISP & INTERNET CONNECTIVITY", "-" * 40]
+        for gw in gateways:
+            lines.append(self._format_gateway_info(gw, nodes))
+        return lines
+
+    def _collect_lan_devices(self, nodes: dict[str, Any]) -> list[dict[str, Any]]:
+        """Collect devices with LAN port configurations."""
+        lan_devices = []
+        for node_id, node in nodes.items():
+            lan_ports = node.get("lan_ports")
+            if not lan_ports or not lan_ports.get("ports"):
+                continue
+            ports = lan_ports.get("ports", [])
+            active_ports = [p for p in ports if p.get("status") == "active"]
+            connected_ports = [
+                p
+                for p in active_ports
+                if p.get("connected_device_id") or p.get("connected_device_name")
+            ]
+            lan_devices.append(
+                {
+                    "name": node.get("name", node_id),
+                    "ip": node.get("ip", "N/A"),
+                    "total_ports": len(ports),
+                    "active_ports": len(active_ports),
+                    "connected_ports": len(connected_ports),
+                }
+            )
+        return lan_devices
+
+    def _format_lan_infrastructure(self, lan_devices: list[dict[str, Any]]) -> list[str]:
+        """Format the LAN infrastructure summary."""
+        if not lan_devices:
+            return []
+        lines = ["\n🔌 LAN INFRASTRUCTURE", "-" * 40]
+        lines.append(f"  Devices with LAN ports: {len(lan_devices)}")
+        lines.append(f"  Total ports: {sum(d['total_ports'] for d in lan_devices)}")
+        lines.append(f"  Active ports: {sum(d['active_ports'] for d in lan_devices)}")
+        lines.append(f"  Connected ports: {sum(d['connected_ports'] for d in lan_devices)}")
+        lines.append("\n  Port details are listed under each device above.")
+        return lines
+
+    def _collect_nodes_with_notes(self, nodes: dict[str, Any]) -> list[dict[str, Any]]:
+        """Collect nodes that have user notes, excluding groups."""
+        nodes_with_notes = []
+        for node_id, node in nodes.items():
+            node_role = node.get("role", "")
+            if isinstance(node_role, str) and node_role.lower() == "group":
+                continue
+            if node.get("notes"):
+                nodes_with_notes.append(
+                    {
+                        "name": node.get("name", node_id),
+                        "ip": node.get("ip", "N/A"),
+                        "notes": node.get("notes"),
+                    }
+                )
+        return nodes_with_notes
+
+    def _format_user_notes(self, nodes_with_notes: list[dict[str, Any]]) -> list[str]:
+        """Format the user notes section."""
+        if not nodes_with_notes:
+            return []
+        lines = ["\n📝 USER NOTES", "-" * 40]
+        for node_info in nodes_with_notes:
+            lines.append(f"  {node_info['name']} ({node_info['ip']}):")
+            for note_line in node_info["notes"].strip().split("\n"):
+                lines.append(f"    {note_line}")
+        return lines
+
+    def _build_context_from_snapshot(self, snapshot: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+        """Build context string and summary from a snapshot."""
+        lines = ["=" * 60, "NETWORK TOPOLOGY INFORMATION", "=" * 60]
+
+        timestamp = snapshot.get("timestamp", "")
+        if timestamp:
+            lines.append(f"\nSnapshot Time: {timestamp}")
+
+        lines.extend(self._format_health_summary(snapshot))
+
+        nodes = snapshot.get("nodes", {})
+        nodes_by_role = self._group_nodes_by_role(nodes)
+        lines.extend(self._format_nodes_by_role(nodes_by_role))
+
+        gateways = snapshot.get("gateways", [])
+        lines.extend(self._format_gateways_section(gateways, nodes))
+
+        connections = snapshot.get("connections", [])
+        if connections:
+            lines.append(f"\n🔗 NETWORK CONNECTIONS: {len(connections)} total")
+
+        lan_devices = self._collect_lan_devices(nodes)
+        lines.extend(self._format_lan_infrastructure(lan_devices))
+
+        nodes_with_notes = self._collect_nodes_with_notes(nodes)
+        lines.extend(self._format_user_notes(nodes_with_notes))
+
+        lines.append("\n" + "=" * 60)
+        context = "\n".join(lines)
+
+        summary = {
+            "total_nodes": snapshot.get("total_nodes", 0),
+            "healthy_nodes": snapshot.get("healthy_nodes", 0),
+            "unhealthy_nodes": snapshot.get("unhealthy_nodes", 0),
+            "gateway_count": len(gateways),
+            "snapshot_timestamp": timestamp,
+            "context_tokens_estimate": len(context) // 4,
+        }
+        return context, summary
 
     async def build_context_string(
         self, wait_for_data: bool = True, force_refresh: bool = False, network_id: str | None = None
@@ -435,8 +610,9 @@ class MetricsContextService:
             network_id: The network ID to build context for (multi-tenant support).
                        If None, uses legacy single-network mode for backwards compatibility.
         """
-        # Check per-network cache (skip if force_refresh)
         now = datetime.utcnow()
+
+        # Check per-network cache (skip if force_refresh)
         if network_id in self._context_cache and not force_refresh:
             cached_context, cached_summary, cache_timestamp = self._context_cache[network_id]
             if (now - cache_timestamp).total_seconds() < self._cache_ttl_seconds:
@@ -452,9 +628,7 @@ class MetricsContextService:
             logger.info(
                 f"No snapshot available yet for network_id={network_id}, waiting for metrics service..."
             )
-            snapshot = await self.wait_for_snapshot(
-                max_attempts=3, network_id=network_id
-            )  # Wait up to 15 seconds
+            snapshot = await self.wait_for_snapshot(max_attempts=3, network_id=network_id)
 
         if not snapshot:
             return (
@@ -463,201 +637,8 @@ class MetricsContextService:
                 else self._build_fallback_context()
             )
 
-        lines = []
-        lines.append("=" * 60)
-        lines.append("NETWORK TOPOLOGY INFORMATION")
-        lines.append("=" * 60)
-
-        # Timestamp
-        timestamp = snapshot.get("timestamp", "")
-        if timestamp:
-            lines.append(f"\nSnapshot Time: {timestamp}")
-
-        # Summary counts
-        total = snapshot.get("total_nodes", 0)
-        healthy = snapshot.get("healthy_nodes", 0)
-        degraded = snapshot.get("degraded_nodes", 0)
-        unhealthy = snapshot.get("unhealthy_nodes", 0)
-        unknown = snapshot.get("unknown_nodes", 0)
-
-        lines.append(f"\n📊 NETWORK SUMMARY")
-        lines.append(f"Total Devices: {total}")
-        lines.append(f"Health Status:")
-        lines.append(f"  ✅ Healthy: {healthy}")
-        if degraded > 0:
-            lines.append(f"  ⚠️  Degraded: {degraded}")
-        if unhealthy > 0:
-            lines.append(f"  ❌ Unhealthy: {unhealthy}")
-        if unknown > 0:
-            lines.append(f"  ❓ Unknown: {unknown}")
-
-        # Organize nodes by role
-        # Filter out group nodes to match frontend's device count
-        nodes = snapshot.get("nodes", {})
-        nodes_by_role: dict[str, list[dict[str, Any]]] = {}
-        for node_id, node in nodes.items():
-            role = node.get("role", "unknown")
-            # Normalize role string (handle both enum value and potential variations)
-            if isinstance(role, str):
-                role = role.lower()
-            else:
-                role = "unknown"
-
-            # Skip group nodes
-            if role == "group":
-                continue
-
-            # Map common variations
-            if "gateway" in role or "router" in role:
-                role = "gateway/router"
-            elif "switch" in role or "ap" in role or "access" in role:
-                role = "switch/ap"
-
-            if role not in nodes_by_role:
-                nodes_by_role[role] = []
-            nodes_by_role[role].append(node)
-
-            # Debug log for nodes with notes
-            if node.get("notes"):
-                logger.debug(
-                    f"Node with notes: {node.get('name')} ({node.get('ip')}): {node.get('notes')[:50]}..."
-                )
-
-        # Role display order
-        role_order = [
-            "gateway/router",
-            "firewall",
-            "switch/ap",
-            "server",
-            "service",
-            "nas",
-            "client",
-            "unknown",
-        ]
-
-        role_labels = {
-            "gateway/router": "🌐 GATEWAYS & ROUTERS",
-            "firewall": "🛡️  FIREWALLS",
-            "switch/ap": "📡 SWITCHES & ACCESS POINTS",
-            "server": "🖥️  SERVERS",
-            "service": "⚙️  SERVICES",
-            "nas": "💾 NAS DEVICES",
-            "client": "💻 CLIENT DEVICES",
-            "unknown": "❓ UNKNOWN DEVICES",
-        }
-
-        for role in role_order:
-            if role in nodes_by_role and nodes_by_role[role]:
-                lines.append(f"\n{role_labels.get(role, role.upper())}")
-                lines.append("-" * 40)
-                for node in nodes_by_role[role]:
-                    lines.append(self._format_node_info(node))
-
-        # Gateway/ISP information
-        gateways = snapshot.get("gateways", [])
-        logger.debug(f"Found {len(gateways)} gateways in snapshot")
-
-        # Log all gateway nodes for debugging
-        for node_id, node in nodes.items():
-            node_role = node.get("role")
-            if node_role and "gateway" in str(node_role).lower():
-                logger.debug(
-                    f"Gateway node: id={node_id}, ip={node.get('ip')}, name={node.get('name')}, notes={node.get('notes')}"
-                )
-
-        if gateways:
-            lines.append(f"\n🌍 ISP & INTERNET CONNECTIVITY")
-            lines.append("-" * 40)
-            for gw in gateways:
-                logger.debug(
-                    f"Processing gateway: {gw.get('gateway_ip')}, test_ips count: {len(gw.get('test_ips', []))}"
-                )
-                lines.append(self._format_gateway_info(gw, nodes))
-
-        # Connections summary
-        connections = snapshot.get("connections", [])
-        if connections:
-            lines.append(f"\n🔗 NETWORK CONNECTIONS: {len(connections)} total")
-
-        # LAN Infrastructure summary - devices with configured LAN ports
-        lan_devices = []
-        for node_id, node in nodes.items():
-            lan_ports = node.get("lan_ports")
-            if lan_ports and lan_ports.get("ports"):
-                ports = lan_ports.get("ports", [])
-                active_ports = [p for p in ports if p.get("status") == "active"]
-                connected_ports = [
-                    p
-                    for p in active_ports
-                    if p.get("connected_device_id") or p.get("connected_device_name")
-                ]
-                lan_devices.append(
-                    {
-                        "name": node.get("name", node_id),
-                        "ip": node.get("ip", "N/A"),
-                        "total_ports": len(ports),
-                        "active_ports": len(active_ports),
-                        "connected_ports": len(connected_ports),
-                        "lan_ports": lan_ports,
-                    }
-                )
-
-        if lan_devices:
-            lines.append(f"\n🔌 LAN INFRASTRUCTURE")
-            lines.append("-" * 40)
-            total_lan_ports = sum(d["total_ports"] for d in lan_devices)
-            total_active = sum(d["active_ports"] for d in lan_devices)
-            total_connected = sum(d["connected_ports"] for d in lan_devices)
-            lines.append(f"  Devices with LAN ports: {len(lan_devices)}")
-            lines.append(f"  Total ports: {total_lan_ports}")
-            lines.append(f"  Active ports: {total_active}")
-            lines.append(f"  Connected ports: {total_connected}")
-            lines.append(f"\n  Port details are listed under each device above.")
-
-        # User notes summary - collect all nodes with notes (excluding groups)
-        nodes_with_notes = []
-        for node_id, node in nodes.items():
-            # Skip group nodes
-            node_role = node.get("role", "")
-            if isinstance(node_role, str) and node_role.lower() == "group":
-                continue
-
-            if node.get("notes"):
-                nodes_with_notes.append(
-                    {
-                        "name": node.get("name", node_id),
-                        "ip": node.get("ip", "N/A"),
-                        "notes": node.get("notes"),
-                    }
-                )
-
-        if nodes_with_notes:
-            lines.append(f"\n📝 USER NOTES")
-            lines.append("-" * 40)
-            for node_info in nodes_with_notes:
-                lines.append(f"  {node_info['name']} ({node_info['ip']}):")
-                # Handle multi-line notes
-                note_lines = node_info["notes"].strip().split("\n")
-                for note_line in note_lines:
-                    lines.append(f"    {note_line}")
-
-        lines.append("\n" + "=" * 60)
-
-        context = "\n".join(lines)
-
-        # Build summary
-        summary = {
-            "total_nodes": total,
-            "healthy_nodes": healthy,
-            "unhealthy_nodes": unhealthy,
-            "gateway_count": len(gateways),
-            "snapshot_timestamp": timestamp,
-            "context_tokens_estimate": len(context) // 4,  # Rough estimate
-        }
-
-        # Update per-network cache
+        context, summary = self._build_context_from_snapshot(snapshot)
         self._context_cache[network_id] = (context, summary, now)
-
         return context, summary
 
     def _build_loading_context(self) -> tuple[str, dict[str, Any]]:

@@ -10,6 +10,7 @@ Performance optimizations:
 """
 
 import json
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from ..dependencies import AuthenticatedUser, require_auth, require_write_access

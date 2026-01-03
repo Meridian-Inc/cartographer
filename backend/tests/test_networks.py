@@ -362,7 +362,9 @@ class TestCreateNetwork:
 class TestListNetworks:
     """Tests for list_networks endpoint"""
 
-    async def test_list_networks_as_service(self, service_user, mock_db, sample_network, mock_cache):
+    async def test_list_networks_as_service(
+        self, service_user, mock_db, sample_network, mock_cache
+    ):
         """Service user should see all networks"""
         from app.routers.networks import list_networks
 
@@ -468,7 +470,9 @@ class TestUpdateNetwork:
 
         assert sample_network.name == "Updated Name"
 
-    async def test_update_network_description(self, owner_user, mock_db, sample_network, mock_cache):
+    async def test_update_network_description(
+        self, owner_user, mock_db, sample_network, mock_cache
+    ):
         """Should update network description"""
         from app.routers.networks import update_network
         from app.schemas import NetworkUpdate
@@ -671,12 +675,16 @@ class TestCreatePermission:
 
         mock_db.refresh = mock_refresh
 
-        response = await create_permission("network-123", perm_data, owner_user, mock_db, mock_cache)
+        response = await create_permission(
+            "network-123", perm_data, owner_user, mock_db, mock_cache
+        )
 
         assert response.user_id == "new-user-123"
         assert response.role == PermissionRole.VIEWER
 
-    async def test_create_permission_already_exists(self, owner_user, mock_db, sample_network, mock_cache):
+    async def test_create_permission_already_exists(
+        self, owner_user, mock_db, sample_network, mock_cache
+    ):
         """Should fail if user already has permission"""
         from app.routers.networks import create_permission
         from app.schemas import PermissionCreate
@@ -716,7 +724,9 @@ class TestCreatePermission:
         assert exc_info.value.status_code == 400
         assert "yourself" in exc_info.value.detail.lower()
 
-    async def test_create_permission_not_owner(self, admin_user, mock_db, sample_network, mock_cache):
+    async def test_create_permission_not_owner(
+        self, admin_user, mock_db, sample_network, mock_cache
+    ):
         """Non-owner should not be able to share"""
         from app.routers.networks import create_permission
         from app.schemas import PermissionCreate
@@ -764,7 +774,9 @@ class TestDeletePermission:
 
         mock_db.delete.assert_called_once()
 
-    async def test_delete_permission_not_found(self, owner_user, mock_db, sample_network, mock_cache):
+    async def test_delete_permission_not_found(
+        self, owner_user, mock_db, sample_network, mock_cache
+    ):
         """Should return 404 if permission not found"""
         from app.routers.networks import delete_permission
 
@@ -781,7 +793,9 @@ class TestDeletePermission:
 
         assert exc_info.value.status_code == 404
 
-    async def test_delete_permission_not_owner(self, admin_user, mock_db, sample_network, mock_cache):
+    async def test_delete_permission_not_owner(
+        self, admin_user, mock_db, sample_network, mock_cache
+    ):
         """Non-owner should not be able to remove access"""
         from app.routers.networks import delete_permission
 
@@ -798,7 +812,9 @@ class TestDeletePermission:
         mock_db.execute = AsyncMock(side_effect=[mock_network_result, mock_perm_result])
 
         with pytest.raises(HTTPException) as exc_info:
-            await delete_permission("network-123", "user-to-remove", admin_user, mock_db, mock_cache)
+            await delete_permission(
+                "network-123", "user-to-remove", admin_user, mock_db, mock_cache
+            )
 
         assert exc_info.value.status_code == 403
 
