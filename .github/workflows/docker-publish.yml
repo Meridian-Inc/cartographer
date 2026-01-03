@@ -21,7 +21,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  OWNER: devartech
+  OWNER: Meridian-Inc
 
 permissions:
   contents: write
