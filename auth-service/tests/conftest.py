@@ -3,8 +3,7 @@ Shared test fixtures for auth service unit tests.
 """
 
 import os
-from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 

@@ -31,13 +31,11 @@ class LocalAuthProvider(AuthProviderInterface):
     async def validate_token(self, token: str) -> IdentityClaims | None:
         """Validate local JWT token and return identity claims."""
         try:
-            payload = jwt.decode(
-                token, settings.jwt_secret, algorithms=[settings.jwt_algorithm]
-            )
+            payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
 
             # Import here to avoid circular imports
-            from ...services.auth_service import auth_service
             from ...database import async_session_maker
+            from ...services.auth_service import auth_service
 
             async with async_session_maker() as db:
                 user = await auth_service.get_user(db, payload["sub"])

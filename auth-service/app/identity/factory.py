@@ -49,8 +49,7 @@ def get_auth_provider() -> AuthProviderInterface:
 
     else:
         raise ValueError(
-            f"Unknown auth provider: {auth_mode}. "
-            f"Valid values are: 'local', 'cloud'"
+            f"Unknown auth provider: {auth_mode}. " f"Valid values are: 'local', 'cloud'"
         )
 
 

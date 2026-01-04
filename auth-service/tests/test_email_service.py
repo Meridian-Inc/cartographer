@@ -5,8 +5,6 @@ Unit tests for email_service module.
 import os
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from app.config import settings
 from app.services.email_service import _get_resend, is_email_configured, send_invitation_email
 
@@ -110,7 +108,6 @@ class TestSendInvitationEmail:
 
     def test_returns_none_when_not_configured(self):
         """Should return None when email not configured"""
-        from app.services import email_service
 
         with patch.object(settings, "resend_api_key", ""):
             result = send_invitation_email(

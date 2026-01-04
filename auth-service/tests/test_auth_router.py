@@ -591,7 +591,7 @@ class TestInviteEndpoints:
     def test_list_invites(self, client, mock_owner):
         """Should list invites"""
         with patch("app.routers.auth.auth_service") as mock_service:
-            from app.models import InviteResponse, TokenPayload
+            from app.models import TokenPayload
 
             mock_service.verify_token.return_value = TokenPayload(
                 sub=mock_owner.id,

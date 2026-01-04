@@ -7,9 +7,9 @@ import enum
 from datetime import datetime
 from uuid import uuid4
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, UniqueConstraint
+from sqlalchemy import JSON, Boolean, DateTime
 from sqlalchemy import Enum as SQLEnum
-from sqlalchemy import String
+from sqlalchemy import ForeignKey, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -79,9 +79,7 @@ class User(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
-    last_login_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     provider_links: Mapped[list["ProviderLink"]] = relationship(
@@ -158,6 +156,4 @@ class ProviderLink(Base):
     user: Mapped["User"] = relationship("User", back_populates="provider_links")
 
     # Ensure unique provider + provider_user_id combination
-    __table_args__ = (
-        UniqueConstraint("provider", "provider_user_id", name="uq_provider_user"),
-    )
+    __table_args__ = (UniqueConstraint("provider", "provider_user_id", name="uq_provider_user"),)

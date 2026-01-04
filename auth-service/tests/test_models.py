@@ -10,9 +10,7 @@ from pydantic import ValidationError
 from app.models import (
     AcceptInviteRequest,
     ChangePasswordRequest,
-    ErrorResponse,
     InviteCreate,
-    InviteInDB,
     InviteResponse,
     InviteStatus,
     InviteTokenInfo,
@@ -24,7 +22,6 @@ from app.models import (
     TokenPayload,
     UserBase,
     UserCreate,
-    UserInDB,
     UserResponse,
     UserRole,
     UserUpdate,
@@ -72,7 +69,7 @@ class TestUserBase:
         # Valid usernames
         user1 = UserBase(username="test_user", first_name="T", last_name="U", email="t@t.com")
         user2 = UserBase(username="test-user", first_name="T", last_name="U", email="t@t.com")
-        user3 = UserBase(username="testUser123", first_name="T", last_name="U", email="t@t.com")
+        UserBase(username="testUser123", first_name="T", last_name="U", email="t@t.com")
 
         assert user1.username == "test_user"
         assert user2.username == "test-user"

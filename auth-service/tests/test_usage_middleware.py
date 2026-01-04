@@ -310,7 +310,6 @@ class TestUsageTrackingMiddleware:
 
         # Mock _flush_buffer
         flush_count = 0
-        original_flush = middleware._flush_buffer
 
         async def mock_flush():
             nonlocal flush_count

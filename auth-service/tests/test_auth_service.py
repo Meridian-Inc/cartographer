@@ -1291,7 +1291,6 @@ class TestCreateInvite:
     @pytest.mark.asyncio
     async def test_create_invite_success(self):
         """Should create invite successfully"""
-        from app.db_models import InviteStatus
         from app.models import InviteCreate
 
         service = AuthService()
@@ -2110,7 +2109,7 @@ class TestPreferences:
 
         request = UserPreferencesUpdate(dark_mode=True)
 
-        result = await service.update_preferences(mock_db, mock_user, request)
+        await service.update_preferences(mock_db, mock_user, request)
 
         mock_db.commit.assert_called_once()
         mock_db.refresh.assert_called_once()
@@ -2119,7 +2118,6 @@ class TestPreferences:
     @pytest.mark.asyncio
     async def test_update_preferences_remove_value(self):
         """Should remove preference when set to None explicitly"""
-        from app.models import UserPreferencesUpdate
 
         service = AuthService()
         mock_db = AsyncMock()
@@ -2133,7 +2131,7 @@ class TestPreferences:
         request = MagicMock()
         request.model_dump.return_value = {"dark_mode": None}
 
-        result = await service.update_preferences(mock_db, mock_user, request)
+        await service.update_preferences(mock_db, mock_user, request)
 
         mock_db.commit.assert_called_once()
         # dark_mode should be removed since it was explicitly set to None
@@ -2156,7 +2154,7 @@ class TestPreferences:
 
         request = UserPreferencesUpdate(dark_mode=True)
 
-        result = await service.update_preferences(mock_db, mock_user, request)
+        await service.update_preferences(mock_db, mock_user, request)
 
         mock_db.commit.assert_called_once()
         assert mock_user.preferences is not None
@@ -2194,7 +2192,7 @@ class TestUpdateUserExtended:
 
         request = UserUpdate(last_name="NewLastName")
 
-        result = await service.update_user(mock_db, "user-123", request, mock_owner)
+        await service.update_user(mock_db, "user-123", request, mock_owner)
 
         assert mock_user.last_name == "NewLastName"
 
@@ -2237,7 +2235,7 @@ class TestUpdateUserExtended:
 
         request = UserUpdate(email="new@test.com")
 
-        result = await service.update_user(mock_db, "user-123", request, mock_owner)
+        await service.update_user(mock_db, "user-123", request, mock_owner)
 
         assert mock_user.email == "new@test.com"
 
@@ -2270,7 +2268,7 @@ class TestUpdateUserExtended:
 
         request = UserUpdate(role=UserRole.ADMIN)
 
-        result = await service.update_user(mock_db, "user-123", request, mock_owner)
+        await service.update_user(mock_db, "user-123", request, mock_owner)
 
         assert mock_user.role == UserRole.ADMIN
 

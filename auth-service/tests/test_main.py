@@ -2,7 +2,6 @@
 Unit tests for main application module.
 """
 
-import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -105,7 +104,6 @@ class TestLifespan:
     @pytest.mark.asyncio
     async def test_lifespan_with_alembic_success(self):
         """Should run migrations successfully"""
-        import subprocess
 
         from fastapi import FastAPI
 

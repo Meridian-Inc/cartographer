@@ -11,7 +11,7 @@ Tests for:
 
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import pytest
 
@@ -851,7 +851,7 @@ class TestUserSync:
         mock_db.commit = AsyncMock()
         mock_db.refresh = AsyncMock()
 
-        result = await link_provider(mock_db, "user-123", AuthProvider.CLERK, "clerk_456")
+        await link_provider(mock_db, "user-123", AuthProvider.CLERK, "clerk_456")
 
         mock_db.add.assert_called_once()
 

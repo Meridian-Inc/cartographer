@@ -6,13 +6,122 @@ which remains the source of truth for user data.
 """
 
 from datetime import datetime, timezone
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db_models import ProviderLink, User, UserRole
 from .claims import AuthProvider, IdentityClaims
+
+
+def _update_user_profile(user: User, claims: IdentityClaims) -> bool:
+    """Update user profile fields from claims. Returns True if updated."""
+    if claims.first_name:
+        user.first_name = claims.first_name
+    if claims.last_name:
+        user.last_name = claims.last_name
+    if claims.email:
+        user.email = claims.email
+    user.is_verified = claims.email_verified
+    user.updated_at = datetime.now(timezone.utc)
+    return True
+
+
+async def _get_unique_username(db: AsyncSession, base_username: str) -> str:
+    """Generate a unique username based on the base username."""
+    username = base_username
+    counter = 1
+    while True:
+        existing = await db.execute(select(User).where(User.username == username))
+        if not existing.scalar_one_or_none():
+            return username
+        username = f"{base_username}{counter}"
+        counter += 1
+
+
+async def _handle_existing_link(
+    db: AsyncSession,
+    link: ProviderLink,
+    claims: IdentityClaims,
+    update_profile: bool,
+) -> tuple[UUID | None, bool, bool]:
+    """Handle sync when provider link already exists."""
+    user_result = await db.execute(select(User).where(User.id == link.user_id))
+    user = user_result.scalar_one_or_none()
+
+    updated = False
+    if user and update_profile:
+        _update_user_profile(user, claims)
+        await db.commit()
+        updated = True
+
+    return UUID(link.user_id) if link.user_id else None, False, updated
+
+
+async def _handle_email_match(
+    db: AsyncSession,
+    user: User,
+    claims: IdentityClaims,
+    update_profile: bool,
+) -> tuple[UUID, bool, bool]:
+    """Handle sync when user exists with matching email but no provider link."""
+    new_link = ProviderLink(
+        user_id=user.id,
+        provider=claims.provider.value,
+        provider_user_id=claims.provider_user_id,
+    )
+    db.add(new_link)
+
+    updated = False
+    if update_profile:
+        if claims.first_name:
+            user.first_name = claims.first_name
+        if claims.last_name:
+            user.last_name = claims.last_name
+        user.is_verified = claims.email_verified
+        user.updated_at = datetime.now(timezone.utc)
+        updated = True
+
+    await db.commit()
+    return UUID(user.id), False, updated
+
+
+async def _create_new_user(
+    db: AsyncSession,
+    claims: IdentityClaims,
+) -> tuple[UUID, bool, bool]:
+    """Create a new user from claims."""
+    # Generate username from email if not provided
+    username = claims.username
+    if not username:
+        base_username = claims.email.split("@")[0].lower()
+        username = await _get_unique_username(db, base_username)
+
+    new_user = User(
+        id=str(uuid4()),
+        username=username,
+        email=claims.email.lower(),
+        first_name=claims.first_name or "",
+        last_name=claims.last_name or "",
+        hashed_password="",  # No password for external auth
+        role=UserRole.MEMBER,
+        is_active=True,
+        is_verified=claims.email_verified,
+    )
+    db.add(new_user)
+    await db.flush()  # Get the ID
+
+    # Create provider link
+    new_link = ProviderLink(
+        user_id=new_user.id,
+        provider=claims.provider.value,
+        provider_user_id=claims.provider_user_id,
+    )
+    db.add(new_link)
+
+    await db.commit()
+    return UUID(new_user.id), True, False
 
 
 async def sync_provider_user(
@@ -39,9 +148,6 @@ async def sync_provider_user(
         - created: True if a new user was created
         - updated: True if an existing user was updated
     """
-    created = False
-    updated = False
-
     # Check for existing provider link
     result = await db.execute(
         select(ProviderLink).where(
@@ -52,95 +158,20 @@ async def sync_provider_user(
     link = result.scalar_one_or_none()
 
     if link:
-        # Found existing link - update user if requested
-        user_result = await db.execute(select(User).where(User.id == link.user_id))
-        user = user_result.scalar_one_or_none()
-
-        if user and update_profile:
-            if claims.first_name:
-                user.first_name = claims.first_name
-            if claims.last_name:
-                user.last_name = claims.last_name
-            if claims.email:
-                user.email = claims.email
-            user.is_verified = claims.email_verified
-            user.updated_at = datetime.now(timezone.utc)
-            await db.commit()
-            updated = True
-
-        return UUID(link.user_id) if link.user_id else None, created, updated
+        return await _handle_existing_link(db, link, claims, update_profile)
 
     # No link found - try to match by email
     result = await db.execute(select(User).where(User.email == claims.email.lower()))
     user = result.scalar_one_or_none()
 
     if user:
-        # Found user by email - create link
-        new_link = ProviderLink(
-            user_id=user.id,
-            provider=claims.provider.value,
-            provider_user_id=claims.provider_user_id,
-        )
-        db.add(new_link)
-
-        if update_profile:
-            if claims.first_name:
-                user.first_name = claims.first_name
-            if claims.last_name:
-                user.last_name = claims.last_name
-            user.is_verified = claims.email_verified
-            user.updated_at = datetime.now(timezone.utc)
-            updated = True
-
-        await db.commit()
-        return UUID(user.id), created, updated
+        return await _handle_email_match(db, user, claims, update_profile)
 
     # No user found - create if allowed
     if not create_if_missing:
-        return None, created, updated
+        return None, False, False
 
-    # Generate username from email if not provided
-    username = claims.username
-    if not username:
-        username = claims.email.split("@")[0].lower()
-        # Ensure uniqueness
-        base_username = username
-        counter = 1
-        while True:
-            existing = await db.execute(select(User).where(User.username == username))
-            if not existing.scalar_one_or_none():
-                break
-            username = f"{base_username}{counter}"
-            counter += 1
-
-    # Create new user
-    from uuid import uuid4
-
-    new_user = User(
-        id=str(uuid4()),
-        username=username,
-        email=claims.email.lower(),
-        first_name=claims.first_name or "",
-        last_name=claims.last_name or "",
-        hashed_password="",  # No password for external auth
-        role=UserRole.MEMBER,
-        is_active=True,
-        is_verified=claims.email_verified,
-    )
-    db.add(new_user)
-    await db.flush()  # Get the ID
-
-    # Create provider link
-    new_link = ProviderLink(
-        user_id=new_user.id,
-        provider=claims.provider.value,
-        provider_user_id=claims.provider_user_id,
-    )
-    db.add(new_link)
-
-    await db.commit()
-    created = True
-    return UUID(new_user.id), created, updated
+    return await _create_new_user(db, claims)
 
 
 async def deactivate_provider_user(

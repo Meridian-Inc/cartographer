@@ -2,7 +2,6 @@
 Edge case and integration tests for additional coverage.
 """
 
-import os
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -12,7 +11,7 @@ from fastapi.testclient import TestClient
 
 from app.database import get_db
 from app.db_models import User
-from app.models import InviteStatus, TokenPayload, UserResponse, UserRole, UserUpdate
+from app.models import InviteStatus, TokenPayload, UserResponse, UserRole
 from app.routers.auth import get_current_user, require_auth, router
 
 
@@ -348,7 +347,6 @@ class TestMoreRouterEndpoints:
 
     def test_get_current_profile_success(self, app, client, mock_owner):
         """Should get current user profile"""
-        from app.models import UserResponse
 
         async def mock_get_current_user():
             return mock_owner
@@ -502,7 +500,6 @@ class TestMoreRouterEndpoints:
 
     def test_update_profile_success(self, app, client, mock_owner):
         """Should update profile"""
-        from app.models import UserResponse
 
         async def mock_get_current_user():
             return mock_owner
@@ -674,7 +671,6 @@ class TestRegistrationEndpoint:
 
     def test_register_success(self, app, client, mock_db_session):
         """Should register user successfully"""
-        from app.models import UserResponse
 
         now = datetime.now(timezone.utc)
         mock_user = MagicMock()
@@ -938,8 +934,6 @@ class TestGetCurrentUserEdgeCases:
         """Should return None if user not found"""
         from fastapi.security import HTTPAuthorizationCredentials
 
-        from app.models import TokenPayload
-
         mock_credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="token123")
         mock_db = AsyncMock()
 
@@ -960,8 +954,6 @@ class TestGetCurrentUserEdgeCases:
     async def test_get_current_user_inactive_user(self):
         """Should return None for inactive user"""
         from fastapi.security import HTTPAuthorizationCredentials
-
-        from app.models import TokenPayload
 
         mock_credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="token123")
         mock_db = AsyncMock()
