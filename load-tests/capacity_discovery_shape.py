@@ -10,7 +10,7 @@ Algorithm:
 3. Monitor performance metrics:
    - P95 latency threshold (default: 200ms for normal endpoints, 10s for long ops)
    - Error rate threshold (default: 1%)
-4. Stop when thresholds are exceeded or max_users reached
+4. Stop when thresholds exceeded or max duration reached (default: 1 hour)
 5. Report the "knee" point = maximum sustainable capacity
 
 This answers: "What can my system handle right now?"
@@ -24,25 +24,26 @@ from locust import LoadTestShape
 class CapacityDiscoveryShape(LoadTestShape):
     """
     Capacity discovery load test shape.
-    
+
     Gradually increases load to find the system's performance limits.
-    Stops when P95 latency exceeds threshold or error rate > 1%.
-    
+    Stops when P95 latency exceeds threshold, error rate > 1%, or max duration reached.
+    Runs until failure - no user limit.
+
     Configuration via environment variables:
         RAMP_INITIAL_USERS: Starting number of users (default: 10)
         RAMP_STEP: Users to add per step (default: 10)
         RAMP_INTERVAL: Seconds between steps (default: 90)
-        RAMP_MAX_USERS: Maximum users before stopping (default: 200)
+        RAMP_MAX_DURATION: Maximum test duration in seconds (default: 3600 = 1 hour)
         RAMP_P95_THRESHOLD: P95 latency threshold in ms (default: 200)
         RAMP_ERROR_THRESHOLD: Error rate threshold (default: 0.01 = 1%)
         RAMP_SPAWN_RATE: User spawn rate per second (default: 5)
     """
-    
+
     # Default configuration
     initial_users = 10          # Start with 10 users
     ramp_step = 10              # Add 10 users per step
     ramp_interval = 90          # Every 90 seconds (1.5 min)
-    max_users = 200             # Stop at 200 users max
+    max_duration = 3600         # 1 hour max duration
     p95_threshold = 200         # 200ms P95 latency threshold
     error_threshold = 0.01      # 1% error rate threshold
     spawn_rate = 5              # Spawn 5 users per second
@@ -59,30 +60,31 @@ class CapacityDiscoveryShape(LoadTestShape):
         super().__init__()
         # Explicitly override any parent class initialization of start_time
         self._test_start_time = None  # Use a different name to avoid conflicts
-        
+
         # Read configuration from environment if available
         import os
         self.initial_users = int(os.getenv("RAMP_INITIAL_USERS", self.initial_users))
         self.ramp_step = int(os.getenv("RAMP_STEP", self.ramp_step))
         self.ramp_interval = int(os.getenv("RAMP_INTERVAL", self.ramp_interval))
-        self.max_users = int(os.getenv("RAMP_MAX_USERS", self.max_users))
+        self.max_duration = int(os.getenv("RAMP_MAX_DURATION", self.max_duration))
         self.p95_threshold = float(os.getenv("RAMP_P95_THRESHOLD", self.p95_threshold))
         self.error_threshold = float(os.getenv("RAMP_ERROR_THRESHOLD", self.error_threshold))
         self.spawn_rate = int(os.getenv("RAMP_SPAWN_RATE", self.spawn_rate))
-        
+
         print(f"\n{'='*70}")
         print(f"🔍 CAPACITY DISCOVERY LOAD TEST")
         print(f"{'='*70}")
         print(f"Configuration:")
         print(f"  Initial Users:     {self.initial_users}")
         print(f"  Ramp Step:         +{self.ramp_step} users every {self.ramp_interval}s")
-        print(f"  Max Users:         {self.max_users}")
+        print(f"  Max Users:         unlimited (runs until failure)")
+        print(f"  Max Duration:      {self.max_duration}s ({self.max_duration // 60}m)")
         print(f"  Spawn Rate:        {self.spawn_rate}/s")
         print(f"  P95 Threshold:     {self.p95_threshold}ms")
         print(f"  Error Threshold:   {self.error_threshold*100:.1f}%")
         print(f"{'='*70}")
         print(f"⚠️  NOTE: --run-time flag is IGNORED by this shape")
-        print(f"⚠️  Test will stop automatically when finding capacity limit")
+        print(f"⚠️  Test stops when: P95/error thresholds exceeded OR max duration reached")
         print(f"{'='*70}\n")
     
     @property
@@ -105,32 +107,29 @@ class CapacityDiscoveryShape(LoadTestShape):
         if self._test_start_time is None:
             self._test_start_time = time.time()
             print(f"[DEBUG] Initialized _test_start_time at {self._test_start_time}")
-        
+
         if self.stopped:
             return None
-        
+
         run_time = time.time() - self._test_start_time
-        
+
+        # Check if max duration reached
+        if run_time >= self.max_duration:
+            self.stopped = True
+            target_users = self.initial_users + (self.current_step * self.ramp_step)
+            self.stop_reason = f"Max duration reached ({self.max_duration}s / {self.max_duration // 60}m)"
+            self.knee_point = target_users  # System was still healthy at this load
+            print(f"\n⏱️  MAX DURATION REACHED: {self.stop_reason}")
+            print(f"🎯 System handled {self.knee_point} concurrent users without degradation")
+            print(f"   (Test ended before finding capacity limit)\n")
+            return None
+
         # Calculate current step based on elapsed time
         self.current_step = int(run_time / self.ramp_interval)
-        
-        # Calculate target user count
+
+        # Calculate target user count (no limit - runs until failure)
         target_users = self.initial_users + (self.current_step * self.ramp_step)
-        
-        # Cap at max_users
-        if target_users > self.max_users:
-            target_users = self.max_users
-        
-        # Check if we've hit max users and should stop
-        if target_users >= self.max_users and self.current_step > 0:
-            self.stopped = True
-            self.stop_reason = f"Max users reached ({self.max_users})"
-            self.knee_point = self.max_users
-            print(f"\n⚠️  CAPACITY TEST COMPLETE: {self.stop_reason}")
-            print(f"🎯 System handled {self.knee_point} concurrent users successfully\n")
-            # Return max_users one last time, then stop on next tick
-            return (target_users, self.spawn_rate)
-        
+
         # Check performance metrics (if we have stats and we're past first step)
         if self.current_step > 0 and self._should_stop_based_on_metrics():
             self.stopped = True
@@ -140,14 +139,14 @@ class CapacityDiscoveryShape(LoadTestShape):
             print(f"🎯 Knee Point Found: {self.knee_point} concurrent users")
             print(f"   (Performance degraded at {target_users} users)\n")
             return None
-        
+
         # Log current step only when it changes
         if self.current_step != self.last_logged_step:
             elapsed_min = int(run_time / 60)
             print(f"⏱️  Step {self.current_step + 1} ({elapsed_min}m {int(run_time % 60)}s): "
                   f"Ramping to {target_users} users...")
             self.last_logged_step = self.current_step
-        
+
         return (target_users, self.spawn_rate)
     
     def _should_stop_based_on_metrics(self) -> bool:
@@ -208,9 +207,8 @@ class ConservativeCapacityDiscoveryShape(CapacityDiscoveryShape):
 class HighCapacityDiscoveryShape(CapacityDiscoveryShape):
     """
     High-capacity discovery for larger systems.
-    Starts at 20 users, adds 20 per step, up to 500 max.
+    Starts at 20 users, adds 20 per step.
     """
     initial_users = 20
     ramp_step = 20
-    max_users = 500
 

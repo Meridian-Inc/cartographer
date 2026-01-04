@@ -3,6 +3,7 @@ Capacity Discovery Load Test for Cartographer
 
 This load test automatically discovers system capacity by ramping up load
 until performance degrades. It finds the "knee" of the performance curve.
+Runs until failure (P95 or error rate thresholds exceeded) or max duration.
 
 Usage:
     locust -f locustfile_capacity_discovery.py --host http://localhost:8000 \
@@ -11,11 +12,11 @@ Usage:
 Environment Variables:
     LOADTEST_USERNAME: Username for authentication (required)
     LOADTEST_PASSWORD: Password for authentication (required)
-    
+
     RAMP_INITIAL_USERS: Starting number of users (default: 10)
     RAMP_STEP: Users to add per step (default: 10)
     RAMP_INTERVAL: Seconds between steps (default: 90)
-    RAMP_MAX_USERS: Maximum users before stopping (default: 200)
+    RAMP_MAX_DURATION: Maximum test duration in seconds (default: 3600 = 1 hour)
     RAMP_P95_THRESHOLD: P95 latency threshold in ms (default: 200)
     RAMP_ERROR_THRESHOLD: Error rate threshold (default: 0.01 = 1%)
     RAMP_SPAWN_RATE: User spawn rate per second (default: 5)
@@ -119,7 +120,7 @@ def on_test_stop(environment, **kwargs):
             if hasattr(shape, 'stop_reason') and shape.stop_reason:
                 print(f"📉 Stopped because: {shape.stop_reason}")
         else:
-            print(f"⚠️  No capacity limit found (may have reached max_users)")
+            print(f"⚠️  No capacity limit found (test may still be running)")
     
     # Print overall statistics
     stats = environment.stats.total

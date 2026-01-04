@@ -7,19 +7,19 @@ name: Load Tests
 # CAPACITY DISCOVERY (Default - Recommended):
 #   Automatically finds system capacity by ramping load until performance degrades.
 #   Answers: "What can my system handle right now?"
-#   
+#
 #   Algorithm:
 #     1. Start with initial_users (default: 10)
 #     2. Add ramp_step users (default: +10) every ramp_interval seconds (default: 90s)
 #     3. Monitor: P95 latency < 200ms AND error rate < 1%
-#     4. Stop when thresholds exceeded or max_users reached
+#     4. Stop when thresholds exceeded (runs until failure - no user limit)
 #     5. Report the "knee point" = maximum sustainable capacity
 #
 #   Configuration:
 #     - Initial Users:     10 (starting point)
 #     - Ramp Step:         +10 users per interval
 #     - Ramp Interval:     90s (1.5 minutes between ramps)
-#     - Max Users:         200 (safety limit)
+#     - Max Duration:      3600s (1 hour)
 #     - P95 Threshold:     200ms
 #     - Error Threshold:   1%
 #
@@ -73,11 +73,6 @@ on:
         required: false
         default: '90'
         type: string
-      ramp_max_users:
-        description: '[Capacity Discovery] Maximum users before stopping'
-        required: false
-        default: '200'
-        type: string
       service:
         description: 'Service to test (all, auth, health, metrics, assistant, notifications)'
         required: false
@@ -104,6 +99,8 @@ jobs:
   load-test:
     runs-on: ubuntu-latest
     timeout-minutes: 45  # Increased for longer load tests
+    permissions:
+      contents: write  # Needed to commit badge data
     
     # Use service containers for dependencies
     services:
@@ -413,6 +410,7 @@ jobs:
       
       # Run load tests
       - name: Run load tests
+        id: run_tests
         working-directory: load-tests
         run: |
           TEST_TYPE="${{ github.event.inputs.test_type || 'capacity_discovery' }}"
@@ -428,24 +426,24 @@ jobs:
             RAMP_INITIAL="${{ github.event.inputs.ramp_initial_users || '10' }}"
             RAMP_STEP="${{ github.event.inputs.ramp_step || '10' }}"
             RAMP_INTERVAL="${{ github.event.inputs.ramp_interval || '90' }}"
-            RAMP_MAX="${{ github.event.inputs.ramp_max_users || '200' }}"
             SPAWN_RATE="${{ github.event.inputs.spawn_rate || '5' }}"
-            
+
             echo "🔍 CAPACITY DISCOVERY MODE"
             echo "  Initial Users:  $RAMP_INITIAL"
             echo "  Ramp Step:      +$RAMP_STEP users every ${RAMP_INTERVAL}s"
-            echo "  Max Users:      $RAMP_MAX"
+            echo "  Max Users:      unlimited (runs until failure)"
+            echo "  Max Duration:   1 hour"
             echo "  Spawn Rate:     $SPAWN_RATE/s"
-            echo "  Stop when:      P95 > 200ms OR Error rate > 1%"
+            echo "  Stop when:      P95 > 200ms OR Error rate > 1% OR 1h elapsed"
             echo ""
             
-            # Run capacity discovery test using locust directly
+            # Run capacity discovery test using locust directly, capture output
             locust -f locustfile_capacity_discovery.py \
               --host http://localhost:8000 \
               --html capacity_discovery_report.html \
               --headless \
               --only-summary \
-              --stop-timeout 10
+              --stop-timeout 10 2>&1 | tee capacity_discovery_output.log
             
           else
             # Fixed Load Mode (legacy)
@@ -466,7 +464,7 @@ jobs:
               --time "$DURATION" \
               --html load_test_report.html \
               --username loadtest_admin \
-              --password "LoadTest123!"
+              --password "LoadTest123!" 2>&1 | tee load_test_output.log
           fi
         env:
           LOADTEST_USERNAME: loadtest_admin
@@ -474,7 +472,7 @@ jobs:
           RAMP_INITIAL_USERS: ${{ github.event.inputs.ramp_initial_users || '10' }}
           RAMP_STEP: ${{ github.event.inputs.ramp_step || '10' }}
           RAMP_INTERVAL: ${{ github.event.inputs.ramp_interval || '90' }}
-          RAMP_MAX_USERS: ${{ github.event.inputs.ramp_max_users || '200' }}
+          RAMP_MAX_DURATION: '3600'
           RAMP_P95_THRESHOLD: '200'
           RAMP_ERROR_THRESHOLD: '0.01'
           RAMP_SPAWN_RATE: ${{ github.event.inputs.spawn_rate || '5' }}
@@ -487,6 +485,67 @@ jobs:
           name: load-test-report-${{ github.event.inputs.test_type || 'capacity_discovery' }}-${{ github.event.inputs.service || 'all' }}-${{ github.event_name == 'schedule' && format('nightly-{0}', github.run_number) || format('manual-{0}', github.run_number) }}
           path: load-tests/*_report.html
           retention-days: ${{ github.event_name == 'schedule' && 90 || 30 }}
+      
+      # Parse and extract load test results
+      - name: Extract load test results
+        id: extract_results
+        if: always()
+        working-directory: load-tests
+        run: |
+          echo "📊 Extracting load test results..."
+          
+          # Initialize variables
+          MAX_USERS="unknown"
+          STATUS="failed"
+          TEST_TYPE="${{ github.event.inputs.test_type || 'capacity_discovery' }}"
+          
+          # For capacity discovery, parse the output log
+          if [ -f "capacity_discovery_output.log" ]; then
+            echo "✓ Capacity discovery output log found"
+            
+            # Extract knee point from the output
+            # Look for line like: "🎯 Maximum Sustainable Capacity: 120 concurrent users"
+            if grep -q "Maximum Sustainable Capacity:" capacity_discovery_output.log; then
+              MAX_USERS=$(grep "Maximum Sustainable Capacity:" capacity_discovery_output.log | grep -oP '\d+(?= concurrent users)')
+              STATUS="passed"
+              echo "✓ Found capacity: $MAX_USERS users"
+            elif grep -q "CAPACITY TEST COMPLETE" capacity_discovery_output.log; then
+              # Test completed but hit max users without degradation
+              MAX_USERS=$(grep -oP 'System handled \K\d+(?= concurrent users)' capacity_discovery_output.log | tail -1)
+              STATUS="passed"
+              echo "✓ Test completed at max capacity: $MAX_USERS users"
+            elif [ -f "capacity_discovery_report.html" ]; then
+              # Test ran but we couldn't extract knee point from logs
+              # Default to "completed" status
+              STATUS="completed"
+              echo "⚠️  Test completed but couldn't extract exact capacity"
+            fi
+          elif [ -f "load_test_output.log" ]; then
+            echo "✓ Fixed load test output log found"
+            MAX_USERS="${{ github.event.inputs.users || '50' }}"
+            
+            # Check if test had acceptable error rate
+            if grep -q "All stats" load_test_output.log; then
+              STATUS="passed"
+            fi
+          fi
+          
+          # Fallback: check if report files exist
+          if [ "$STATUS" = "failed" ]; then
+            if [ -f "capacity_discovery_report.html" ] || [ -f "load_test_report.html" ]; then
+              STATUS="completed"
+              echo "⚠️  Test completed but status unclear"
+            fi
+          fi
+          
+          echo ""
+          echo "Final Results:"
+          echo "  Max Users: $MAX_USERS"
+          echo "  Status: $STATUS"
+          
+          # Export for badge generation
+          echo "max_users=$MAX_USERS" >> $GITHUB_OUTPUT
+          echo "status=$STATUS" >> $GITHUB_OUTPUT
       
       # Parse and check results for scheduled runs
       - name: Check for performance issues
@@ -532,6 +591,71 @@ jobs:
           
           echo "✓ Capacity analysis complete (manual review recommended)"
       
+      # Create badge endpoint (shields.io dynamic badge)
+      - name: Create badge data
+        if: github.event_name == 'schedule'
+        working-directory: load-tests
+        run: |
+          MAX_USERS="${{ steps.extract_results.outputs.max_users }}"
+          STATUS="${{ steps.extract_results.outputs.status }}"
+          
+          echo "📛 Creating badge data..."
+          echo "  Max Users: $MAX_USERS"
+          echo "  Status: $STATUS"
+          
+          # Determine badge color and message based on status
+          if [ "$STATUS" = "passed" ]; then
+            COLOR="brightgreen"
+            if [ "$MAX_USERS" != "unknown" ]; then
+              MESSAGE="${MAX_USERS}+ users"
+            else
+              MESSAGE="passing"
+            fi
+          elif [ "$STATUS" = "completed" ]; then
+            COLOR="yellow"
+            MESSAGE="completed"
+          else
+            COLOR="red"
+            MESSAGE="failed"
+          fi
+          
+          # Create badge JSON for shields.io endpoint pattern
+          cat > badge.json << EOF
+{
+  "schemaVersion": 1,
+  "label": "nightly load test",
+  "message": "$MESSAGE",
+  "color": "$COLOR"
+}
+EOF
+          
+          echo "✓ Badge data created:"
+          cat badge.json
+      
+      # Commit badge data to repository (on main branch only)
+      - name: Update badge data in repository
+        if: github.event_name == 'schedule' && github.ref == 'refs/heads/main'
+        run: |
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Check if there are changes
+          if [ -f "load-tests/badge.json" ]; then
+            git add load-tests/badge.json
+            
+            # Only commit if there are changes
+            if git diff --staged --quiet; then
+              echo "ℹ️  No changes to badge data"
+            else
+              git commit -m "chore(ci): update nightly load test badge [skip ci]"
+              git push
+              echo "✓ Badge data committed and pushed"
+            fi
+          else
+            echo "⚠️  Badge file not found, skipping commit"
+          fi
+      
       # Cleanup
       - name: Stop services
         if: always()
@@ -575,7 +699,8 @@ jobs:
             echo "- **Initial Users**: ${{ github.event.inputs.ramp_initial_users || '10' }}" >> $GITHUB_STEP_SUMMARY
             echo "- **Ramp Step**: +${{ github.event.inputs.ramp_step || '10' }} users" >> $GITHUB_STEP_SUMMARY
             echo "- **Ramp Interval**: ${{ github.event.inputs.ramp_interval || '90' }}s" >> $GITHUB_STEP_SUMMARY
-            echo "- **Max Users**: ${{ github.event.inputs.ramp_max_users || '200' }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Max Users**: unlimited (runs until failure)" >> $GITHUB_STEP_SUMMARY
+            echo "- **Max Duration**: 1 hour" >> $GITHUB_STEP_SUMMARY
             echo "- **Spawn Rate**: ${{ github.event.inputs.spawn_rate || '5' }}/s" >> $GITHUB_STEP_SUMMARY
             echo "- **P95 Threshold**: 200ms" >> $GITHUB_STEP_SUMMARY
             echo "- **Error Threshold**: 1%" >> $GITHUB_STEP_SUMMARY
@@ -589,22 +714,34 @@ jobs:
             echo "- **Duration**: ${{ github.event.inputs.duration || '300' }}s (~$(( ${{ github.event.inputs.duration || '300' }} / 60 )) minutes)" >> $GITHUB_STEP_SUMMARY
           fi
           
+          # Show results if available
+          if [ -n "${{ steps.extract_results.outputs.max_users }}" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 📈 Results" >> $GITHUB_STEP_SUMMARY
+            echo "- **Max Users Reached**: ${{ steps.extract_results.outputs.max_users }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Status**: ${{ steps.extract_results.outputs.status }}" >> $GITHUB_STEP_SUMMARY
+          fi
+          
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📦 Artifacts" >> $GITHUB_STEP_SUMMARY
           echo "Download the HTML report from the workflow artifacts to view detailed results." >> $GITHUB_STEP_SUMMARY
-          echo "### Results" >> $GITHUB_STEP_SUMMARY
-          echo "📊 Download the HTML report from the artifacts to view detailed metrics:" >> $GITHUB_STEP_SUMMARY
+          echo "### Detailed Metrics" >> $GITHUB_STEP_SUMMARY
+          echo "📊 Download the HTML report from the artifacts to view:" >> $GITHUB_STEP_SUMMARY
           echo "- Request rates (RPS)" >> $GITHUB_STEP_SUMMARY
           echo "- Response times (p50, p95, p99)" >> $GITHUB_STEP_SUMMARY
           echo "- Failure rates" >> $GITHUB_STEP_SUMMARY
           echo "- Per-endpoint breakdown" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          # Add info for scheduled runs
+          # Add badge info for scheduled runs
           if [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "### 📛 Badge Updated" >> $GITHUB_STEP_SUMMARY
+            echo "The nightly load test badge in README.md has been updated with these results." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
             echo "💡 **Tip**: If load tests fail consistently, consider:" >> $GITHUB_STEP_SUMMARY
             echo "- Reviewing service logs" >> $GITHUB_STEP_SUMMARY
             echo "- Checking for recent code changes" >> $GITHUB_STEP_SUMMARY
             echo "- Running manual tests with increased timeouts" >> $GITHUB_STEP_SUMMARY
           fi
+
 

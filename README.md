@@ -2,6 +2,8 @@
 
 [![Tests](https://github.com/Meridian-Inc/cartographer/actions/workflows/tests.yml/badge.svg)](https://github.com/Meridian-Inc/cartographer/actions/workflows/tests.yml)
 [![Lint](https://github.com/Meridian-Inc/cartographer/actions/workflows/lint.yml/badge.svg)](https://github.com/Meridian-Inc/cartographer/actions/workflows/lint.yml)
+[![Load Tests](https://github.com/Meridian-Inc/cartographer/actions/workflows/load-tests.yml/badge.svg)](https://github.com/Meridian-Inc/cartographer/actions/workflows/load-tests.yml)
+[![Nightly Capacity](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Meridian-Inc/cartographer/main/load-tests/badge.json)](https://github.com/Meridian-Inc/cartographer/actions/workflows/load-tests.yml)
 [![codecov](https://codecov.io/gh/Meridian-Inc/cartographer/graph/badge.svg)](https://codecov.io/gh/Meridian-Inc/cartographer)
 
 [![Network Map](https://raw.githubusercontent.com/Meridian-Inc/cartographer/refs/heads/main/assets/application.png)](https://cartographer.artzima.dev/embed/yJLRHFuiajaxkWvLc44Gm0f4)
@@ -221,6 +223,8 @@ Then edit `.env` with your settings. See `.example.env` for all available option
 ## Load Testing
 
 Cartographer includes a comprehensive load testing suite built with [Locust](https://locust.io/), a modern Python-based load testing framework. Use it to verify performance, find bottlenecks, and ensure stability under heavy usage.
+
+**Nightly Capacity Tests:** Automated load tests run every night at 2 AM UTC to discover the system's maximum sustainable capacity. The "Nightly Capacity" badge above shows the number of concurrent users the system handled successfully in the most recent nightly run.
 
 ### Quick Start
 
