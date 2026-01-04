@@ -620,14 +620,7 @@ jobs:
           fi
           
           # Create badge JSON for shields.io endpoint pattern
-          cat > badge.json << EOF
-{
-  "schemaVersion": 1,
-  "label": "nightly load test",
-  "message": "$MESSAGE",
-  "color": "$COLOR"
-}
-EOF
+          printf '{\n  "schemaVersion": 1,\n  "label": "nightly load test",\n  "message": "%s",\n  "color": "%s"\n}\n' "$MESSAGE" "$COLOR" > badge.json
           
           echo "✓ Badge data created:"
           cat badge.json
