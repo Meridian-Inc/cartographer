@@ -1001,6 +1001,10 @@ class TestClerkAuthProvider:
 
     async def test_validate_token_success(self):
         """Should return IdentityClaims on successful validation"""
+        import base64
+        import json
+        import time
+
         from app.identity.providers.clerk import ClerkAuthProvider
 
         config = ProviderConfig(
@@ -1010,13 +1014,6 @@ class TestClerkAuthProvider:
         )
         provider = ClerkAuthProvider(config)
 
-        session_data = {
-            "id": "sess_123",
-            "user_id": "user_456",
-            "created_at": 1700000000000,
-            "expire_at": 1700100000000,
-            "authentication_strategy": "password",
-        }
         user_data = {
             "id": "user_456",
             "email_addresses": [
@@ -1038,26 +1035,25 @@ class TestClerkAuthProvider:
             mock_client = AsyncMock()
             mock_client_class.return_value.__aenter__.return_value = mock_client
 
-            # Mock session verify response
-            mock_session_response = MagicMock()
-            mock_session_response.status_code = 200
-            mock_session_response.json.return_value = session_data
-
             # Mock user fetch response
             mock_user_response = MagicMock()
             mock_user_response.status_code = 200
             mock_user_response.json.return_value = user_data
 
-            mock_client.post.return_value = mock_session_response
             mock_client.get.return_value = mock_user_response
 
-            # Create a mock JWT token with session ID (sid) claim
-            import base64
-            import json
-
+            # Create a mock JWT token with required claims
+            now = int(time.time())
             header = base64.urlsafe_b64encode(json.dumps({"alg": "RS256"}).encode()).rstrip(b"=")
             payload = base64.urlsafe_b64encode(
-                json.dumps({"sid": "sess_123", "sub": "user_456"}).encode()
+                json.dumps(
+                    {
+                        "sid": "sess_123",
+                        "sub": "user_456",
+                        "iat": now,
+                        "exp": now + 3600,  # 1 hour from now
+                    }
+                ).encode()
             ).rstrip(b"=")
             signature = base64.urlsafe_b64encode(b"fake-signature").rstrip(b"=")
             mock_jwt = f"{header.decode()}.{payload.decode()}.{signature.decode()}"
@@ -1072,7 +1068,6 @@ class TestClerkAuthProvider:
             assert result.username == "testuser"
             assert result.first_name == "Test"
             assert result.last_name == "User"
-            assert result.auth_method == AuthMethod.PASSWORD
 
     async def test_validate_session_from_cookie(self):
         """Should validate session from cookie"""

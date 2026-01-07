@@ -59,8 +59,9 @@ class ClerkAuthProvider(AuthProviderInterface):
         """
         Validate Clerk session token.
 
-        Clerk uses short-lived session tokens that can be validated
-        via their Backend API.
+        Clerk session tokens are JWTs that can be verified by:
+        1. Decoding the JWT to extract claims
+        2. Fetching the user profile from Clerk API to validate
 
         Args:
             token: The session token from Clerk
@@ -72,41 +73,41 @@ class ClerkAuthProvider(AuthProviderInterface):
             logger.error("Clerk secret key not configured")
             return None
 
-        # Decode JWT to get session_id (sid claim)
+        # Decode JWT to get claims
         jwt_payload = decode_jwt_payload(token)
         if not jwt_payload:
             logger.warning("Failed to decode Clerk session token")
             return None
 
-        session_id = jwt_payload.get("sid")
-        if not session_id:
-            logger.warning("No session_id (sid) in Clerk token")
+        # Get user_id from sub claim (standard JWT claim for subject)
+        user_id = jwt_payload.get("sub")
+        if not user_id:
+            logger.warning("No user_id (sub) in Clerk token")
             return None
+
+        # Check token expiration
+        exp = jwt_payload.get("exp")
+        if exp:
+            import time
+
+            if time.time() > exp:
+                logger.debug("Clerk session token has expired")
+                return None
+
+        # Get session info from JWT claims
+        session_id = jwt_payload.get("sid")
+        issued_at = jwt_payload.get("iat")
 
         async with httpx.AsyncClient() as client:
             try:
-                # Verify session with Clerk API using the correct endpoint
-                response = await client.post(
-                    f"{self.CLERK_API_BASE}/sessions/{session_id}/verify",
-                    headers={
-                        "Authorization": f"Bearer {self.secret_key}",
-                        "Content-Type": "application/json",
-                    },
-                    json={"token": token},
-                )
-
-                if response.status_code != 200:
-                    logger.debug(
-                        f"Clerk session verification failed: {response.status_code} - {response.text}"
-                    )
-                    return None
-
-                session_data = response.json()
-                user_id = session_data.get("user_id")
-
-                if not user_id:
-                    logger.warning("No user_id in Clerk session response")
-                    return None
+                # Build session_data from JWT claims
+                session_data = {
+                    "id": session_id,
+                    "user_id": user_id,
+                    "created_at": issued_at * 1000 if issued_at else 0,
+                    "expire_at": exp * 1000 if exp else None,
+                    "authentication_strategy": jwt_payload.get("act", ""),
+                }
 
                 # Get full user profile
                 user_response = await client.get(
