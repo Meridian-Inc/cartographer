@@ -534,7 +534,7 @@ class TestEmbedHealthEndpoints:
 
     async def test_register_embed_health_devices_not_found(self, temp_data_dir):
         """Should return 404 for non-existent embed"""
-        from app.routers.mapper import register_embed_health_devices
+        from app.routers.mapper import EmbedHealthRegisterRequest, register_embed_health_devices
         from app.services import embed_service
 
         embeds_file = temp_data_dir / "embeds.json"
@@ -543,7 +543,8 @@ class TestEmbedHealthEndpoints:
         with patch.object(embed_service, "_embeds_config_path", return_value=embeds_file):
             with pytest.raises(Exception) as exc_info:
                 await register_embed_health_devices(
-                    embed_id="nonexistent", request={"device_ids": ["device_abc"]}
+                    embed_id="nonexistent",
+                    request=EmbedHealthRegisterRequest(device_ids=["device_abc"]),
                 )
 
             assert "404" in str(exc_info.value.status_code)
@@ -578,14 +579,14 @@ class TestEmbedHealthEndpoints:
 
     async def test_register_embed_health_devices_empty(self, setup_embed_health):
         """Should handle empty device IDs"""
-        from app.routers.mapper import register_embed_health_devices
+        from app.routers.mapper import EmbedHealthRegisterRequest, register_embed_health_devices
         from app.services import embed_service
 
         with patch.object(
             embed_service, "_embeds_config_path", return_value=setup_embed_health["embeds_file"]
         ):
             response = await register_embed_health_devices(
-                embed_id="embed123", request={"device_ids": []}
+                embed_id="embed123", request=EmbedHealthRegisterRequest(device_ids=[])
             )
 
             data = json.loads(response.body.decode())

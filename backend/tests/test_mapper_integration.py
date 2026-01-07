@@ -324,7 +324,7 @@ class TestEmbedHealthEndpointsWithMapping:
 
     async def test_register_with_mapping(self, setup_embed_with_mapping):
         """Should translate anonymized IDs to real IPs"""
-        from app.routers.mapper import register_embed_health_devices
+        from app.routers.mapper import EmbedHealthRegisterRequest, register_embed_health_devices
         from app.services import embed_service, health_proxy_service
 
         mock_response = MagicMock()
@@ -341,7 +341,9 @@ class TestEmbedHealthEndpointsWithMapping:
 
                 response = await register_embed_health_devices(
                     embed_id="embed-with-mapping",
-                    request={"device_ids": ["device_abc123", "device_def456"]},
+                    request=EmbedHealthRegisterRequest(
+                        device_ids=["device_abc123", "device_def456"]
+                    ),
                 )
 
                 data = json.loads(response.body.decode())
@@ -480,7 +482,7 @@ class TestHealthServiceRequestErrors:
         """Should handle connection errors"""
         import httpx
 
-        from app.routers.mapper import register_embed_health_devices
+        from app.routers.mapper import EmbedHealthRegisterRequest, register_embed_health_devices
         from app.services import embed_service, health_proxy_service
 
         embeds_file = tmp_path / "embeds.json"
@@ -507,7 +509,8 @@ class TestHealthServiceRequestErrors:
 
                 with pytest.raises(HTTPException) as exc_info:
                     await register_embed_health_devices(
-                        embed_id="test", request={"device_ids": ["device_abc"]}
+                        embed_id="test",
+                        request=EmbedHealthRegisterRequest(device_ids=["device_abc"]),
                     )
 
                 assert exc_info.value.status_code == 503
