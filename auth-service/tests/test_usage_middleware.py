@@ -325,6 +325,224 @@ class TestUsageTrackingMiddleware:
         assert flush_count >= 1
 
 
+class TestFlushLoopErrorHandling:
+    """Tests for _flush_loop error handling"""
+
+    @pytest.mark.asyncio
+    async def test_flush_loop_handles_exception(self):
+        """Should continue running after exception in flush_buffer"""
+        app = MagicMock()
+        middleware = UsageTrackingMiddleware(app)
+        middleware._running = True
+
+        call_count = 0
+
+        async def failing_flush():
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise ValueError("Simulated error")
+            elif call_count >= 2:
+                middleware._running = False
+
+        middleware._flush_buffer = failing_flush
+
+        with patch("app.services.usage_middleware.settings") as mock_settings:
+            mock_settings.usage_batch_interval_seconds = 0.01
+
+            await middleware._flush_loop()
+
+        # Should have called flush at least twice (once failed, once stopped)
+        assert call_count >= 2
+
+    @pytest.mark.asyncio
+    async def test_flush_loop_handles_cancelled_error(self):
+        """Should exit cleanly on CancelledError"""
+        app = MagicMock()
+        middleware = UsageTrackingMiddleware(app)
+        middleware._running = True
+
+        async def cancelling_flush():
+            raise asyncio.CancelledError()
+
+        middleware._flush_buffer = cancelling_flush
+
+        with patch("app.services.usage_middleware.settings") as mock_settings:
+            mock_settings.usage_batch_interval_seconds = 0.01
+
+            # Should not raise, just exit cleanly
+            await middleware._flush_loop()
+
+
+class TestFlushBufferNon200Response:
+    """Tests for _flush_buffer non-200 response handling"""
+
+    @pytest.mark.asyncio
+    async def test_flush_buffer_non_200_puts_records_back(self):
+        """Should put records back in buffer on non-200 response"""
+        app = MagicMock()
+        middleware = UsageTrackingMiddleware(app)
+
+        # Add multiple records to buffer
+        for i in range(3):
+            record = UsageRecord(
+                endpoint=f"/api/test/{i}",
+                method="GET",
+                status_code=200,
+                response_time_ms=10.0,
+                timestamp=datetime.now(),
+            )
+            middleware._buffer.append(record)
+
+        # Mock HTTP client with non-200 response
+        mock_response = MagicMock()
+        mock_response.status_code = 503
+
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_response
+        mock_client.is_closed = False
+
+        middleware._get_client = AsyncMock(return_value=mock_client)
+
+        await middleware._flush_buffer()
+
+        # Records should be put back
+        assert len(middleware._buffer) == 3
+
+
+class TestDispatchImmediateFlush:
+    """Tests for dispatch immediate flush when buffer is full"""
+
+    @pytest.mark.asyncio
+    async def test_dispatch_triggers_flush_when_buffer_full(self):
+        """Should trigger immediate flush when buffer reaches batch size"""
+        app = MagicMock()
+        middleware = UsageTrackingMiddleware(app)
+
+        mock_request = MagicMock()
+        mock_request.url.path = "/api/test"
+        mock_request.method = "GET"
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+
+        call_next = AsyncMock(return_value=mock_response)
+
+        # Pre-fill buffer to just below batch size
+        with patch("app.services.usage_middleware.settings") as mock_settings:
+            mock_settings.usage_batch_size = 5
+            mock_settings.usage_batch_interval_seconds = 60
+
+            for i in range(4):
+                record = UsageRecord(
+                    endpoint=f"/api/prefill/{i}",
+                    method="GET",
+                    status_code=200,
+                    response_time_ms=10.0,
+                    timestamp=datetime.now(),
+                )
+                middleware._buffer.append(record)
+
+            # Mock _flush_buffer
+            flush_called = False
+
+            async def mock_flush():
+                nonlocal flush_called
+                flush_called = True
+
+            middleware._flush_buffer = mock_flush
+
+            # This should trigger flush since buffer will be at batch_size
+            await middleware.dispatch(mock_request, call_next)
+
+            # Give async task time to run
+            await asyncio.sleep(0.01)
+
+            # Buffer should have 5 records now (4 + 1)
+            assert len(middleware._buffer) == 5
+
+
+class TestShutdownWithPendingRecords:
+    """Tests for shutdown with pending records in buffer"""
+
+    @pytest.mark.asyncio
+    async def test_shutdown_flushes_remaining_records(self):
+        """Should flush all remaining records on shutdown"""
+        app = MagicMock()
+        middleware = UsageTrackingMiddleware(app)
+
+        # Add records to buffer
+        for i in range(3):
+            record = UsageRecord(
+                endpoint=f"/api/test/{i}",
+                method="GET",
+                status_code=200,
+                response_time_ms=10.0,
+                timestamp=datetime.now(),
+            )
+            middleware._buffer.append(record)
+
+        middleware._running = True
+
+        # Mock HTTP client
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_response
+        mock_client.is_closed = False
+
+        middleware._get_client = AsyncMock(return_value=mock_client)
+        middleware._client = mock_client
+
+        with patch("app.services.usage_middleware.settings") as mock_settings:
+            mock_settings.usage_batch_size = 100  # Large batch size
+
+            await middleware.shutdown()
+
+        # Buffer should be empty after shutdown
+        assert len(middleware._buffer) == 0
+        assert not middleware._running
+
+    @pytest.mark.asyncio
+    async def test_shutdown_multiple_batches(self):
+        """Should flush multiple batches during shutdown"""
+        app = MagicMock()
+        middleware = UsageTrackingMiddleware(app)
+
+        # Add many records to buffer
+        for i in range(10):
+            record = UsageRecord(
+                endpoint=f"/api/test/{i}",
+                method="GET",
+                status_code=200,
+                response_time_ms=10.0,
+                timestamp=datetime.now(),
+            )
+            middleware._buffer.append(record)
+
+        middleware._running = True
+
+        # Mock HTTP client
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_response
+        mock_client.is_closed = False
+
+        middleware._get_client = AsyncMock(return_value=mock_client)
+        middleware._client = mock_client
+
+        with patch("app.services.usage_middleware.settings") as mock_settings:
+            mock_settings.usage_batch_size = 3  # Small batch size to trigger multiple flushes
+
+            await middleware.shutdown()
+
+        # Buffer should be empty after shutdown
+        assert len(middleware._buffer) == 0
+
+
 class TestIntegration:
     """Integration tests for middleware with FastAPI app"""
 

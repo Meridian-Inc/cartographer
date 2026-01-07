@@ -1291,6 +1291,470 @@ class TestClerkAuthProvider:
 
             assert result == user_data
 
+    async def test_get_user_by_id_not_found(self):
+        """Should return None when user not found (404)"""
+        from app.identity.providers.clerk import ClerkAuthProvider
+
+        config = ProviderConfig(
+            provider=AuthProvider.CLERK,
+            enabled=True,
+            clerk_secret_key="sk_test_123",
+        )
+        provider = ClerkAuthProvider(config)
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+            mock_response = MagicMock()
+            mock_response.status_code = 404
+            mock_client.get.return_value = mock_response
+
+            result = await provider.get_user_by_id("nonexistent-user")
+
+            assert result is None
+
+    async def test_get_user_by_id_request_error(self):
+        """Should return None on request error"""
+        import httpx
+
+        from app.identity.providers.clerk import ClerkAuthProvider
+
+        config = ProviderConfig(
+            provider=AuthProvider.CLERK,
+            enabled=True,
+            clerk_secret_key="sk_test_123",
+        )
+        provider = ClerkAuthProvider(config)
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+            mock_client.get.side_effect = httpx.RequestError("Connection failed")
+
+            result = await provider.get_user_by_id("user-123")
+
+            assert result is None
+
+    async def test_revoke_session_request_error(self):
+        """Should return False on request error"""
+        import httpx
+
+        from app.identity.providers.clerk import ClerkAuthProvider
+
+        config = ProviderConfig(
+            provider=AuthProvider.CLERK,
+            enabled=True,
+            clerk_secret_key="sk_test_123",
+        )
+        provider = ClerkAuthProvider(config)
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+            mock_client.post.side_effect = httpx.RequestError("Connection failed")
+
+            result = await provider.revoke_session("session-123")
+
+            assert result is False
+
+    async def test_revoke_session_non_200(self):
+        """Should return False on non-200 response"""
+        from app.identity.providers.clerk import ClerkAuthProvider
+
+        config = ProviderConfig(
+            provider=AuthProvider.CLERK,
+            enabled=True,
+            clerk_secret_key="sk_test_123",
+        )
+        provider = ClerkAuthProvider(config)
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+            mock_response = MagicMock()
+            mock_response.status_code = 404
+            mock_client.post.return_value = mock_response
+
+            result = await provider.revoke_session("nonexistent-session")
+
+            assert result is False
+
+    async def test_validate_token_no_user_id_in_response(self):
+        """Should return None when no user_id in session response"""
+        from app.identity.providers.clerk import ClerkAuthProvider
+
+        config = ProviderConfig(
+            provider=AuthProvider.CLERK,
+            enabled=True,
+            clerk_secret_key="sk_test_123",
+        )
+        provider = ClerkAuthProvider(config)
+
+        session_data = {
+            "id": "sess_123",
+            # user_id is missing
+            "created_at": 1700000000000,
+        }
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+
+            mock_session_response = MagicMock()
+            mock_session_response.status_code = 200
+            mock_session_response.json.return_value = session_data
+
+            mock_client.post.return_value = mock_session_response
+
+            result = await provider.validate_token("token-without-user")
+
+            assert result is None
+
+    async def test_validate_token_user_fetch_fails(self):
+        """Should return None when user fetch fails after session verification"""
+        from app.identity.providers.clerk import ClerkAuthProvider
+
+        config = ProviderConfig(
+            provider=AuthProvider.CLERK,
+            enabled=True,
+            clerk_secret_key="sk_test_123",
+        )
+        provider = ClerkAuthProvider(config)
+
+        session_data = {
+            "id": "sess_123",
+            "user_id": "user_456",
+            "created_at": 1700000000000,
+        }
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+
+            mock_session_response = MagicMock()
+            mock_session_response.status_code = 200
+            mock_session_response.json.return_value = session_data
+
+            mock_user_response = MagicMock()
+            mock_user_response.status_code = 404
+
+            mock_client.post.return_value = mock_session_response
+            mock_client.get.return_value = mock_user_response
+
+            result = await provider.validate_token("valid-session-but-no-user")
+
+            assert result is None
+
+    async def test_validate_token_request_error(self):
+        """Should return None on httpx RequestError"""
+        import httpx
+
+        from app.identity.providers.clerk import ClerkAuthProvider
+
+        config = ProviderConfig(
+            provider=AuthProvider.CLERK,
+            enabled=True,
+            clerk_secret_key="sk_test_123",
+        )
+        provider = ClerkAuthProvider(config)
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+            mock_client.post.side_effect = httpx.RequestError("Connection timeout")
+
+            result = await provider.validate_token("some-token")
+
+            assert result is None
+
+    async def test_handle_webhook_no_svix(self):
+        """Should return error when svix not installed"""
+        import builtins
+
+        from app.identity.providers.clerk import ClerkAuthProvider
+
+        config = ProviderConfig(
+            provider=AuthProvider.CLERK,
+            enabled=True,
+            clerk_secret_key="sk_test_123",
+        )
+        provider = ClerkAuthProvider(config)
+
+        mock_request = MagicMock()
+
+        original_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if name == "svix":
+                raise ImportError("No module named 'svix'")
+            return original_import(name, *args, **kwargs)
+
+        with patch.object(builtins, "__import__", side_effect=mock_import):
+            result = await provider.handle_webhook(mock_request)
+
+            assert "error" in result
+            assert "not available" in result["error"]
+
+    async def test_handle_webhook_no_secret(self):
+        """Should return error when webhook secret not configured"""
+        import sys
+
+        from app.identity.providers.clerk import ClerkAuthProvider
+
+        config = ProviderConfig(
+            provider=AuthProvider.CLERK,
+            enabled=True,
+            clerk_secret_key="sk_test_123",
+            clerk_webhook_secret=None,
+        )
+        provider = ClerkAuthProvider(config)
+
+        mock_request = MagicMock()
+
+        # Mock svix module
+        mock_svix = MagicMock()
+        with patch.dict(sys.modules, {"svix": mock_svix}):
+            result = await provider.handle_webhook(mock_request)
+
+            assert "error" in result
+            assert "not configured" in result["error"]
+
+    async def test_handle_webhook_invalid_signature(self):
+        """Should return error on invalid signature"""
+        import sys
+
+        from app.identity.providers.clerk import ClerkAuthProvider
+
+        config = ProviderConfig(
+            provider=AuthProvider.CLERK,
+            enabled=True,
+            clerk_secret_key="sk_test_123",
+            clerk_webhook_secret="whsec_test",
+        )
+        provider = ClerkAuthProvider(config)
+
+        mock_request = MagicMock()
+        mock_request.headers.get.return_value = ""
+        mock_request.body = AsyncMock(return_value=b"{}")
+
+        class MockWebhookVerificationError(Exception):
+            pass
+
+        mock_webhook = MagicMock()
+        mock_webhook.verify.side_effect = MockWebhookVerificationError("Invalid")
+
+        mock_svix = MagicMock()
+        mock_svix.Webhook.return_value = mock_webhook
+        mock_svix.WebhookVerificationError = MockWebhookVerificationError
+
+        with patch.dict(sys.modules, {"svix": mock_svix}):
+            result = await provider.handle_webhook(mock_request)
+
+            assert "error" in result
+            assert "Invalid signature" in result["error"]
+
+    async def test_handle_webhook_success(self):
+        """Should return payload on successful verification"""
+        import sys
+
+        from app.identity.providers.clerk import ClerkAuthProvider
+
+        config = ProviderConfig(
+            provider=AuthProvider.CLERK,
+            enabled=True,
+            clerk_secret_key="sk_test_123",
+            clerk_webhook_secret="whsec_test",
+        )
+        provider = ClerkAuthProvider(config)
+
+        mock_request = MagicMock()
+        mock_request.headers.get.return_value = ""
+        mock_request.body = AsyncMock(return_value=b"{}")
+
+        mock_webhook = MagicMock()
+        mock_webhook.verify.return_value = {
+            "type": "user.created",
+            "data": {"id": "user_123"},
+        }
+
+        mock_svix = MagicMock()
+        mock_svix.Webhook.return_value = mock_webhook
+        mock_svix.WebhookVerificationError = Exception
+
+        with patch.dict(sys.modules, {"svix": mock_svix}):
+            result = await provider.handle_webhook(mock_request)
+
+            assert result["received"] is True
+            assert result["type"] == "user.created"
+            assert result["data"]["id"] == "user_123"
+
+
+class TestLocalAuthProviderValidateTokenSuccess:
+    """Tests for LocalAuthProvider validate_token success path"""
+
+    async def test_validate_token_success(self):
+        """Should return IdentityClaims for valid token with active user"""
+        import jwt
+
+        from app.config import settings
+        from app.identity.providers.local import LocalAuthProvider
+
+        config = ProviderConfig(provider=AuthProvider.LOCAL, enabled=True)
+        provider = LocalAuthProvider(config)
+
+        user_id = str(uuid4())
+        now = datetime.now(timezone.utc)
+
+        # Create valid token
+        valid_payload = {
+            "sub": user_id,
+            "username": "testuser",
+            "role": "member",
+            "exp": now + timedelta(hours=24),
+            "iat": now,
+        }
+        valid_token = jwt.encode(
+            valid_payload, settings.jwt_secret, algorithm=settings.jwt_algorithm
+        )
+
+        # Mock user
+        mock_user = MagicMock()
+        mock_user.id = user_id
+        mock_user.email = "test@example.com"
+        mock_user.is_verified = True
+        mock_user.is_active = True
+        mock_user.username = "testuser"
+        mock_user.first_name = "Test"
+        mock_user.last_name = "User"
+
+        # Mock database session context manager
+        mock_db = AsyncMock()
+
+        # Create a proper async context manager
+        class MockSessionMaker:
+            def __call__(self):
+                return self
+
+            async def __aenter__(self):
+                return mock_db
+
+            async def __aexit__(self, *args):
+                pass
+
+        mock_auth = MagicMock()
+        mock_auth.get_user = AsyncMock(return_value=mock_user)
+
+        with (
+            patch("app.database.async_session_maker", MockSessionMaker()),
+            patch("app.services.auth_service.auth_service", mock_auth),
+        ):
+            result = await provider.validate_token(valid_token)
+
+            assert result is not None
+            assert result.provider == AuthProvider.LOCAL
+            assert result.provider_user_id == user_id
+            assert result.email == "test@example.com"
+            assert result.username == "testuser"
+
+    async def test_validate_token_inactive_user(self):
+        """Should return None for inactive user"""
+        import jwt
+
+        from app.config import settings
+        from app.identity.providers.local import LocalAuthProvider
+
+        config = ProviderConfig(provider=AuthProvider.LOCAL, enabled=True)
+        provider = LocalAuthProvider(config)
+
+        user_id = str(uuid4())
+        now = datetime.now(timezone.utc)
+
+        valid_payload = {
+            "sub": user_id,
+            "username": "testuser",
+            "role": "member",
+            "exp": now + timedelta(hours=24),
+            "iat": now,
+        }
+        valid_token = jwt.encode(
+            valid_payload, settings.jwt_secret, algorithm=settings.jwt_algorithm
+        )
+
+        # Mock inactive user
+        mock_user = MagicMock()
+        mock_user.id = user_id
+        mock_user.is_active = False
+
+        mock_db = AsyncMock()
+
+        class MockSessionMaker:
+            def __call__(self):
+                return self
+
+            async def __aenter__(self):
+                return mock_db
+
+            async def __aexit__(self, *args):
+                pass
+
+        mock_auth = MagicMock()
+        mock_auth.get_user = AsyncMock(return_value=mock_user)
+
+        with (
+            patch("app.database.async_session_maker", MockSessionMaker()),
+            patch("app.services.auth_service.auth_service", mock_auth),
+        ):
+            result = await provider.validate_token(valid_token)
+
+            assert result is None
+
+    async def test_validate_token_user_not_found(self):
+        """Should return None when user not found"""
+        import jwt
+
+        from app.config import settings
+        from app.identity.providers.local import LocalAuthProvider
+
+        config = ProviderConfig(provider=AuthProvider.LOCAL, enabled=True)
+        provider = LocalAuthProvider(config)
+
+        user_id = str(uuid4())
+        now = datetime.now(timezone.utc)
+
+        valid_payload = {
+            "sub": user_id,
+            "username": "testuser",
+            "role": "member",
+            "exp": now + timedelta(hours=24),
+            "iat": now,
+        }
+        valid_token = jwt.encode(
+            valid_payload, settings.jwt_secret, algorithm=settings.jwt_algorithm
+        )
+
+        mock_db = AsyncMock()
+
+        class MockSessionMaker:
+            def __call__(self):
+                return self
+
+            async def __aenter__(self):
+                return mock_db
+
+            async def __aexit__(self, *args):
+                pass
+
+        mock_auth = MagicMock()
+        mock_auth.get_user = AsyncMock(return_value=None)
+
+        with (
+            patch("app.database.async_session_maker", MockSessionMaker()),
+            patch("app.services.auth_service.auth_service", mock_auth),
+        ):
+            result = await provider.validate_token(valid_token)
+
+            assert result is None
+
 
 class TestModuleExports:
     """Tests for module __init__.py exports"""
