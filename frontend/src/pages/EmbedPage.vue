@@ -90,7 +90,13 @@
             "
             title="Zoom in"
           >
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <svg
+              class="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="2"
+            >
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m6-6H6" />
             </svg>
           </button>
@@ -104,11 +110,20 @@
             "
             title="Zoom out"
           >
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <svg
+              class="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="2"
+            >
               <path stroke-linecap="round" stroke-linejoin="round" d="M18 12H6" />
             </svg>
           </button>
-          <div class="w-full h-px my-0.5" :class="isDark ? 'bg-slate-700/50' : 'bg-slate-200/50'"></div>
+          <div
+            class="w-full h-px my-0.5"
+            :class="isDark ? 'bg-slate-700/50' : 'bg-slate-200/50'"
+          ></div>
           <button
             @click="resetZoom"
             class="p-1.5 rounded transition-colors"
@@ -119,7 +134,13 @@
             "
             title="Reset view"
           >
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <svg
+              class="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="2"
+            >
               <path
                 stroke-linecap="round"
                 stroke-linejoin="round"
