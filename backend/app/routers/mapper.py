@@ -30,6 +30,12 @@ class MapperResponse(BaseModel):
     network_map_path: str | None = None
 
 
+class EmbedHealthRegisterRequest(BaseModel):
+    """Request body for registering embed devices for health monitoring."""
+
+    device_ids: list[str] = []
+
+
 # ==================== Config Endpoint ====================
 
 
@@ -257,7 +263,7 @@ def delete_embed(embed_id: str, user: AuthenticatedUser = Depends(require_owner)
 
 
 @router.post("/embed/{embed_id}/health/register")
-async def register_embed_health_devices(embed_id: str, request: dict):
+async def register_embed_health_devices(embed_id: str, request: EmbedHealthRegisterRequest):
     """Register devices for health monitoring using anonymized IDs.
 
     The backend translates these to real IPs server-side.
@@ -267,7 +273,7 @@ async def register_embed_health_devices(embed_id: str, request: dict):
         raise HTTPException(status_code=404, detail="Embed not found")
 
     # Get anonymized IDs from request and translate to real IPs
-    anon_ids = request.get("device_ids", [])
+    anon_ids = request.device_ids
     real_ips = embed_service.translate_anon_ids_to_ips(embed_id, anon_ids)
 
     if not real_ips:

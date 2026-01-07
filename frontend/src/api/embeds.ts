@@ -26,7 +26,9 @@ export interface EmbedDataResponse {
   exists: boolean;
   root?: TreeNode;
   name?: string;
-  sensitive_mode?: boolean;
+  sensitiveMode?: boolean;
+  showOwner?: boolean;
+  ownerDisplayName?: string | null;
 }
 
 export interface CreateEmbedRequest {

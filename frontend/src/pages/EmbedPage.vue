@@ -1,155 +1,5 @@
 <template>
   <div class="h-screen flex flex-col overflow-hidden" :class="isDark ? 'bg-slate-950' : 'bg-white'">
-    <!-- Header -->
-    <header
-      class="flex items-center justify-between h-12 px-4 border-b shrink-0"
-      :class="isDark ? 'border-slate-800/80 bg-slate-950' : 'border-slate-200 bg-white'"
-    >
-      <!-- Title -->
-      <div class="flex items-center gap-2 min-w-0 overflow-hidden">
-        <svg
-          class="w-5 h-5 shrink-0"
-          :class="isDark ? 'text-cyan-400' : 'text-cyan-600'"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
-          />
-        </svg>
-        <span
-          class="text-sm font-medium truncate"
-          :class="isDark ? 'text-white' : 'text-slate-900'"
-        >
-          Cartographer
-        </span>
-      </div>
-
-      <!-- Controls -->
-      <div class="flex items-center gap-1.5">
-        <!-- Zoom controls -->
-        <button
-          @click="zoomIn"
-          class="p-1.5 rounded-md transition-colors"
-          :class="
-            isDark
-              ? 'text-slate-400 hover:text-white hover:bg-slate-800'
-              : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
-          "
-          title="Zoom in"
-        >
-          <svg
-            class="w-4 h-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7"
-            />
-          </svg>
-        </button>
-        <button
-          @click="zoomOut"
-          class="p-1.5 rounded-md transition-colors"
-          :class="
-            isDark
-              ? 'text-slate-400 hover:text-white hover:bg-slate-800'
-              : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
-          "
-          title="Zoom out"
-        >
-          <svg
-            class="w-4 h-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM7 10h6"
-            />
-          </svg>
-        </button>
-        <button
-          @click="resetZoom"
-          class="p-1.5 rounded-md transition-colors"
-          :class="
-            isDark
-              ? 'text-slate-400 hover:text-white hover:bg-slate-800'
-              : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
-          "
-          title="Reset view"
-        >
-          <svg
-            class="w-4 h-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
-            />
-          </svg>
-        </button>
-
-        <div class="w-px h-5 mx-1" :class="isDark ? 'bg-slate-800' : 'bg-slate-200'"></div>
-
-        <!-- Theme toggle -->
-        <button
-          @click="isDark = !isDark"
-          class="p-1.5 rounded-md transition-colors"
-          :class="
-            isDark
-              ? 'text-slate-400 hover:text-white hover:bg-slate-800'
-              : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
-          "
-          :title="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
-        >
-          <svg
-            v-if="isDark"
-            class="w-4 h-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
-            />
-          </svg>
-          <svg
-            v-else
-            class="w-4 h-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
-            />
-          </svg>
-        </button>
-      </div>
-    </header>
-
     <!-- Map Content -->
     <div class="flex-1 relative overflow-hidden">
       <!-- Loading -->
@@ -196,14 +46,89 @@
       </div>
 
       <!-- Network Map -->
-      <NetworkMapEmbed
-        v-else-if="mapData"
-        ref="networkMapRef"
-        :root="mapData"
-        :sensitiveMode="sensitiveMode"
-        :isDark="isDark"
-        :cachedMetrics="cachedMetrics"
-      />
+      <template v-else-if="mapData">
+        <NetworkMapEmbed
+          ref="networkMapRef"
+          :root="mapData"
+          :sensitiveMode="sensitiveMode"
+          :isDark="isDark"
+          :cachedMetrics="cachedMetrics"
+        />
+
+        <!-- Branding Label (top-left overlay) -->
+        <div
+          class="absolute top-3 left-3 px-2 py-1 rounded text-xs font-medium backdrop-blur-sm"
+          :class="
+            isDark
+              ? 'bg-slate-900/70 text-slate-300 border border-slate-700/50'
+              : 'bg-white/70 text-slate-600 border border-slate-200/50'
+          "
+        >
+          <span>Cartographer</span>
+          <template v-if="showOwner && ownerDisplayName">
+            <span class="mx-1.5 opacity-40">|</span>
+            <span>{{ ownerDisplayName }}</span>
+          </template>
+        </div>
+
+        <!-- Zoom Controls (right-side vertical overlay) -->
+        <div
+          class="absolute top-3 right-3 flex flex-col gap-1 p-1 rounded-lg backdrop-blur-sm"
+          :class="
+            isDark
+              ? 'bg-slate-900/70 border border-slate-700/50'
+              : 'bg-white/70 border border-slate-200/50'
+          "
+        >
+          <button
+            @click="zoomIn"
+            class="p-1.5 rounded transition-colors"
+            :class="
+              isDark
+                ? 'text-slate-400 hover:text-white hover:bg-slate-700/50'
+                : 'text-slate-500 hover:text-slate-900 hover:bg-slate-200/50'
+            "
+            title="Zoom in"
+          >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m6-6H6" />
+            </svg>
+          </button>
+          <button
+            @click="zoomOut"
+            class="p-1.5 rounded transition-colors"
+            :class="
+              isDark
+                ? 'text-slate-400 hover:text-white hover:bg-slate-700/50'
+                : 'text-slate-500 hover:text-slate-900 hover:bg-slate-200/50'
+            "
+            title="Zoom out"
+          >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M18 12H6" />
+            </svg>
+          </button>
+          <div class="w-full h-px my-0.5" :class="isDark ? 'bg-slate-700/50' : 'bg-slate-200/50'"></div>
+          <button
+            @click="resetZoom"
+            class="p-1.5 rounded transition-colors"
+            :class="
+              isDark
+                ? 'text-slate-400 hover:text-white hover:bg-slate-700/50'
+                : 'text-slate-500 hover:text-slate-900 hover:bg-slate-200/50'
+            "
+            title="Reset view"
+          >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+              />
+            </svg>
+          </button>
+        </div>
+      </template>
 
       <!-- Empty State -->
       <div v-else class="absolute inset-0 flex items-center justify-center">
@@ -302,9 +227,9 @@ async function loadMapData() {
     const embedData = await embedsApi.getEmbedData(props.embedId);
     if (embedData.exists && embedData.root) {
       mapData.value = embedData.root;
-      sensitiveMode.value = embedData.sensitive_mode || false;
-      showOwner.value = false;
-      ownerDisplayName.value = null;
+      sensitiveMode.value = embedData.sensitiveMode || false;
+      showOwner.value = embedData.showOwner || false;
+      ownerDisplayName.value = embedData.ownerDisplayName || null;
 
       // Register devices for health monitoring using embed-specific endpoint
       // This works with anonymized IDs - the server handles IP translation
