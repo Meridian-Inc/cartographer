@@ -66,7 +66,11 @@
   <SetupWizard v-else-if="!isNetworkMode && needsSetup" @complete="onSetupComplete" />
 
   <!-- Login Screen (only when not in network mode) -->
-  <LoginScreen v-else-if="!isNetworkMode && !isAuthenticated" :authConfig="authConfig" @success="onLoginSuccess" />
+  <LoginScreen
+    v-else-if="!isNetworkMode && !isAuthenticated"
+    :authConfig="authConfig"
+    @success="onLoginSuccess"
+  />
 
   <!-- Main Application -->
   <div v-else class="h-screen flex flex-col bg-white dark:bg-slate-950 relative">

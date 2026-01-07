@@ -9,6 +9,7 @@ import logging
 from datetime import datetime, timezone
 
 import httpx
+import svix
 from fastapi import Request
 
 from ..claims import AuthMethod, AuthProvider, IdentityClaims, ProviderConfig
@@ -108,11 +109,13 @@ class ClerkAuthProvider(AuthProviderInterface):
                     issued_at=datetime.fromtimestamp(
                         session_data.get("created_at", 0) / 1000, tz=timezone.utc
                     ),
-                    expires_at=datetime.fromtimestamp(
-                        session_data.get("expire_at", 0) / 1000, tz=timezone.utc
-                    )
-                    if session_data.get("expire_at")
-                    else None,
+                    expires_at=(
+                        datetime.fromtimestamp(
+                            session_data.get("expire_at", 0) / 1000, tz=timezone.utc
+                        )
+                        if session_data.get("expire_at")
+                        else None
+                    ),
                     org_id=session_data.get("last_active_organization_id"),
                     org_slug=None,  # Would need separate org lookup
                     org_role=None,  # Would need membership lookup
@@ -166,11 +169,6 @@ class ClerkAuthProvider(AuthProviderInterface):
         Returns:
             Response data for the webhook
         """
-        try:
-            import svix
-        except ImportError:
-            logger.error("svix package not installed - cannot verify Clerk webhooks")
-            return {"error": "Webhook verification not available"}
 
         # Verify webhook signature
         webhook_secret = self.config.clerk_webhook_secret

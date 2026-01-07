@@ -9,8 +9,11 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..config import settings
 from ..database import get_db
 from ..db_models import Invite, User, UserRole
+from ..identity.factory import get_provider
+from ..identity.sync import sync_provider_user
 from ..models import (
     AcceptInviteRequest,
     AuthConfig,
@@ -29,9 +32,6 @@ from ..models import (
     UserResponse,
     UserUpdate,
 )
-from ..config import settings
-from ..identity.factory import get_provider
-from ..identity.sync import sync_provider_user
 from ..services.auth_service import auth_service
 
 logger = logging.getLogger(__name__)
@@ -118,9 +118,9 @@ async def get_auth_config():
     """
     return AuthConfig(
         provider=settings.auth_provider.lower(),
-        clerk_publishable_key=settings.clerk_publishable_key
-        if settings.auth_provider.lower() == "cloud"
-        else None,
+        clerk_publishable_key=(
+            settings.clerk_publishable_key if settings.auth_provider.lower() == "cloud" else None
+        ),
         allow_registration=settings.allow_open_registration,
     )
 
@@ -205,9 +205,7 @@ async def exchange_clerk_token(
         raise HTTPException(status_code=401, detail="Invalid Clerk session token")
 
     # Sync user to local database
-    local_user_id, created, updated = await sync_provider_user(
-        db, claims, create_if_missing=True
-    )
+    local_user_id, created, updated = await sync_provider_user(db, claims, create_if_missing=True)
 
     if not local_user_id:
         raise HTTPException(status_code=500, detail="Failed to sync user to local database")

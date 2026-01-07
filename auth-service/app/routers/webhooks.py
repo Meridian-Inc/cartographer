@@ -12,6 +12,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..config import settings
 from ..database import get_db
 from ..identity.claims import AuthProvider
+from ..identity.claims import AuthProvider as AP
+from ..identity.claims import ProviderConfig
+from ..identity.providers.clerk import ClerkAuthProvider
 from ..identity.sync import deactivate_provider_user, sync_provider_user
 
 logger = logging.getLogger(__name__)
@@ -105,9 +108,6 @@ async def _handle_clerk_user_created(db: AsyncSession, data: dict) -> dict:
     Returns:
         Response indicating success/failure
     """
-    from ..identity.providers.clerk import ClerkAuthProvider
-    from ..identity.claims import ProviderConfig, AuthProvider as AP
-
     logger.info(f"Creating local user from Clerk user: {data.get('id')}")
 
     # Create a temporary provider instance to convert data to claims
@@ -155,9 +155,6 @@ async def _handle_clerk_user_updated(db: AsyncSession, data: dict) -> dict:
     Returns:
         Response indicating success/failure
     """
-    from ..identity.providers.clerk import ClerkAuthProvider
-    from ..identity.claims import ProviderConfig, AuthProvider as AP
-
     logger.info(f"Updating local user from Clerk user: {data.get('id')}")
 
     provider = ClerkAuthProvider(
@@ -177,9 +174,7 @@ async def _handle_clerk_user_updated(db: AsyncSession, data: dict) -> dict:
         update_profile=True,
     )
 
-    logger.info(
-        f"Clerk user update complete: local_user_id={local_user_id}, updated={updated}"
-    )
+    logger.info(f"Clerk user update complete: local_user_id={local_user_id}, updated={updated}")
 
     return {
         "received": True,

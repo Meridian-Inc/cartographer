@@ -81,7 +81,6 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuth } from '../composables/useAuth';
-import * as authApi from '../api/auth';
 
 const router = useRouter();
 const { loginWithClerkToken, fetchAuthConfig } = useAuth();

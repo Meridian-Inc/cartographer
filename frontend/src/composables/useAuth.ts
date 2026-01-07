@@ -22,7 +22,6 @@ import type {
   InviteTokenInfo,
   AcceptInviteRequest,
   AuthConfig,
-  AuthProvider,
 } from '../types/auth';
 
 const AUTH_STORAGE_KEY = 'cartographer_auth';

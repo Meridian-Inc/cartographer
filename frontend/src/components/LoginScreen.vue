@@ -274,7 +274,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useAuth } from '../composables/useAuth';
 import type { AuthConfig } from '../types/auth';
 
