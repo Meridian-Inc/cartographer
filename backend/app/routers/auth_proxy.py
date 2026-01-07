@@ -88,6 +88,29 @@ async def verify_token(request: Request):
     return await proxy_auth_request("POST", "/verify", request)
 
 
+@router.get("/auth/config")
+async def get_auth_config(request: Request):
+    """Get auth provider configuration (public endpoint)"""
+    return await proxy_auth_request("GET", "/config", request)
+
+
+# ==================== Cloud Auth Endpoints ====================
+# These endpoints are for cloud mode (Clerk) authentication
+
+
+@router.post("/auth/clerk/exchange")
+async def exchange_clerk_token(request: Request):
+    """Exchange Clerk session token for local JWT (public endpoint - cloud mode only)"""
+    return await proxy_auth_request("POST", "/clerk/exchange", request)
+
+
+@router.post("/auth/register")
+async def register(request: Request):
+    """Public registration endpoint (cloud mode with open registration)"""
+    body = await request.json()
+    return await proxy_auth_request("POST", "/register", request, body)
+
+
 # ==================== User Management Endpoints ====================
 # Creating and deleting users requires owner role
 # Listing and viewing requires authentication (auth service further restricts visibility)
