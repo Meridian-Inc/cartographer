@@ -5,6 +5,13 @@ All notable changes to Cartographer will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.0](https://github.com/devartech/cartographer/compare/v0.19.0...v0.20.0) (2026-01-07)
+
+
+### ✨ Features
+
+* connect clerk to frontend ([e9dd992](https://github.com/devartech/cartographer/commit/e9dd992c4c8fbb49f6bb3b75303fd1e3e4c1394b))
+
 ## [0.19.0](https://github.com/devartech/cartographer/compare/v0.18.0...v0.19.0) (2026-01-07)
 
 
