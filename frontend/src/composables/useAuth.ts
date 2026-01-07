@@ -6,6 +6,7 @@
  */
 
 import { ref, computed, readonly } from 'vue';
+import type { Clerk } from '@clerk/clerk-js';
 import { setOnUnauthorized, extractErrorMessage } from '../api/client';
 import * as authApi from '../api/auth';
 import type {
@@ -196,6 +197,21 @@ async function loginWithClerkToken(clerkToken: string): Promise<User> {
 async function logout(): Promise<void> {
   try {
     await authApi.logout();
+
+    // If using Clerk auth, also sign out from Clerk
+    if (authConfig.value?.provider === 'cloud' && authConfig.value?.clerk_publishable_key) {
+      try {
+        const ClerkModule = await import('@clerk/clerk-js');
+        const clerk: Clerk = new ClerkModule.Clerk(authConfig.value.clerk_publishable_key);
+        await clerk.load();
+        if (clerk.session) {
+          await clerk.signOut();
+          console.log('[Auth] Signed out from Clerk');
+        }
+      } catch (clerkError) {
+        console.warn('[Auth] Clerk sign out failed:', clerkError);
+      }
+    }
   } catch (e) {
     console.warn('[Auth] Logout request failed:', e);
   } finally {
