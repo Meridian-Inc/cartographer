@@ -379,12 +379,21 @@ async function signInWithGoogle() {
   errorMessage.value = null;
 
   try {
+    // Build callback URL using the app's base path (important for /app/ deployments)
+    const basePath = import.meta.env.BASE_URL || '/';
+    const callbackPath = basePath.endsWith('/')
+      ? `${basePath}oauth-callback`
+      : `${basePath}/oauth-callback`;
+    const callbackUrl = window.location.origin + callbackPath;
+
+    console.log('[Auth] Starting OAuth flow, callback URL:', callbackUrl);
+
     // Start Google OAuth flow with Clerk using signUp for new users
     // signUp handles both new user creation and existing user sign-in via OAuth
     await clerkInstance.client.signUp.authenticateWithRedirect({
       strategy: 'oauth_google',
-      redirectUrl: window.location.origin + '/oauth-callback',
-      redirectUrlComplete: window.location.origin + '/oauth-callback',
+      redirectUrl: callbackUrl,
+      redirectUrlComplete: callbackUrl,
     });
   } catch (e: any) {
     console.error('[Auth] Google sign-in failed:', e);

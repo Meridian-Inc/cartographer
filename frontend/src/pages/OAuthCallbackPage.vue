@@ -103,10 +103,13 @@ onMounted(async () => {
       return;
     }
 
-    // Initialize Clerk to handle the callback
+    // Initialize Clerk to handle the callback (with proxy URL if configured)
     const { Clerk } = await import('@clerk/clerk-js');
-    const clerk = new Clerk(config.clerk_publishable_key);
+    const clerkOptions = config.clerk_proxy_url ? { proxyUrl: config.clerk_proxy_url } : undefined;
+    const clerk = new Clerk(config.clerk_publishable_key, clerkOptions);
     await clerk.load();
+
+    console.log('[OAuth] Clerk initialized', config.clerk_proxy_url ? `with proxy: ${config.clerk_proxy_url}` : '');
 
     // Handle the OAuth callback - Clerk processes the URL params
     await clerk.handleRedirectCallback();
