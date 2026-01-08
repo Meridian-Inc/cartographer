@@ -1,14 +1,14 @@
 <template>
   <div
-    class="h-screen flex items-center justify-center bg-white dark:bg-slate-950 relative overflow-hidden transition-colors"
+    class="h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 relative overflow-hidden transition-colors"
   >
     <!-- Animated background elements -->
     <div class="absolute inset-0 overflow-hidden pointer-events-none">
       <div
-        class="absolute top-1/4 -left-20 w-72 h-72 bg-cyan-400/10 dark:bg-cyan-500/10 rounded-full blur-3xl animate-pulse"
+        class="absolute top-1/4 -left-20 w-72 h-72 bg-cyan-400/20 dark:bg-cyan-500/10 rounded-full blur-3xl animate-pulse"
       />
       <div
-        class="absolute bottom-1/4 -right-20 w-80 h-80 bg-blue-400/10 dark:bg-blue-500/10 rounded-full blur-3xl animate-pulse"
+        class="absolute bottom-1/4 -right-20 w-80 h-80 bg-blue-400/20 dark:bg-blue-500/10 rounded-full blur-3xl animate-pulse"
         style="animation-delay: 1s"
       />
     </div>
@@ -79,20 +79,32 @@
 
 <script lang="ts" setup>
 import { ref, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
 import { useAuth } from '../composables/useAuth';
 
-const router = useRouter();
 const { loginWithClerkToken, fetchAuthConfig } = useAuth();
 
 const statusTitle = ref('Completing Sign In');
 const error = ref<string | null>(null);
 
+// Prevent multiple runs - use module-level flag since component may remount
+let hasStartedProcessing = false;
+
 function goToLogin() {
-  router.push('/');
+  // Use full page navigation to clear any OAuth state
+  const basePath = import.meta.env.BASE_URL || '/';
+  window.location.href = window.location.origin + basePath;
 }
 
 onMounted(async () => {
+  // Prevent multiple runs if component remounts
+  if (hasStartedProcessing) {
+    console.log('[OAuth] Already processing, skipping');
+    return;
+  }
+  hasStartedProcessing = true;
+
+  console.log('[OAuth] Callback page loaded, URL:', window.location.href);
+
   try {
     // Get auth config first
     const config = await fetchAuthConfig();
@@ -100,6 +112,7 @@ onMounted(async () => {
     if (config.provider !== 'cloud' || !config.clerk_publishable_key) {
       error.value = 'OAuth is not enabled for this instance.';
       statusTitle.value = 'OAuth Error';
+      hasStartedProcessing = false;
       return;
     }
 
@@ -113,13 +126,14 @@ onMounted(async () => {
       '[OAuth] Clerk initialized',
       config.clerk_proxy_url ? `with proxy: ${config.clerk_proxy_url}` : ''
     );
+    console.log('[OAuth] Session exists:', !!clerk.session);
 
     // Handle the OAuth callback - Clerk processes the URL params
     await clerk.handleRedirectCallback();
 
     // After handling the callback, check if we have a session
     if (clerk.session) {
-      statusTitle.value = 'Signing In';
+      statusTitle.value = 'Signing In...';
 
       // Get the session token
       const token = await clerk.session.getToken();
@@ -128,9 +142,10 @@ onMounted(async () => {
         // Exchange the Clerk token for our local JWT
         await loginWithClerkToken(token);
 
-        // Redirect to home page
-        statusTitle.value = 'Success!';
-        router.push('/');
+        // Redirect to home page using full navigation to clear OAuth URL params
+        statusTitle.value = 'Success! Redirecting...';
+        const basePath = import.meta.env.BASE_URL || '/';
+        window.location.href = window.location.origin + basePath;
       } else {
         throw new Error('No session token available');
       }
@@ -141,6 +156,7 @@ onMounted(async () => {
     console.error('[OAuth] Callback error:', e);
     error.value = e.message || 'Failed to complete sign in. Please try again.';
     statusTitle.value = 'Sign In Failed';
+    hasStartedProcessing = false;
   }
 });
 </script>
