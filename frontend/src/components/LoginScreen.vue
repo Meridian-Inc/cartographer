@@ -325,7 +325,10 @@ async function initClerk() {
     clerkInstance = new Clerk(clerkPublishableKey.value, clerkOptions);
     await clerkInstance.load();
     clerkReady.value = true;
-    console.log('[Auth] Clerk initialized for OAuth', clerkProxyUrl.value ? `with proxy: ${clerkProxyUrl.value}` : '');
+    console.log(
+      '[Auth] Clerk initialized for OAuth',
+      clerkProxyUrl.value ? `with proxy: ${clerkProxyUrl.value}` : ''
+    );
   } catch (e) {
     console.warn('[Auth] Failed to initialize Clerk:', e);
   }
