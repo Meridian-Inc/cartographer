@@ -206,7 +206,9 @@ async def exchange_clerk_token(
         logger.warning("Clerk token validation failed - invalid or expired token")
         raise HTTPException(status_code=401, detail="Invalid Clerk session token")
 
-    logger.info(f"Clerk token valid for: {claims.email} (provider_user_id={claims.provider_user_id})")
+    logger.info(
+        f"Clerk token valid for: {claims.email} (provider_user_id={claims.provider_user_id})"
+    )
 
     # Sync user to local database
     local_user_id, created, updated = await sync_provider_user(db, claims, create_if_missing=True)
