@@ -379,12 +379,11 @@ async function signInWithGoogle() {
   errorMessage.value = null;
 
   try {
-    // Build callback URL using the app's base path (important for /app/ deployments)
-    const basePath = import.meta.env.BASE_URL || '/';
-    const callbackPath = basePath.endsWith('/')
-      ? `${basePath}oauth-callback`
-      : `${basePath}/oauth-callback`;
-    const callbackUrl = window.location.origin + callbackPath;
+    // For cloud deployments (base path /app/), OAuth callback should go to cloud frontend
+    // at /oauth-callback which handles onboarding for new users.
+    // For self-hosted (base path /), callback goes to core app's /oauth-callback.
+    // Always use root /oauth-callback - cloud frontend handles new user onboarding.
+    const callbackUrl = window.location.origin + '/oauth-callback';
 
     console.log('[Auth] Starting OAuth flow, callback URL:', callbackUrl);
 

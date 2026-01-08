@@ -89,8 +89,12 @@ const error = ref<string | null>(null);
 // Prevent multiple runs - use module-level flag since component may remount
 let hasStartedProcessing = false;
 
+// Check if this is a cloud deployment (base path is /app/)
+// In cloud mode, OAuth callback should be handled by cloud frontend, not here
+// In self-hosted mode (base path /), this component handles OAuth directly
+const isCloudDeployment = (import.meta.env.BASE_URL || '/').startsWith('/app');
+
 function goToLogin() {
-  // Use full page navigation to clear any OAuth state
   const basePath = import.meta.env.BASE_URL || '/';
   window.location.href = window.location.origin + basePath;
 }
@@ -104,6 +108,7 @@ onMounted(async () => {
   hasStartedProcessing = true;
 
   console.log('[OAuth] Callback page loaded, URL:', window.location.href);
+  console.log('[OAuth] isCloudDeployment:', isCloudDeployment);
 
   try {
     // Get auth config first
@@ -142,7 +147,12 @@ onMounted(async () => {
         // Exchange the Clerk token for our local JWT
         await loginWithClerkToken(token);
 
-        // Redirect to home page using full navigation to clear OAuth URL params
+        console.log('[OAuth] Token exchanged successfully');
+
+        // Redirect to home page
+        // In self-hosted mode: go directly to dashboard (no onboarding)
+        // In cloud mode: this code path shouldn't be reached as nginx routes
+        // /oauth-callback to cloud frontend which handles onboarding
         statusTitle.value = 'Success! Redirecting...';
         const basePath = import.meta.env.BASE_URL || '/';
         window.location.href = window.location.origin + basePath;
