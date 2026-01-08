@@ -5,6 +5,13 @@ All notable changes to Cartographer will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+### [0.20.9](https://github.com/devartech/cartographer/compare/v0.20.8...v0.20.9) (2026-01-08)
+
+
+### 🐛 Bug Fixes
+
+* proxy url for clerk ([f8f8c5f](https://github.com/devartech/cartographer/commit/f8f8c5f52b5f3f0e8983a9b6aca5746b829acb87))
+
 ### [0.20.8](https://github.com/devartech/cartographer/compare/v0.20.7...v0.20.8) (2026-01-08)
 
 
