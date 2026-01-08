@@ -199,20 +199,28 @@ async def exchange_clerk_token(
         )
 
     provider = get_provider()
+    logger.info("Validating Clerk token...")
     claims = await provider.validate_token(credentials.credentials)
 
     if not claims:
+        logger.warning("Clerk token validation failed - invalid or expired token")
         raise HTTPException(status_code=401, detail="Invalid Clerk session token")
+
+    logger.info(f"Clerk token valid for: {claims.email} (provider_user_id={claims.provider_user_id})")
 
     # Sync user to local database
     local_user_id, created, updated = await sync_provider_user(db, claims, create_if_missing=True)
 
     if not local_user_id:
+        logger.error(f"Failed to sync user to database: {claims.email}")
         raise HTTPException(status_code=500, detail="Failed to sync user to local database")
+
+    logger.info(f"User synced: id={local_user_id}, created={created}, updated={updated}")
 
     # Get the local user
     user = await auth_service.get_user(db, str(local_user_id))
     if not user:
+        logger.error(f"Failed to retrieve user after sync: {local_user_id}")
         raise HTTPException(status_code=500, detail="Failed to retrieve synced user")
 
     # Create local JWT

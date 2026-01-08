@@ -5,6 +5,7 @@ Syncs external provider users to the local PostgreSQL database,
 which remains the source of truth for user data.
 """
 
+import logging
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
@@ -13,6 +14,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db_models import ProviderLink, User, UserRole
 from .claims import AuthProvider, IdentityClaims
+
+logger = logging.getLogger(__name__)
 
 
 def _update_user_profile(user: User, claims: IdentityClaims) -> bool:
@@ -98,6 +101,8 @@ async def _create_new_user(
         base_username = claims.email.split("@")[0].lower()
         username = await _get_unique_username(db, base_username)
 
+    logger.info(f"Creating new user: {username} ({claims.email})")
+
     new_user = User(
         id=str(uuid4()),
         username=username,
@@ -121,6 +126,7 @@ async def _create_new_user(
     db.add(new_link)
 
     await db.commit()
+    logger.info(f"Created user {new_user.id} with provider link for {claims.provider.value}")
     return UUID(new_user.id), True, False
 
 
