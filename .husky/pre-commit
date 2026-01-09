@@ -2,9 +2,13 @@
 # Pre-commit hook for Cartographer
 # This runs before each commit to ensure code quality
 
-# Optional: Add linting or formatting checks here
-# Example: npm run lint
-# Example: npm run format:check
+echo "Running code formatter..."
+npm run format
+
+if [ $? -ne 0 ]; then
+  echo "❌ Format failed. Please fix formatting issues before committing."
+  exit 1
+fi
 
 echo "✓ Pre-commit checks passed"
 

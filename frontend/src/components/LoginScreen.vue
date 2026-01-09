@@ -387,9 +387,9 @@ async function signInWithGoogle() {
 
     console.log('[Auth] Starting OAuth flow, callback URL:', callbackUrl);
 
-    // Start Google OAuth flow with Clerk using signUp for new users
-    // signUp handles both new user creation and existing user sign-in via OAuth
-    await clerkInstance.client.signUp.authenticateWithRedirect({
+    // Start Google OAuth flow with Clerk using signIn for existing users
+    // signIn handles existing user authentication via OAuth
+    await clerkInstance.client.signIn.authenticateWithRedirect({
       strategy: 'oauth_google',
       redirectUrl: callbackUrl,
       redirectUrlComplete: callbackUrl,
