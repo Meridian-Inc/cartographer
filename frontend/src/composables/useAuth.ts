@@ -118,6 +118,7 @@ async function fetchAuthConfig(): Promise<AuthConfig> {
     const defaultConfig: AuthConfig = {
       provider: 'local',
       clerk_publishable_key: null,
+      clerk_proxy_url: null,
       allow_registration: false,
     };
     authConfig.value = defaultConfig;
@@ -202,12 +203,16 @@ async function logout(): Promise<void> {
     if (authConfig.value?.provider === 'cloud' && authConfig.value?.clerk_publishable_key) {
       try {
         const ClerkModule = await import('@clerk/clerk-js');
-        const clerk: Clerk = new ClerkModule.Clerk(authConfig.value.clerk_publishable_key);
+        const clerkOptions = authConfig.value.clerk_proxy_url
+          ? { proxyUrl: authConfig.value.clerk_proxy_url }
+          : undefined;
+        const clerk: Clerk = new ClerkModule.Clerk(
+          authConfig.value.clerk_publishable_key,
+          clerkOptions,
+        );
         await clerk.load();
-        if (clerk.session) {
-          await clerk.signOut();
-          console.log('[Auth] Signed out from Clerk');
-        }
+        await clerk.signOut();
+        console.log('[Auth] Signed out from Clerk');
       } catch (clerkError) {
         console.warn('[Auth] Clerk sign out failed:', clerkError);
       }
@@ -390,6 +395,7 @@ export async function initAuthState(): Promise<{ needsSetup: boolean; config: Au
     const defaultConfig: AuthConfig = {
       provider: 'local',
       clerk_publishable_key: null,
+      clerk_proxy_url: null,
       allow_registration: false,
     };
     return { needsSetup: false, config: defaultConfig };

@@ -379,10 +379,13 @@ async function signInWithGoogle() {
   errorMessage.value = null;
 
   try {
-    // For cloud deployments (base path /app/), OAuth callback should go to cloud frontend
-    // at /oauth-callback which handles onboarding for new users.
-    // For self-hosted (base path /), callback goes to core app's /oauth-callback.
-    // Always use root /oauth-callback - cloud frontend handles new user onboarding.
+    if (clerkInstance.session) {
+      console.log('[Auth] Clearing existing Clerk session before OAuth');
+      await clerkInstance.signOut();
+      // Reload Clerk to ensure clean state
+      await clerkInstance.load();
+    }
+
     const callbackUrl = window.location.origin + '/oauth-callback';
 
     console.log('[Auth] Starting OAuth flow, callback URL:', callbackUrl);
