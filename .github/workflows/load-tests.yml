@@ -425,7 +425,7 @@ jobs:
             # Capacity Discovery Mode
             RAMP_INITIAL="${{ github.event.inputs.ramp_initial_users || '10' }}"
             RAMP_STEP="${{ github.event.inputs.ramp_step || '10' }}"
-            RAMP_INTERVAL="${{ github.event.inputs.ramp_interval || '90' }}"
+            RAMP_INTERVAL="${{ github.event.inputs.ramp_interval || '30' }}"
             SPAWN_RATE="${{ github.event.inputs.spawn_rate || '5' }}"
 
             echo "🔍 CAPACITY DISCOVERY MODE"
@@ -557,7 +557,7 @@ jobs:
           echo "   Goal: Find the 'knee point' = maximum sustainable load"
           echo ""
           echo "Expected Behavior:"
-          echo "  ✓ Ramp: 10 → 20 → 30 → ... users (+10 every 90s)"
+          echo "  ✓ Ramp: 10 → 20 → 30 → ... users (+10 every 30s)"
           echo "  ✓ Stop when: P95 > 200ms OR Error rate > 1%"
           echo "  ✓ Report: Knee point (max capacity before degradation)"
           echo ""
