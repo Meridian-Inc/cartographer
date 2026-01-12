@@ -47,6 +47,44 @@ def _save_states():
 _previous_states: dict[str, str] = _load_states()
 
 
+def _build_health_check_params(
+    device_ip: str,
+    success: bool,
+    network_id: str,
+    latency_ms: float | None,
+    packet_loss: float | None,
+    device_name: str | None,
+    previous_state: str | None,
+) -> dict:
+    """Build request params for health check report."""
+    params = {
+        "device_ip": device_ip,
+        "success": success,
+        "network_id": network_id,
+    }
+    if latency_ms is not None:
+        params["latency_ms"] = latency_ms
+    if packet_loss is not None:
+        params["packet_loss"] = packet_loss
+    if device_name is not None:
+        params["device_name"] = device_name
+    if previous_state is not None:
+        params["previous_state"] = previous_state
+    return params
+
+
+def _update_device_state(device_ip: str, success: bool) -> tuple[str | None, bool]:
+    """Update tracked device state and return (previous_state, state_changed)."""
+    global _previous_states
+    previous_state = _previous_states.get(device_ip)
+    current_state = "online" if success else "offline"
+    state_changed = previous_state != current_state
+    _previous_states[device_ip] = current_state
+    if state_changed or previous_state is None:
+        _save_states()
+    return previous_state, state_changed
+
+
 async def report_health_check(
     device_ip: str,
     success: bool,
@@ -75,55 +113,25 @@ async def report_health_check(
     Note: If network_id is None, the notification service will not send notifications
     but will still train the ML model.
     """
-    global _previous_states
+    previous_state, _ = _update_device_state(device_ip, success)
 
-    # Get previous state for this device
-    previous_state = _previous_states.get(device_ip)
-
-    # Update tracked state
-    current_state = "online" if success else "offline"
-    state_changed = previous_state != current_state
-    _previous_states[device_ip] = current_state
-
-    # Persist state changes to disk (only on state change to reduce I/O)
-    if state_changed or previous_state is None:
-        _save_states()
-
-    # Skip reporting if no network_id (device not part of a monitored network)
     if network_id is None:
         logger.debug(f"Skipping notification report for {device_ip} (no network_id)")
         return False
 
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
-            params = {
-                "device_ip": device_ip,
-                "success": success,
-                "network_id": network_id,
-            }
-
-            if latency_ms is not None:
-                params["latency_ms"] = latency_ms
-            if packet_loss is not None:
-                params["packet_loss"] = packet_loss
-            if device_name is not None:
-                params["device_name"] = device_name
-            if previous_state is not None:
-                params["previous_state"] = previous_state
-
+            params = _build_health_check_params(
+                device_ip, success, network_id, latency_ms, packet_loss, device_name, previous_state
+            )
             response = await client.post(
                 f"{settings.notification_service_url}/api/notifications/process-health-check",
                 params=params,
             )
-
             if response.status_code == 200:
                 return True
-            else:
-                logger.warning(
-                    f"Notification service returned {response.status_code}: {response.text}"
-                )
-                return False
-
+            logger.warning(f"Notification service returned {response.status_code}: {response.text}")
+            return False
     except httpx.ConnectError:
         logger.debug("Notification service not available")
         return False
