@@ -420,14 +420,14 @@ class NetworkAnomalyDetector:
                     should_notify = True
                     event_type = NotificationType.DEVICE_OFFLINE
                     priority = (
-                        NotificationPriority.HIGH if result.is_anomaly else NotificationPriority.MEDIUM
+                        NotificationPriority.HIGH
+                        if result.is_anomaly
+                        else NotificationPriority.MEDIUM
                     )
 
                     if result.is_anomaly:
                         title = f"Device Offline: {device_name or device_ip} (Unexpected)"
-                        message = (
-                            f"The device at {device_ip} has gone offline unexpectedly. {result.reason}"
-                        )
+                        message = f"The device at {device_ip} has gone offline unexpectedly. {result.reason}"
                     else:
                         title = f"Device Offline: {device_name or device_ip}"
                         message = f"The device at {device_ip} is no longer responding."
@@ -486,7 +486,9 @@ class NetworkAnomalyDetector:
                         event_type = NotificationType.PACKET_LOSS
                         priority = NotificationPriority.MEDIUM
                         title = f"Packet Loss: {device_name or device_ip}"
-                        message = f"High packet loss detected on {device_ip}: {packet_loss*100:.1f}%"
+                        message = (
+                            f"High packet loss detected on {device_ip}: {packet_loss*100:.1f}%"
+                        )
                         logger.info(
                             f"[Network {self.network_id}] Packet loss anomaly detected for {device_ip}"
                         )
