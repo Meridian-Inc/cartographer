@@ -518,6 +518,94 @@
 
             <!-- Port Grid Display -->
             <div v-else class="space-y-3">
+              <!-- Port Grid Resize Form (when resizing existing grid) -->
+              <div v-if="hasWritePermission && showPortGridSetup" class="bg-slate-50 dark:bg-slate-800/40 rounded-lg p-4 space-y-3">
+                <p class="text-xs text-slate-600 dark:text-slate-400 font-medium">
+                  Resize Port Grid Layout
+                </p>
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="text-xs text-slate-500 dark:text-slate-400 mb-1 block"
+                      >Columns (X)</label
+                    >
+                    <input
+                      type="number"
+                      v-model.number="portGridCols"
+                      min="1"
+                      max="48"
+                      class="w-full px-2 py-1.5 text-xs border border-slate-300 dark:border-slate-700 rounded bg-white dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                    />
+                  </div>
+                  <div>
+                    <label class="text-xs text-slate-500 dark:text-slate-400 mb-1 block"
+                      >Rows (Y)</label
+                    >
+                    <input
+                      type="number"
+                      v-model.number="portGridRows"
+                      min="1"
+                      max="8"
+                      class="w-full px-2 py-1.5 text-xs border border-slate-300 dark:border-slate-700 rounded bg-white dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                    />
+                  </div>
+                </div>
+                <!-- Preview grid -->
+                <div v-if="portGridCols > 0 && portGridRows > 0" class="mt-3">
+                  <p class="text-xs text-slate-500 dark:text-slate-400 mb-2">
+                    Preview ({{ portGridCols }} × {{ portGridRows }} =
+                    {{ portGridCols * portGridRows }} ports)
+                  </p>
+                  <div class="bg-slate-200 dark:bg-slate-700 rounded p-2 pb-3 overflow-x-auto">
+                    <div
+                      class="grid gap-1.5 gap-y-2.5"
+                      :style="{ gridTemplateColumns: `repeat(${portGridCols}, minmax(20px, 1fr))` }"
+                    >
+                      <template v-for="n in portGridCols * portGridRows" :key="n">
+                        <!-- RJ45 Port (SVG shape) -->
+                        <div
+                          class="relative flex items-center justify-center"
+                          style="width: 100%; aspect-ratio: 1.15"
+                        >
+                          <svg
+                            viewBox="0 0 32 28"
+                            class="absolute inset-0 w-full h-full"
+                            preserveAspectRatio="xMidYMid meet"
+                          >
+                            <path
+                              d="M 11 1 H 21 Q 22 1 22 2 V 6 H 30 Q 31 6 31 7 V 26 Q 31 27 30 27 H 2 Q 1 27 1 26 V 7 Q 1 6 2 6 H 10 V 2 Q 10 1 11 1 Z"
+                              class="fill-amber-200 dark:fill-amber-800 stroke-amber-400 dark:stroke-amber-600"
+                              stroke-width="1.5"
+                            />
+                          </svg>
+                          <span
+                            class="relative z-10 text-[9px] font-mono text-amber-800 dark:text-amber-200"
+                            >{{ n }}</span
+                          >
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+                </div>
+                <p class="text-xs text-amber-600 dark:text-amber-400">
+                  Note: Resizing will preserve existing port configurations where possible.
+                </p>
+                <div class="flex justify-end gap-2 pt-2">
+                  <button
+                    @click="showPortGridSetup = false"
+                    class="px-3 py-1 text-xs rounded border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    @click="resizePortGrid"
+                    :disabled="portGridCols < 1 || portGridRows < 1"
+                    class="px-3 py-1 text-xs rounded bg-cyan-500 hover:bg-cyan-600 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Resize Grid
+                  </button>
+                </div>
+              </div>
+
               <!-- Drag indicator banner -->
               <div
                 v-if="draggedPort"
@@ -3762,6 +3850,52 @@ function createPortGrid() {
     ports,
     labelFormat: 'numeric',
     startNumber: 1,
+  };
+
+  lanPortsConfig.value = config;
+  showPortGridSetup.value = false;
+
+  // Emit to parent
+  emit('updateLanPorts', props.node.id, config);
+}
+
+function resizePortGrid() {
+  if (!hasWritePermission.value || !props.node || !lanPortsConfig.value) return;
+
+  const oldConfig = lanPortsConfig.value;
+  const newPorts: LanPort[] = [];
+  let portNum = 1;
+
+  for (let row = 1; row <= portGridRows.value; row++) {
+    for (let col = 1; col <= portGridCols.value; col++) {
+      // Try to find existing port at this position
+      const existingPort = oldConfig.ports.find((p) => p.row === row && p.col === col);
+
+      if (existingPort) {
+        // Preserve existing port configuration with updated port number
+        newPorts.push({
+          ...existingPort,
+          portNumber: portNum++,
+        });
+      } else {
+        // Create new port for expanded positions
+        newPorts.push({
+          row,
+          col,
+          portNumber: portNum++,
+          type: defaultPortType.value,
+          status: 'unused',
+        });
+      }
+    }
+  }
+
+  const config: LanPortsConfig = {
+    rows: portGridRows.value,
+    cols: portGridCols.value,
+    ports: newPorts,
+    labelFormat: oldConfig.labelFormat || 'numeric',
+    startNumber: oldConfig.startNumber || 1,
   };
 
   lanPortsConfig.value = config;
