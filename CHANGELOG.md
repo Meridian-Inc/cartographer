@@ -5,6 +5,13 @@ All notable changes to Cartographer will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+### [0.20.15](https://github.com/devartech/cartographer/compare/v0.20.14...v0.20.15) (2026-01-12)
+
+
+### 🐛 Bug Fixes
+
+* resize LAN grid ([066027c](https://github.com/devartech/cartographer/commit/066027cd147e8272d9903d08aaa5f4a1dbe51459))
+
 ### [0.20.14](https://github.com/devartech/cartographer/compare/v0.20.13...v0.20.14) (2026-01-11)
 
 
