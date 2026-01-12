@@ -316,7 +316,7 @@ async def process_health_check(
     from ..services.network_anomaly_detector import network_anomaly_detector_manager
 
     # Process health check with per-network detector
-    event = network_anomaly_detector_manager.process_health_check(
+    event = await network_anomaly_detector_manager.process_health_check(
         network_id=network_id,
         device_ip=device_ip,
         success=success,

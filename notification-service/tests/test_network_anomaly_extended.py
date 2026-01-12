@@ -230,13 +230,13 @@ class TestNetworkAnomalyDetectorManager:
 
         assert detector1 is detector2
 
-    def test_process_health_check(self):
+    async def test_process_health_check(self):
         """Test processing health check."""
         from app.services.network_anomaly_detector import NetworkAnomalyDetectorManager
 
         manager = NetworkAnomalyDetectorManager()
 
-        result = manager.process_health_check(
+        result = await manager.process_health_check(
             network_id="test-network",
             device_ip="192.168.1.1",
             success=True,

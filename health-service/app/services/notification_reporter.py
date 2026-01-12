@@ -6,7 +6,9 @@ anomaly detection and alerting.
 """
 
 import asyncio
+import json
 import logging
+from pathlib import Path
 
 import httpx
 
@@ -14,8 +16,35 @@ from ..config import settings
 
 logger = logging.getLogger(__name__)
 
-# Track previous states for state change detection
-_previous_states: dict[str, str] = {}
+# State persistence file
+_STATE_FILE = Path(settings.health_data_dir) / "previous_states.json"
+
+
+def _load_states() -> dict[str, str]:
+    """Load previous states from disk"""
+    try:
+        if _STATE_FILE.exists():
+            with open(_STATE_FILE, "r") as f:
+                states = json.load(f)
+                logger.info(f"Loaded {len(states)} previous device states from disk")
+                return states
+    except Exception as e:
+        logger.warning(f"Failed to load previous states from disk: {e}")
+    return {}
+
+
+def _save_states():
+    """Save previous states to disk"""
+    try:
+        _STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with open(_STATE_FILE, "w") as f:
+            json.dump(_previous_states, f)
+    except Exception as e:
+        logger.warning(f"Failed to save previous states to disk: {e}")
+
+
+# Track previous states for state change detection - loaded from disk
+_previous_states: dict[str, str] = _load_states()
 
 
 async def report_health_check(
@@ -53,7 +82,12 @@ async def report_health_check(
 
     # Update tracked state
     current_state = "online" if success else "offline"
+    state_changed = previous_state != current_state
     _previous_states[device_ip] = current_state
+
+    # Persist state changes to disk (only on state change to reduce I/O)
+    if state_changed or previous_state is None:
+        _save_states()
 
     # Skip reporting if no network_id (device not part of a monitored network)
     if network_id is None:
@@ -126,6 +160,7 @@ def clear_state_tracking():
     """Clear tracked device states (for testing/reset)"""
     global _previous_states
     _previous_states.clear()
+    _save_states()  # Persist the cleared state
 
 
 async def sync_devices_with_notification_service(

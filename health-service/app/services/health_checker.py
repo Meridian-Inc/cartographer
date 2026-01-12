@@ -485,6 +485,7 @@ class HealthChecker:
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         metrics_map = {}
+        failures = 0
         for ip, result in zip(ips, results):
             if isinstance(result, Exception):
                 logger.error(f"Health check failed for {ip}: {result}")
@@ -494,8 +495,20 @@ class HealthChecker:
                     last_check=datetime.utcnow(),
                     error_message=str(result),
                 )
+                failures += 1
             else:
                 metrics_map[ip] = result
+                # Count unhealthy devices as failures for bulk detection
+                if result.status in (HealthStatus.UNHEALTHY, HealthStatus.UNKNOWN):
+                    failures += 1
+
+        # Detect bulk failures - could indicate network issue, not individual device problems
+        total = len(ips)
+        if total > 0 and failures > total * 0.5:
+            logger.warning(
+                f"Bulk health check failure detected: {failures}/{total} devices failed. "
+                f"This may indicate a network issue rather than individual device problems."
+            )
 
         return metrics_map
 
@@ -919,11 +932,25 @@ class HealthChecker:
         """Background loop that periodically checks all monitored devices"""
         logger.info("Starting background monitoring loop")
 
+        # Timeout for each monitoring check cycle (should be less than interval)
+        check_timeout_seconds = 60.0
+
         while True:
             try:
                 if self._monitoring_config.enabled and self._monitored_devices:
-                    # Perform the check
-                    await self._perform_monitoring_check()
+                    # Perform the check with timeout to prevent indefinite blocking
+                    try:
+                        await asyncio.wait_for(
+                            self._perform_monitoring_check(),
+                            timeout=check_timeout_seconds,
+                        )
+                    except asyncio.TimeoutError:
+                        logger.error(
+                            f"Monitoring check timed out after {check_timeout_seconds} seconds. "
+                            f"This may indicate network issues or too many devices to check in time."
+                        )
+                        # Ensure the flag is reset even on timeout
+                        self._is_checking = False
 
                 # Calculate next check time
                 interval = self._monitoring_config.check_interval_seconds

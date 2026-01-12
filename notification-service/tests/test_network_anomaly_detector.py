@@ -107,12 +107,12 @@ class TestNetworkAnomalyDetectorEvents:
 
             return NetworkAnomalyDetector("test-network-123", load_state=False)
 
-    def test_create_network_event_device_offline(self, detector):
+    async def test_create_network_event_device_offline(self, detector):
         """Should create event for device going offline"""
         for _ in range(20):
             detector.train("192.168.1.1", True, 10.0)
 
-        event = detector.create_network_event(
+        event = await detector.create_network_event(
             device_ip="192.168.1.1",
             success=False,
             device_name="Router",
@@ -125,14 +125,14 @@ class TestNetworkAnomalyDetectorEvents:
                 NotificationType.ANOMALY_DETECTED,
             ]
 
-    def test_create_network_event_device_online(self, detector):
+    async def test_create_network_event_device_online(self, detector):
         """Should create event for device coming back online"""
         for _ in range(10):
             detector.train("192.168.1.1", True, 10.0)
         detector.train("192.168.1.1", False)
         detector._notified_offline.add("192.168.1.1")
 
-        event = detector.create_network_event(
+        event = await detector.create_network_event(
             device_ip="192.168.1.1",
             success=True,
             device_name="Router",
@@ -141,24 +141,24 @@ class TestNetworkAnomalyDetectorEvents:
         if event:
             assert event.event_type == NotificationType.DEVICE_ONLINE
 
-    def test_create_network_event_no_notification_needed(self, detector):
+    async def test_create_network_event_no_notification_needed(self, detector):
         """Should return None when no notification needed"""
         for _ in range(10):
             detector.train("192.168.1.1", True, 10.0)
 
-        event = detector.create_network_event(
+        event = await detector.create_network_event(
             device_ip="192.168.1.1",
             success=True,
         )
 
         assert event is None
 
-    def test_create_network_event_stable_offline(self, detector):
+    async def test_create_network_event_stable_offline(self, detector):
         """Should not notify for stable offline device"""
         for _ in range(50):
             detector.train("192.168.1.1", False, None, None)
 
-        event = detector.create_network_event(
+        event = await detector.create_network_event(
             device_ip="192.168.1.1",
             success=False,
         )
@@ -278,9 +278,9 @@ class TestNetworkAnomalyDetectorManager:
 
         assert status.model_version == "1.0.0"
 
-    def test_process_health_check(self, manager):
+    async def test_process_health_check(self, manager):
         """Should process health check"""
-        event = manager.process_health_check(
+        event = await manager.process_health_check(
             network_id="network-123",
             device_ip="192.168.1.1",
             success=True,
