@@ -16,35 +16,42 @@ from ..config import settings
 
 logger = logging.getLogger(__name__)
 
-# State persistence file
-_STATE_FILE = Path(settings.health_data_dir) / "previous_states.json"
+# State persistence directory (per-network state files)
+_STATE_DIR = Path(settings.health_data_dir) / "network_states"
 
 
-def _load_states() -> dict[str, str]:
-    """Load previous states from disk"""
+def _get_state_file(network_id: str) -> Path:
+    """Get state file path for a specific network"""
+    return _STATE_DIR / f"{network_id}.json"
+
+
+def _load_network_states(network_id: str) -> dict[str, str]:
+    """Load previous states for a specific network from disk"""
     try:
-        if _STATE_FILE.exists():
-            with open(_STATE_FILE, "r") as f:
+        state_file = _get_state_file(network_id)
+        if state_file.exists():
+            with open(state_file, "r") as f:
                 states = json.load(f)
-                logger.info(f"Loaded {len(states)} previous device states from disk")
+                logger.info(f"Loaded {len(states)} device states for network {network_id}")
                 return states
     except Exception as e:
-        logger.warning(f"Failed to load previous states from disk: {e}")
+        logger.warning(f"Failed to load states for network {network_id}: {e}")
     return {}
 
 
-def _save_states():
-    """Save previous states to disk"""
+def _save_network_states(network_id: str):
+    """Save states for a specific network to disk"""
     try:
-        _STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-        with open(_STATE_FILE, "w") as f:
-            json.dump(_previous_states, f)
+        _STATE_DIR.mkdir(parents=True, exist_ok=True)
+        states = _previous_states.get(network_id, {})
+        with open(_get_state_file(network_id), "w") as f:
+            json.dump(states, f)
     except Exception as e:
-        logger.warning(f"Failed to save previous states to disk: {e}")
+        logger.warning(f"Failed to save states for network {network_id}: {e}")
 
 
-# Track previous states for state change detection - loaded from disk
-_previous_states: dict[str, str] = _load_states()
+# Track previous states per-network: {network_id: {device_ip: state}}
+_previous_states: dict[str, dict[str, str]] = {}
 
 
 def _build_health_check_params(
@@ -73,15 +80,23 @@ def _build_health_check_params(
     return params
 
 
-def _update_device_state(device_ip: str, success: bool) -> tuple[str | None, bool]:
-    """Update tracked device state and return (previous_state, state_changed)."""
+def _update_device_state(network_id: str, device_ip: str, success: bool) -> tuple[str | None, bool]:
+    """Update tracked device state for a network and return (previous_state, state_changed)."""
     global _previous_states
-    previous_state = _previous_states.get(device_ip)
+
+    # Ensure network state dict exists, load from disk if first access
+    if network_id not in _previous_states:
+        _previous_states[network_id] = _load_network_states(network_id)
+
+    network_states = _previous_states[network_id]
+    previous_state = network_states.get(device_ip)
     current_state = "online" if success else "offline"
     state_changed = previous_state != current_state
-    _previous_states[device_ip] = current_state
+    network_states[device_ip] = current_state
+
     if state_changed or previous_state is None:
-        _save_states()
+        _save_network_states(network_id)
+
     return previous_state, state_changed
 
 
@@ -110,14 +125,17 @@ async def report_health_check(
 
     Returns True if successfully reported, False otherwise.
 
-    Note: If network_id is None, the notification service will not send notifications
-    but will still train the ML model.
+    Note: If network_id is None, nothing is tracked or reported. This prevents
+    cross-network state pollution from unregistered device checks.
     """
-    previous_state, _ = _update_device_state(device_ip, success)
-
+    # CRITICAL: Check network_id FIRST before any state tracking
+    # This prevents state pollution from devices checked without a network context
     if network_id is None:
         logger.debug(f"Skipping notification report for {device_ip} (no network_id)")
         return False
+
+    # Only track state for devices with a valid network_id
+    previous_state, _ = _update_device_state(network_id, device_ip, success)
 
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
@@ -164,11 +182,25 @@ async def report_health_checks_batch(
     return sum(1 for r in batch_results if r)
 
 
-def clear_state_tracking():
-    """Clear tracked device states (for testing/reset)"""
+def clear_state_tracking(network_id: str | None = None):
+    """Clear tracked device states (for testing/reset).
+
+    Args:
+        network_id: If provided, only clear state for that network.
+                   If None, clear all network states.
+    """
     global _previous_states
-    _previous_states.clear()
-    _save_states()  # Persist the cleared state
+    if network_id is not None:
+        _previous_states.pop(network_id, None)
+        state_file = _get_state_file(network_id)
+        if state_file.exists():
+            state_file.unlink()
+    else:
+        _previous_states.clear()
+        # Clear all state files
+        if _STATE_DIR.exists():
+            for state_file in _STATE_DIR.glob("*.json"):
+                state_file.unlink()
 
 
 async def sync_devices_with_notification_service(
