@@ -114,10 +114,8 @@ async def discord_oauth_callback(
                 )
                 .values(discord_user_id=discord_id, discord_enabled=True)
             )
-            logger.info(
-                f"Linked Discord account {_mask_id(discord_id)} for user {_mask_id(user_id)} "
-                f"on network {_mask_id(context_id)}"
-            )
+            logger.info("Linked Discord account for network context")
+
         else:
             # Update global preferences only
             global_prefs = await user_preferences_service.get_global_preferences(db, user_id)
@@ -133,9 +131,7 @@ async def discord_oauth_callback(
                     minimum_priority="medium",
                 )
                 db.add(new_prefs)
-            logger.info(
-                f"Linked Discord account {_mask_id(discord_id)} for user {_mask_id(user_id)} (global)"
-            )
+            logger.info("Linked Discord account for user (global context)")
 
         await db.commit()
 
