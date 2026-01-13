@@ -25,14 +25,6 @@ logger = logging.getLogger(__name__)
 
 APPLICATION_URL = os.environ.get("APPLICATION_URL", "http://localhost:5173")
 
-
-def _mask_id(id_value: str) -> str:
-    """Mask sensitive IDs for logging, showing only first 4 chars."""
-    if not id_value or len(id_value) <= 4:
-        return "****"
-    return f"{id_value[:4]}****"
-
-
 router = APIRouter()
 
 
@@ -131,7 +123,7 @@ async def discord_oauth_callback(
                     minimum_priority="medium",
                 )
                 db.add(new_prefs)
-            logger.info("Linked Discord account for user (global context)")
+            logger.info("Linked Discord account for global context")
 
         await db.commit()
 
@@ -179,9 +171,7 @@ async def unlink_discord(
                 )
                 .values(discord_user_id=None, discord_enabled=False)
             )
-            logger.info(
-                f"Unlinked Discord for user {_mask_id(user_id)} from network {_mask_id(context_id)}"
-            )
+            logger.info("Unlinked Discord account for network context")
         else:
             # Only update global preferences
             await db.execute(
@@ -189,7 +179,7 @@ async def unlink_discord(
                 .where(UserGlobalNotificationPrefs.user_id == user_id)
                 .values(discord_user_id=None, discord_enabled=False)
             )
-            logger.info(f"Unlinked Discord for user {_mask_id(user_id)} (global)")
+            logger.info("Unlinked Discord account for global context")
 
         await db.commit()
 
