@@ -366,9 +366,31 @@ async def process_health_check(
 
     events_dispatched = 0
 
-    # Handle device coming back online - remove from mass outage buffer if pending
+    # Handle state transitions - if device state changed before notification was sent,
+    # drop the pending notification (no need to notify about transient issues that resolved)
     if success:
-        mass_outage_detector.remove_device(network_id, device_ip)
+        # Device came online - drop any pending offline notification (issue resolved itself)
+        pending_offline = mass_outage_detector.remove_device(network_id, device_ip)
+        if pending_offline:
+            logger.info(
+                f"Device {device_ip} recovered before offline notification sent - dropping notification"
+            )
+            # Don't dispatch - the issue resolved itself
+            # Also skip the online notification since user never knew it was down
+            return {
+                "success": True,
+                "event_created": False,
+                "events_dispatched": 0,
+                "note": "Transient outage resolved before notification",
+            }
+    else:
+        # Device went offline - drop any pending online notification (recovery was transient)
+        pending_online = mass_outage_detector.remove_online_device(network_id, device_ip)
+        if pending_online:
+            logger.info(
+                f"Device {device_ip} went offline before online notification sent - dropping notification"
+            )
+            # Continue processing the offline event normally
 
     # If event created, handle based on type
     if event:

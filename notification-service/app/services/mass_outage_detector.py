@@ -44,11 +44,13 @@ class MassOutageDetector:
     """
 
     # Configuration
-    OFFLINE_AGGREGATION_WINDOW_SECONDS = 60  # Time window to detect mass outage
-    ONLINE_AGGREGATION_WINDOW_SECONDS = 10  # Shorter window for recovery (users want fast feedback)
+    # Collection window: how long to wait for concurrent events before dispatching
+    # This should be short - just enough to catch health checks arriving in the same batch
+    OFFLINE_COLLECTION_WINDOW_SECONDS = 5  # Wait up to 5s to collect offline events
+    ONLINE_COLLECTION_WINDOW_SECONDS = 3  # Shorter window for recovery (users want fast feedback)
     MIN_DEVICES_FOR_MASS_EVENT = 3  # Minimum devices to trigger aggregation
-    # Grace period after threshold reached before flushing (allows concurrent arrivals)
-    THRESHOLD_GRACE_PERIOD_SECONDS = 3
+    # Grace period after threshold reached before flushing (catch concurrent arrivals)
+    THRESHOLD_GRACE_PERIOD_SECONDS = 1  # 1 second is enough for concurrent requests
 
     def __init__(self):
         # Per-network buffers for offline events: network_id -> NetworkEventBuffer
@@ -143,6 +145,7 @@ class MassOutageDetector:
         Remove a device from the pending offline buffer.
 
         Returns the original event if it was pending, None otherwise.
+        Also resets threshold tracking if we drop below threshold.
         """
         buffer = self._get_offline_buffer(network_id)
 
@@ -152,6 +155,17 @@ class MassOutageDetector:
                 f"[Network {network_id}] Removed {device_ip} from pending offline events "
                 f"({len(buffer.pending_events)} remaining)"
             )
+
+            # If we drop below threshold, reset threshold tracking
+            # Remaining events will be dispatched individually when they expire
+            if len(buffer.pending_events) < self.MIN_DEVICES_FOR_MASS_EVENT:
+                if buffer.threshold_reached_at is not None:
+                    logger.info(
+                        f"[Network {network_id}] Dropped below mass outage threshold, "
+                        f"remaining {len(buffer.pending_events)} devices will be dispatched individually"
+                    )
+                    buffer.threshold_reached_at = None
+
             return pending.original_event
 
         return None
@@ -245,7 +259,7 @@ class MassOutageDetector:
             network_id=network_id,
             title="Mass Device Outage Detected",
             message=(
-                f"{len(pending_list)} devices went offline within {self.OFFLINE_AGGREGATION_WINDOW_SECONDS} seconds. "
+                f"{len(pending_list)} devices went offline within {self.OFFLINE_COLLECTION_WINDOW_SECONDS} seconds. "
                 f"This may indicate a network-wide issue.\n\n"
                 f"Affected devices: {device_list_str}"
             ),
@@ -254,7 +268,7 @@ class MassOutageDetector:
                 "total_affected": len(pending_list),
                 "first_detected": first_detected.isoformat(),
                 "last_detected": last_detected.isoformat(),
-                "detection_window_seconds": self.OFFLINE_AGGREGATION_WINDOW_SECONDS,
+                "detection_window_seconds": self.OFFLINE_COLLECTION_WINDOW_SECONDS,
             },
         )
 
@@ -277,7 +291,7 @@ class MassOutageDetector:
         """
         buffer = self._get_offline_buffer(network_id)
         return self._cleanup_expired_events(
-            buffer, network_id, "offline", self.OFFLINE_AGGREGATION_WINDOW_SECONDS
+            buffer, network_id, "offline", self.OFFLINE_COLLECTION_WINDOW_SECONDS
         )
 
     def get_all_pending_events(self, network_id: str) -> list[NetworkEvent]:
@@ -351,6 +365,7 @@ class MassOutageDetector:
         Remove a device from the pending online buffer.
 
         Returns the original event if it was pending, None otherwise.
+        Also resets threshold tracking if we drop below threshold.
         """
         buffer = self._get_online_buffer(network_id)
 
@@ -360,6 +375,16 @@ class MassOutageDetector:
                 f"[Network {network_id}] Removed {device_ip} from pending online events "
                 f"({len(buffer.pending_events)} remaining)"
             )
+
+            # If we drop below threshold, reset threshold tracking
+            if len(buffer.pending_events) < self.MIN_DEVICES_FOR_MASS_EVENT:
+                if buffer.threshold_reached_at is not None:
+                    logger.info(
+                        f"[Network {network_id}] Dropped below mass recovery threshold, "
+                        f"remaining {len(buffer.pending_events)} devices will be dispatched individually"
+                    )
+                    buffer.threshold_reached_at = None
+
             return pending.original_event
 
         return None
@@ -448,7 +473,7 @@ class MassOutageDetector:
             network_id=network_id,
             title="Mass Device Recovery Detected",
             message=(
-                f"{len(pending_list)} devices came back online within {self.ONLINE_AGGREGATION_WINDOW_SECONDS} seconds. "
+                f"{len(pending_list)} devices came back online within {self.ONLINE_COLLECTION_WINDOW_SECONDS} seconds. "
                 f"Network connectivity appears to be restored.\n\n"
                 f"Recovered devices: {device_list_str}"
             ),
@@ -457,7 +482,7 @@ class MassOutageDetector:
                 "total_recovered": len(pending_list),
                 "first_detected": first_detected.isoformat(),
                 "last_detected": last_detected.isoformat(),
-                "detection_window_seconds": self.ONLINE_AGGREGATION_WINDOW_SECONDS,
+                "detection_window_seconds": self.ONLINE_COLLECTION_WINDOW_SECONDS,
             },
         )
 
@@ -480,7 +505,7 @@ class MassOutageDetector:
         """
         buffer = self._get_online_buffer(network_id)
         return self._cleanup_expired_events(
-            buffer, network_id, "online", self.ONLINE_AGGREGATION_WINDOW_SECONDS
+            buffer, network_id, "online", self.ONLINE_COLLECTION_WINDOW_SECONDS
         )
 
     def get_all_pending_online_events(self, network_id: str) -> list[NetworkEvent]:
