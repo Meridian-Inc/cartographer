@@ -30,6 +30,8 @@ class NetworkEventBuffer:
     """Buffer for pending device events in a network."""
 
     pending_events: dict[str, PendingDeviceEvent] = field(default_factory=dict)
+    # Timestamp when threshold was first reached (for grace period before flushing)
+    threshold_reached_at: datetime | None = None
 
 
 class MassOutageDetector:
@@ -45,6 +47,8 @@ class MassOutageDetector:
     OFFLINE_AGGREGATION_WINDOW_SECONDS = 60  # Time window to detect mass outage
     ONLINE_AGGREGATION_WINDOW_SECONDS = 10  # Shorter window for recovery (users want fast feedback)
     MIN_DEVICES_FOR_MASS_EVENT = 3  # Minimum devices to trigger aggregation
+    # Grace period after threshold reached before flushing (allows concurrent arrivals)
+    THRESHOLD_GRACE_PERIOD_SECONDS = 3
 
     def __init__(self):
         # Per-network buffers for offline events: network_id -> NetworkEventBuffer
@@ -161,19 +165,36 @@ class MassOutageDetector:
         """
         Check if there are enough pending offline events to trigger mass outage aggregation.
 
-        Returns True if the number of pending events >= MIN_DEVICES_FOR_MASS_EVENT
+        Returns True if the number of pending events >= MIN_DEVICES_FOR_MASS_EVENT.
+        Also tracks when threshold was first reached for grace period handling.
         """
         buffer = self._get_offline_buffer(network_id)
         count = len(buffer.pending_events)
         should = count >= self.MIN_DEVICES_FOR_MASS_EVENT
 
-        if should:
+        if should and buffer.threshold_reached_at is None:
+            # First time reaching threshold - record timestamp
+            buffer.threshold_reached_at = datetime.utcnow()
             logger.info(
                 f"[Network {network_id}] Mass outage threshold reached: "
                 f"{count} devices offline (threshold: {self.MIN_DEVICES_FOR_MASS_EVENT})"
             )
 
         return should
+
+    def is_ready_to_flush_offline(self, network_id: str) -> bool:
+        """
+        Check if the offline buffer is ready to be flushed as a mass event.
+
+        Returns True if threshold was reached AND grace period has passed.
+        This allows concurrent arrivals to be captured before flushing.
+        """
+        buffer = self._get_offline_buffer(network_id)
+        if buffer.threshold_reached_at is None:
+            return False
+
+        elapsed = (datetime.utcnow() - buffer.threshold_reached_at).total_seconds()
+        return elapsed >= self.THRESHOLD_GRACE_PERIOD_SECONDS
 
     def get_pending_count(self, network_id: str) -> int:
         """Get the number of pending offline events for a network."""
@@ -237,8 +258,9 @@ class MassOutageDetector:
             },
         )
 
-        # Clear the buffer
+        # Clear the buffer and reset threshold tracking
         buffer.pending_events.clear()
+        buffer.threshold_reached_at = None
 
         logger.info(
             f"[Network {network_id}] Created mass outage event for {len(affected_devices)} devices"
@@ -346,19 +368,36 @@ class MassOutageDetector:
         """
         Check if there are enough pending online events to trigger mass recovery aggregation.
 
-        Returns True if the number of pending events >= MIN_DEVICES_FOR_MASS_EVENT
+        Returns True if the number of pending events >= MIN_DEVICES_FOR_MASS_EVENT.
+        Also tracks when threshold was first reached for grace period handling.
         """
         buffer = self._get_online_buffer(network_id)
         count = len(buffer.pending_events)
         should = count >= self.MIN_DEVICES_FOR_MASS_EVENT
 
-        if should:
+        if should and buffer.threshold_reached_at is None:
+            # First time reaching threshold - record timestamp
+            buffer.threshold_reached_at = datetime.utcnow()
             logger.info(
                 f"[Network {network_id}] Mass recovery threshold reached: "
                 f"{count} devices online (threshold: {self.MIN_DEVICES_FOR_MASS_EVENT})"
             )
 
         return should
+
+    def is_ready_to_flush_online(self, network_id: str) -> bool:
+        """
+        Check if the online buffer is ready to be flushed as a mass event.
+
+        Returns True if threshold was reached AND grace period has passed.
+        This allows concurrent arrivals to be captured before flushing.
+        """
+        buffer = self._get_online_buffer(network_id)
+        if buffer.threshold_reached_at is None:
+            return False
+
+        elapsed = (datetime.utcnow() - buffer.threshold_reached_at).total_seconds()
+        return elapsed >= self.THRESHOLD_GRACE_PERIOD_SECONDS
 
     def get_pending_online_count(self, network_id: str) -> int:
         """Get the number of pending online events for a network."""
@@ -422,8 +461,9 @@ class MassOutageDetector:
             },
         )
 
-        # Clear the buffer
+        # Clear the buffer and reset threshold tracking
         buffer.pending_events.clear()
+        buffer.threshold_reached_at = None
 
         logger.info(
             f"[Network {network_id}] Created mass recovery event for {len(recovered_devices)} devices"

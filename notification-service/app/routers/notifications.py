@@ -387,9 +387,11 @@ async def process_health_check(
                     event=event,
                 )
 
-                # Check if we've reached mass outage threshold
-                if mass_outage_detector.should_aggregate(network_id):
-                    # Create aggregated mass outage event
+                # Check if threshold is reached (this tracks when it was first reached)
+                mass_outage_detector.should_aggregate(network_id)
+
+                # Only flush after grace period to allow concurrent arrivals
+                if mass_outage_detector.is_ready_to_flush_offline(network_id):
                     mass_event = mass_outage_detector.flush_and_create_mass_outage_event(network_id)
                     if mass_event:
                         logger.info(
@@ -408,9 +410,11 @@ async def process_health_check(
                     event=event,
                 )
 
-                # Check if we've reached mass recovery threshold
-                if mass_outage_detector.should_aggregate_online(network_id):
-                    # Create aggregated mass recovery event
+                # Check if threshold is reached (this tracks when it was first reached)
+                mass_outage_detector.should_aggregate_online(network_id)
+
+                # Only flush after grace period to allow concurrent arrivals
+                if mass_outage_detector.is_ready_to_flush_online(network_id):
                     mass_event = mass_outage_detector.flush_and_create_mass_recovery_event(
                         network_id
                     )
@@ -432,28 +436,50 @@ async def process_health_check(
                 f"Failed to dispatch notification for network {network_id}: {e}", exc_info=True
             )
 
-    # Always check for expired events on every health check
+    # Always check for expired/ready-to-flush events on every health check
     # This ensures buffered events are dispatched even when no new events are created
     try:
-        # Check expired offline events
-        expired_offline = mass_outage_detector.get_expired_events(network_id)
-        for expired_event in expired_offline:
-            logger.info(
-                f"Dispatching expired individual offline notification for "
-                f"{expired_event.device_ip} in network {network_id}"
-            )
-            await _dispatch_event_to_network(db, network_id, expired_event)
-            events_dispatched += 1
+        # Check if we should flush mass offline event (grace period passed)
+        if mass_outage_detector.is_ready_to_flush_offline(network_id):
+            mass_event = mass_outage_detector.flush_and_create_mass_outage_event(network_id)
+            if mass_event:
+                logger.info(
+                    f"Mass outage detected for network {network_id}: "
+                    f"{mass_event.details.get('total_affected', 0)} devices affected"
+                )
+                await _dispatch_event_to_network(db, network_id, mass_event)
+                events_dispatched += 1
+        else:
+            # Check expired offline events (only if not flushing mass event)
+            expired_offline = mass_outage_detector.get_expired_events(network_id)
+            for expired_event in expired_offline:
+                logger.info(
+                    f"Dispatching expired individual offline notification for "
+                    f"{expired_event.device_ip} in network {network_id}"
+                )
+                await _dispatch_event_to_network(db, network_id, expired_event)
+                events_dispatched += 1
 
-        # Check expired online events
-        expired_online = mass_outage_detector.get_expired_online_events(network_id)
-        for expired_event in expired_online:
-            logger.info(
-                f"Dispatching expired individual online notification for "
-                f"{expired_event.device_ip} in network {network_id}"
-            )
-            await _dispatch_event_to_network(db, network_id, expired_event)
-            events_dispatched += 1
+        # Check if we should flush mass online event (grace period passed)
+        if mass_outage_detector.is_ready_to_flush_online(network_id):
+            mass_event = mass_outage_detector.flush_and_create_mass_recovery_event(network_id)
+            if mass_event:
+                logger.info(
+                    f"Mass recovery detected for network {network_id}: "
+                    f"{mass_event.details.get('total_recovered', 0)} devices recovered"
+                )
+                await _dispatch_event_to_network(db, network_id, mass_event)
+                events_dispatched += 1
+        else:
+            # Check expired online events (only if not flushing mass event)
+            expired_online = mass_outage_detector.get_expired_online_events(network_id)
+            for expired_event in expired_online:
+                logger.info(
+                    f"Dispatching expired individual online notification for "
+                    f"{expired_event.device_ip} in network {network_id}"
+                )
+                await _dispatch_event_to_network(db, network_id, expired_event)
+                events_dispatched += 1
 
     except Exception as e:
         logger.error(
