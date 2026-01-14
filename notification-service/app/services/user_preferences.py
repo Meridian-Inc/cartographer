@@ -55,14 +55,21 @@ class UserPreferencesService:
         Returns True if migration was applied, False if already done.
         """
         type_priorities = prefs.type_priorities or {}
+
+        # Check if already migrated (handle both old boolean and new string format)
         if _MIGRATION_MARKER in type_priorities:
+            # Fix old boolean value if present (causes Pydantic validation errors)
+            if type_priorities[_MIGRATION_MARKER] is True:
+                type_priorities[_MIGRATION_MARKER] = "done"
+                prefs.type_priorities = type_priorities
+                return True  # Need to commit the fix
             return False
 
         # Add mass_outage and mass_recovery (user can disable later)
         current_types = set(prefs.enabled_types or [])
         new_types = {NotificationType.MASS_OUTAGE.value, NotificationType.MASS_RECOVERY.value}
         prefs.enabled_types = list(current_types | new_types)
-        prefs.type_priorities = {**type_priorities, _MIGRATION_MARKER: True}
+        prefs.type_priorities = {**type_priorities, _MIGRATION_MARKER: "done"}
         return True
 
     async def get_network_preferences(
