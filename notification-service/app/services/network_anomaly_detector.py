@@ -484,12 +484,7 @@ class NetworkAnomalyDetector:
                         message += f" ({stats.consecutive_failures} consecutive failures)"
 
             elif success:
-                # Device is online
-                # Only send "back online" notification if we previously sent an offline notification
-                # This ensures we don't spam users with online notifications for devices that were
-                # never reported as offline
                 if device_ip in self._notified_offline:
-                    # We sent an offline notification - now send the recovery notification
                     should_notify = True
                     event_type = NotificationType.DEVICE_ONLINE
                     priority = NotificationPriority.LOW
@@ -505,8 +500,7 @@ class NetworkAnomalyDetector:
                         f"[Network {self.network_id}] Device {device_ip} came back online - creating notification"
                     )
 
-                # Check for degraded performance (high latency or packet loss)
-                if result.is_anomaly:
+                elif result.is_anomaly:
                     if result.anomaly_type == AnomalyType.UNUSUAL_LATENCY_SPIKE:
                         should_notify = True
                         event_type = NotificationType.HIGH_LATENCY
