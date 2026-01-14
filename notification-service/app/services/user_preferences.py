@@ -26,9 +26,44 @@ from ..models.database import (
 
 logger = logging.getLogger(__name__)
 
+# Default notification types for new users
+DEFAULT_ENABLED_TYPES = [
+    NotificationType.DEVICE_OFFLINE,
+    NotificationType.DEVICE_ONLINE,
+    NotificationType.DEVICE_DEGRADED,
+    NotificationType.ANOMALY_DETECTED,
+    NotificationType.HIGH_LATENCY,
+    NotificationType.PACKET_LOSS,
+    NotificationType.ISP_ISSUE,
+    NotificationType.SECURITY_ALERT,
+    NotificationType.SCHEDULED_MAINTENANCE,
+    NotificationType.SYSTEM_STATUS,
+    NotificationType.MASS_OUTAGE,
+    NotificationType.MASS_RECOVERY,
+]
+
+# Migration marker to track one-time addition of new notification types
+_MIGRATION_MARKER = "__migrated_mass_outage_recovery"
+
 
 class UserPreferencesService:
     """Service for managing user notification preferences"""
+
+    def _migrate_add_new_types(self, prefs: "UserNetworkNotificationPrefs") -> bool:
+        """
+        One-time migration to add new notification types to existing preferences.
+        Returns True if migration was applied, False if already done.
+        """
+        type_priorities = prefs.type_priorities or {}
+        if _MIGRATION_MARKER in type_priorities:
+            return False
+
+        # Add mass_outage and mass_recovery (user can disable later)
+        current_types = set(prefs.enabled_types or [])
+        new_types = {NotificationType.MASS_OUTAGE.value, NotificationType.MASS_RECOVERY.value}
+        prefs.enabled_types = list(current_types | new_types)
+        prefs.type_priorities = {**type_priorities, _MIGRATION_MARKER: True}
+        return True
 
     async def get_network_preferences(
         self,
@@ -54,9 +89,6 @@ class UserPreferencesService:
         """
         Batch fetch network preferences for multiple users.
 
-        Instead of querying preferences one user at a time, fetch all at once.
-        Also ensures existing preferences have all default notification types.
-
         Args:
             db: Database session
             user_ids: List of user IDs to fetch preferences for
@@ -76,40 +108,18 @@ class UserPreferencesService:
         )
         prefs_list = result.scalars().all()
 
-        # Default notification types that should be enabled
-        default_type_values = [
-            NotificationType.DEVICE_OFFLINE.value,
-            NotificationType.DEVICE_ONLINE.value,
-            NotificationType.DEVICE_DEGRADED.value,
-            NotificationType.ANOMALY_DETECTED.value,
-            NotificationType.HIGH_LATENCY.value,
-            NotificationType.PACKET_LOSS.value,
-            NotificationType.ISP_ISSUE.value,
-            NotificationType.SECURITY_ALERT.value,
-            NotificationType.SCHEDULED_MAINTENANCE.value,
-            NotificationType.SYSTEM_STATUS.value,
-            NotificationType.MASS_OUTAGE.value,
-            NotificationType.MASS_RECOVERY.value,
-        ]
-
-        # Check each user's preferences for missing notification types
+        # Apply one-time migration for new notification types
         needs_commit = False
         for prefs in prefs_list:
-            current_types = set(prefs.enabled_types or [])
-            missing_types = [t for t in default_type_values if t not in current_types]
-
-            if missing_types:
+            if self._migrate_add_new_types(prefs):
                 logger.info(
-                    f"Adding missing notification types to user {prefs.user_id} preferences "
-                    f"for network {network_id}: {missing_types}"
+                    f"Migrated notification types for user {prefs.user_id} in network {network_id}"
                 )
-                prefs.enabled_types = list(current_types | set(missing_types))
                 needs_commit = True
 
         if needs_commit:
             await db.commit()
 
-        # Return as dict for O(1) lookup
         return {prefs.user_id: prefs for prefs in prefs_list}
 
     async def get_user_emails_batch(
@@ -149,33 +159,15 @@ class UserPreferencesService:
         user_email: str | None = None,
     ) -> UserNetworkNotificationPrefs:
         """Get or create user's notification preferences for a network"""
-        # Default notification types that should be enabled
-        default_types = [
-            NotificationType.DEVICE_OFFLINE,
-            NotificationType.DEVICE_ONLINE,
-            NotificationType.DEVICE_DEGRADED,
-            NotificationType.ANOMALY_DETECTED,
-            NotificationType.HIGH_LATENCY,
-            NotificationType.PACKET_LOSS,
-            NotificationType.ISP_ISSUE,
-            NotificationType.SECURITY_ALERT,
-            NotificationType.SCHEDULED_MAINTENANCE,
-            NotificationType.SYSTEM_STATUS,
-            NotificationType.MASS_OUTAGE,
-            NotificationType.MASS_RECOVERY,
-        ]
-        default_type_values = [t.value for t in default_types]
-
         prefs = await self.get_network_preferences(db, user_id, network_id)
 
         if prefs is None:
-            # Create with defaults: all notification types enabled
             prefs = UserNetworkNotificationPrefs(
                 user_id=user_id,
                 network_id=network_id,
-                email_enabled=bool(user_email),  # Enable if email provided
+                email_enabled=bool(user_email),
                 discord_enabled=False,
-                enabled_types=default_type_values,
+                enabled_types=[t.value for t in DEFAULT_ENABLED_TYPES],
                 type_priorities={},
                 minimum_priority="medium",
                 quiet_hours_enabled=False,
@@ -183,19 +175,10 @@ class UserPreferencesService:
             db.add(prefs)
             await db.commit()
             await db.refresh(prefs)
-        else:
-            # Ensure existing preferences have all default notification types
-            # This handles cases where new notification types are added after user created preferences
-            current_types = set(prefs.enabled_types or [])
-            missing_types = [t for t in default_type_values if t not in current_types]
-
-            if missing_types:
-                logger.info(
-                    f"Adding missing notification types to user {user_id} preferences for network {network_id}: {missing_types}"
-                )
-                prefs.enabled_types = list(current_types | set(missing_types))
-                await db.commit()
-                await db.refresh(prefs)
+        elif self._migrate_add_new_types(prefs):
+            logger.info(f"Migrated notification types for user {user_id} in network {network_id}")
+            await db.commit()
+            await db.refresh(prefs)
 
         return prefs
 
