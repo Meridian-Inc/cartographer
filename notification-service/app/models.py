@@ -110,7 +110,7 @@ DEFAULT_NOTIFICATION_TYPE_PRIORITIES: Dict[NotificationType, NotificationPriorit
     NotificationType.SYSTEM_STATUS: NotificationPriority.LOW,
     NotificationType.CARTOGRAPHER_DOWN: NotificationPriority.CRITICAL,
     NotificationType.CARTOGRAPHER_UP: NotificationPriority.MEDIUM,
-    NotificationType.MASS_OUTAGE: NotificationPriority.HIGH,
+    NotificationType.MASS_OUTAGE: NotificationPriority.CRITICAL,
     NotificationType.MASS_RECOVERY: NotificationPriority.LOW,
 }
 

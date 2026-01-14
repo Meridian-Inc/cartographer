@@ -87,6 +87,18 @@ export const NOTIFICATION_TYPE_INFO: Record<NotificationType, NotificationTypeIn
     description: 'When Cartographer service comes back online',
     defaultPriority: 'medium',
   },
+  mass_outage: {
+    label: 'Mass Outage',
+    icon: '💥',
+    description: 'When multiple devices go offline together',
+    defaultPriority: 'critical',
+  },
+  mass_recovery: {
+    label: 'Mass Recovery',
+    icon: '🔄',
+    description: 'When multiple devices come back online together',
+    defaultPriority: 'medium',
+  },
 };
 
 export interface PriorityInfo {

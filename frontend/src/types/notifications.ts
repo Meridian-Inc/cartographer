@@ -16,7 +16,9 @@ export type NotificationType =
   | 'scheduled_maintenance'
   | 'system_status'
   | 'cartographer_down'
-  | 'cartographer_up';
+  | 'cartographer_up'
+  | 'mass_outage'
+  | 'mass_recovery';
 
 export type NotificationPriority = 'low' | 'medium' | 'high' | 'critical';
 
@@ -30,7 +32,9 @@ export type NetworkNotificationType =
   | 'isp_issue'
   | 'security_alert'
   | 'scheduled_maintenance'
-  | 'system_status';
+  | 'system_status'
+  | 'mass_outage'
+  | 'mass_recovery';
 
 export type GlobalNotificationType = 'cartographer_up' | 'cartographer_down';
 

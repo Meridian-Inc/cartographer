@@ -483,6 +483,20 @@ const networkNotificationTypes = [
     description: 'General system updates',
     defaultPriority: 'low',
   },
+  {
+    value: 'mass_outage',
+    label: 'Mass Outage',
+    icon: '💥',
+    description: 'When multiple devices go offline together',
+    defaultPriority: 'critical',
+  },
+  {
+    value: 'mass_recovery',
+    label: 'Mass Recovery',
+    icon: '🔄',
+    description: 'When multiple devices come back online together',
+    defaultPriority: 'medium',
+  },
 ];
 
 function capitalizeFirst(str: string): string {

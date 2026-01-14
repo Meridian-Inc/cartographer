@@ -130,6 +130,8 @@ class UserPreferencesService:
                 NotificationType.SECURITY_ALERT,
                 NotificationType.SCHEDULED_MAINTENANCE,
                 NotificationType.SYSTEM_STATUS,
+                NotificationType.MASS_OUTAGE,
+                NotificationType.MASS_RECOVERY,
             ]
 
             prefs = UserNetworkNotificationPrefs(
