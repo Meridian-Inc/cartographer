@@ -331,7 +331,7 @@ class TestMassOutageDetectorExpiry:
         # Manually set the timestamp to be old (past aggregation window)
         buffer = detector._get_offline_buffer(network_id)
         buffer.pending_events[ip].timestamp = datetime.utcnow() - timedelta(
-            seconds=detector.AGGREGATION_WINDOW_SECONDS + 10
+            seconds=detector.OFFLINE_AGGREGATION_WINDOW_SECONDS + 10
         )
 
         expired = detector.get_expired_events(network_id)
@@ -371,7 +371,7 @@ class TestMassOutageIntegration:
         # Manually age the event past the window
         buffer = detector._get_offline_buffer(network_id)
         buffer.pending_events["192.168.1.1"].timestamp = datetime.utcnow() - timedelta(
-            seconds=detector.AGGREGATION_WINDOW_SECONDS + 10
+            seconds=detector.OFFLINE_AGGREGATION_WINDOW_SECONDS + 10
         )
 
         # Add second device (now only 1 device in window)
@@ -519,10 +519,10 @@ class TestMassRecoveryDetector:
         event = create_online_event(ip, "Router", network_id)
         detector.record_online_event(network_id, ip, "Router", event)
 
-        # Manually set the timestamp to be old
+        # Manually set the timestamp to be old (past online aggregation window)
         buffer = detector._get_online_buffer(network_id)
         buffer.pending_events[ip].timestamp = datetime.utcnow() - timedelta(
-            seconds=detector.AGGREGATION_WINDOW_SECONDS + 10
+            seconds=detector.ONLINE_AGGREGATION_WINDOW_SECONDS + 10
         )
 
         expired = detector.get_expired_online_events(network_id)

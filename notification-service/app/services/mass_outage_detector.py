@@ -42,7 +42,8 @@ class MassOutageDetector:
     """
 
     # Configuration
-    AGGREGATION_WINDOW_SECONDS = 60  # Time window to detect mass events
+    OFFLINE_AGGREGATION_WINDOW_SECONDS = 60  # Time window to detect mass outage
+    ONLINE_AGGREGATION_WINDOW_SECONDS = 10  # Shorter window for recovery (users want fast feedback)
     MIN_DEVICES_FOR_MASS_EVENT = 3  # Minimum devices to trigger aggregation
 
     def __init__(self):
@@ -64,7 +65,7 @@ class MassOutageDetector:
         return self._online_buffers[network_id]
 
     def _cleanup_expired_events(
-        self, buffer: NetworkEventBuffer, network_id: str, event_type: str
+        self, buffer: NetworkEventBuffer, network_id: str, event_type: str, window_seconds: int
     ) -> list[NetworkEvent]:
         """
         Remove events older than the aggregation window from a buffer.
@@ -74,7 +75,7 @@ class MassOutageDetector:
         now = datetime.utcnow()
 
         # Use <= to ensure events at exactly the cutoff time are expired
-        cutoff = now - timedelta(seconds=self.AGGREGATION_WINDOW_SECONDS)
+        cutoff = now - timedelta(seconds=window_seconds)
 
         expired_events = []
         expired_ips = []
@@ -228,7 +229,7 @@ class MassOutageDetector:
             network_id=network_id,
             title="Mass Device Outage Detected",
             message=(
-                f"{len(pending_list)} devices went offline within {self.AGGREGATION_WINDOW_SECONDS} seconds. "
+                f"{len(pending_list)} devices went offline within {self.OFFLINE_AGGREGATION_WINDOW_SECONDS} seconds. "
                 f"This may indicate a network-wide issue.\n\n"
                 f"Affected devices: {device_list_str}"
             ),
@@ -237,7 +238,7 @@ class MassOutageDetector:
                 "total_affected": len(pending_list),
                 "first_detected": first_detected.isoformat(),
                 "last_detected": last_detected.isoformat(),
-                "detection_window_seconds": self.AGGREGATION_WINDOW_SECONDS,
+                "detection_window_seconds": self.OFFLINE_AGGREGATION_WINDOW_SECONDS,
             },
         )
 
@@ -258,7 +259,9 @@ class MassOutageDetector:
         that went offline but didn't reach the mass outage threshold.
         """
         buffer = self._get_offline_buffer(network_id)
-        return self._cleanup_expired_events(buffer, network_id, "offline")
+        return self._cleanup_expired_events(
+            buffer, network_id, "offline", self.OFFLINE_AGGREGATION_WINDOW_SECONDS
+        )
 
     def get_all_pending_events(self, network_id: str) -> list[NetworkEvent]:
         """
@@ -416,7 +419,7 @@ class MassOutageDetector:
             network_id=network_id,
             title="Mass Device Recovery Detected",
             message=(
-                f"{len(pending_list)} devices came back online within {self.AGGREGATION_WINDOW_SECONDS} seconds. "
+                f"{len(pending_list)} devices came back online within {self.ONLINE_AGGREGATION_WINDOW_SECONDS} seconds. "
                 f"Network connectivity appears to be restored.\n\n"
                 f"Recovered devices: {device_list_str}"
             ),
@@ -425,7 +428,7 @@ class MassOutageDetector:
                 "total_recovered": len(pending_list),
                 "first_detected": first_detected.isoformat(),
                 "last_detected": last_detected.isoformat(),
-                "detection_window_seconds": self.AGGREGATION_WINDOW_SECONDS,
+                "detection_window_seconds": self.ONLINE_AGGREGATION_WINDOW_SECONDS,
             },
         )
 
@@ -446,7 +449,9 @@ class MassOutageDetector:
         that came online but didn't reach the mass recovery threshold.
         """
         buffer = self._get_online_buffer(network_id)
-        return self._cleanup_expired_events(buffer, network_id, "online")
+        return self._cleanup_expired_events(
+            buffer, network_id, "online", self.ONLINE_AGGREGATION_WINDOW_SECONDS
+        )
 
     def get_all_pending_online_events(self, network_id: str) -> list[NetworkEvent]:
         """
