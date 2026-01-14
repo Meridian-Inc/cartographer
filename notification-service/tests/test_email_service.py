@@ -139,6 +139,67 @@ class TestEmailContent:
         assert "192.168.1.100" in text
         assert "Test Device" in text
 
+    def test_build_html_with_network_id(self):
+        """Should include network-specific URL in HTML when network_id is present"""
+        event = NetworkEvent(
+            event_type=NotificationType.DEVICE_OFFLINE,
+            title="Test Event",
+            message="Test message",
+            network_id="123e4567-e89b-12d3-a456-426614174000",
+        )
+
+        with patch("app.services.email_service.settings.application_url", "https://example.com"):
+            html = _build_notification_email_html(event)
+
+        assert "/network/123e4567-e89b-12d3-a456-426614174000" in html
+        assert "Open Network Map" in html
+
+    def test_build_html_without_network_id(self):
+        """Should use base URL in HTML when network_id is not present"""
+        event = NetworkEvent(
+            event_type=NotificationType.CARTOGRAPHER_DOWN,
+            title="Test Event",
+            message="Test message",
+            network_id=None,
+        )
+
+        with patch("app.services.email_service.settings.application_url", "https://example.com"):
+            html = _build_notification_email_html(event)
+
+        # Should not have /network/ in the URL
+        assert "/network/" not in html
+        assert "Open Cartographer" in html
+
+    def test_build_text_with_network_id(self):
+        """Should include network-specific URL in text when network_id is present"""
+        event = NetworkEvent(
+            event_type=NotificationType.DEVICE_OFFLINE,
+            title="Test Event",
+            message="Test message",
+            network_id="123e4567-e89b-12d3-a456-426614174000",
+        )
+
+        with patch("app.services.email_service.settings.application_url", "https://example.com"):
+            text = _build_notification_email_text(event)
+
+        assert "https://example.com/network/123e4567-e89b-12d3-a456-426614174000" in text
+        assert "Open network map" in text
+
+    def test_build_text_without_network_id(self):
+        """Should use base URL in text when network_id is not present"""
+        event = NetworkEvent(
+            event_type=NotificationType.CARTOGRAPHER_DOWN,
+            title="Test Event",
+            message="Test message",
+            network_id=None,
+        )
+
+        with patch("app.services.email_service.settings.application_url", "https://example.com"):
+            text = _build_notification_email_text(event)
+
+        assert "https://example.com/network/" not in text
+        assert "Open Cartographer: https://example.com" in text
+
 
 class TestSendEmail:
     """Tests for sending emails"""

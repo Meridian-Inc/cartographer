@@ -148,8 +148,8 @@ def _build_notification_email_html(event: NetworkEvent) -> str:
                             <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
                                 <tr>
                                     <td style="padding: 24px 0 0;">
-                                        <a href="{settings.application_url}" style="display: inline-block; padding: 12px 24px; background: linear-gradient(135deg, #0891b2 0%, #0e7490 100%); color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 600; border-radius: 8px;">
-                                            View Network Map
+                                        <a href="{settings.application_url + ('/network/' + event.network_id if event.network_id else '')}" style="display: inline-block; padding: 12px 24px; background: linear-gradient(135deg, #0891b2 0%, #0e7490 100%); color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 600; border-radius: 8px;">
+                                            {'Open Network Map' if event.network_id else 'Open Cartographer'}
                                         </a>
                                     </td>
                                 </tr>
@@ -223,11 +223,16 @@ Additional Details:
             display_key = key.replace("_", " ").title()
             text_content += f"{display_key}: {value}\n"
 
+    # Build network-specific URL if network_id is present
+    network_url = settings.application_url
+    if event.network_id:
+        network_url = f"{settings.application_url}/network/{event.network_id}"
+
     text_content += f"""
 ---
 Event detected at {event.timestamp.strftime('%Y-%m-%d %H:%M:%S UTC')}
 
-View your network map: {settings.application_url}
+{'Open network map' if event.network_id else 'Open Cartographer'}: {network_url}
 Manage notifications: {settings.application_url}/settings/notifications
 
 ---

@@ -298,6 +298,92 @@ class TestDiscordNotificationService:
         assert result["success"] is True
 
 
+class TestNetworkURLs:
+    """Tests for network-specific URL generation"""
+
+    async def test_send_notification_with_network_id(self):
+        """Should include network-specific URL when network_id is present"""
+        service = DiscordNotificationService()
+        service._ready = asyncio.Event()
+        service._ready.set()
+
+        mock_client = MagicMock()
+        mock_channel = MagicMock()
+        mock_channel.send = AsyncMock()
+        mock_client.get_channel.return_value = mock_channel
+        service._client = mock_client
+
+        config = DiscordConfig(
+            enabled=True,
+            delivery_method=DiscordDeliveryMethod.CHANNEL,
+            channel_config=DiscordChannelConfig(guild_id="123", channel_id="456"),
+        )
+        event = NetworkEvent(
+            event_type=NotificationType.DEVICE_OFFLINE,
+            title="Test",
+            message="Test",
+            network_id="123e4567-e89b-12d3-a456-426614174000",
+        )
+
+        with patch("app.services.discord_service.settings.discord_bot_token", "test-token"):
+            with patch(
+                "app.services.discord_service.settings.application_url", "https://example.com"
+            ):
+                record = await service.send_notification(config, event, "notif-123")
+
+        # Check that send was called
+        assert mock_channel.send.called
+        # Get the view argument from the call
+        call_kwargs = mock_channel.send.call_args.kwargs
+        view = call_kwargs.get("view")
+        assert view is not None
+        # Check that button has network-specific URL
+        button = view.children[0]
+        assert button.url == "https://example.com/network/123e4567-e89b-12d3-a456-426614174000"
+        assert button.label == "Open Network Map"
+
+    async def test_send_notification_without_network_id(self):
+        """Should use base URL when network_id is not present"""
+        service = DiscordNotificationService()
+        service._ready = asyncio.Event()
+        service._ready.set()
+
+        mock_client = MagicMock()
+        mock_channel = MagicMock()
+        mock_channel.send = AsyncMock()
+        mock_client.get_channel.return_value = mock_channel
+        service._client = mock_client
+
+        config = DiscordConfig(
+            enabled=True,
+            delivery_method=DiscordDeliveryMethod.CHANNEL,
+            channel_config=DiscordChannelConfig(guild_id="123", channel_id="456"),
+        )
+        event = NetworkEvent(
+            event_type=NotificationType.CARTOGRAPHER_DOWN,
+            title="Test",
+            message="Test",
+            network_id=None,
+        )
+
+        with patch("app.services.discord_service.settings.discord_bot_token", "test-token"):
+            with patch(
+                "app.services.discord_service.settings.application_url", "https://example.com"
+            ):
+                record = await service.send_notification(config, event, "notif-123")
+
+        # Check that send was called
+        assert mock_channel.send.called
+        # Get the view argument from the call
+        call_kwargs = mock_channel.send.call_args.kwargs
+        view = call_kwargs.get("view")
+        assert view is not None
+        # Check that button has base URL
+        button = view.children[0]
+        assert button.url == "https://example.com"
+        assert button.label == "Open Cartographer"
+
+
 class TestConvenienceFunctions:
     """Tests for convenience functions"""
 

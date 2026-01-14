@@ -288,12 +288,18 @@ class DiscordNotificationService:
             embed_data = _build_discord_embed(event)
             embed = discord.Embed.from_dict(embed_data)
 
-            # Add link button
+            # Add link button - use network-specific URL if network_id is present
+            network_url = settings.application_url
+            button_label = "Open Cartographer"
+            if event.network_id:
+                network_url = f"{settings.application_url}/network/{event.network_id}"
+                button_label = "Open Network Map"
+
             view = discord.ui.View()
             view.add_item(
                 discord.ui.Button(
-                    label="View Network Map",
-                    url=settings.application_url,
+                    label=button_label,
+                    url=network_url,
                     style=discord.ButtonStyle.link,
                 )
             )
