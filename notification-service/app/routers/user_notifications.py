@@ -57,6 +57,12 @@ class NetworkPreferencesResponse(BaseModel):
     @classmethod
     def from_db(cls, prefs: UserNetworkNotificationPrefs) -> "NetworkPreferencesResponse":
         """Convert from database model"""
+        # Filter out internal migration markers (keys starting with __)
+        type_priorities = {
+            k: v.value if isinstance(v, NotificationPriorityEnum) else str(v)
+            for k, v in (prefs.type_priorities or {}).items()
+            if not k.startswith("__")
+        }
         return cls(
             user_id=prefs.user_id,
             network_id=prefs.network_id,
@@ -64,10 +70,7 @@ class NetworkPreferencesResponse(BaseModel):
             discord_enabled=prefs.discord_enabled,
             discord_user_id=prefs.discord_user_id,
             enabled_types=prefs.enabled_types or [],
-            type_priorities={
-                k: v.value if isinstance(v, NotificationPriorityEnum) else v
-                for k, v in (prefs.type_priorities or {}).items()
-            },
+            type_priorities=type_priorities,
             minimum_priority=(
                 prefs.minimum_priority.value
                 if isinstance(prefs.minimum_priority, NotificationPriorityEnum)

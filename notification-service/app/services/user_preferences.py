@@ -42,35 +42,24 @@ DEFAULT_ENABLED_TYPES = [
     NotificationType.MASS_RECOVERY,
 ]
 
-# Migration marker to track one-time addition of new notification types
-_MIGRATION_MARKER = "__migrated_mass_outage_recovery"
-
 
 class UserPreferencesService:
     """Service for managing user notification preferences"""
 
-    def _migrate_add_new_types(self, prefs: "UserNetworkNotificationPrefs") -> bool:
+    def _clean_type_priorities(self, prefs: "UserNetworkNotificationPrefs") -> bool:
         """
-        One-time migration to add new notification types to existing preferences.
-        Returns True if migration was applied, False if already done.
+        Remove any internal migration markers from type_priorities.
+        Returns True if cleanup was needed, False otherwise.
         """
         type_priorities = prefs.type_priorities or {}
-
-        # Check if already migrated (handle both old boolean and new string format)
-        if _MIGRATION_MARKER in type_priorities:
-            # Fix old boolean value if present (causes Pydantic validation errors)
-            if type_priorities[_MIGRATION_MARKER] is True:
-                type_priorities[_MIGRATION_MARKER] = "done"
-                prefs.type_priorities = type_priorities
-                return True  # Need to commit the fix
-            return False
-
-        # Add mass_outage and mass_recovery (user can disable later)
-        current_types = set(prefs.enabled_types or [])
-        new_types = {NotificationType.MASS_OUTAGE.value, NotificationType.MASS_RECOVERY.value}
-        prefs.enabled_types = list(current_types | new_types)
-        prefs.type_priorities = {**type_priorities, _MIGRATION_MARKER: "done"}
-        return True
+        # Remove any keys starting with __ (internal markers)
+        internal_keys = [k for k in type_priorities if k.startswith("__")]
+        if internal_keys:
+            prefs.type_priorities = {
+                k: v for k, v in type_priorities.items() if not k.startswith("__")
+            }
+            return True
+        return False
 
     async def get_network_preferences(
         self,
@@ -118,9 +107,9 @@ class UserPreferencesService:
         # Apply one-time migration for new notification types
         needs_commit = False
         for prefs in prefs_list:
-            if self._migrate_add_new_types(prefs):
+            if self._clean_type_priorities(prefs):
                 logger.info(
-                    f"Migrated notification types for user {prefs.user_id} in network {network_id}"
+                    f"Cleaned type_priorities for user {prefs.user_id} in network {network_id}"
                 )
                 needs_commit = True
 
@@ -182,8 +171,8 @@ class UserPreferencesService:
             db.add(prefs)
             await db.commit()
             await db.refresh(prefs)
-        elif self._migrate_add_new_types(prefs):
-            logger.info(f"Migrated notification types for user {user_id} in network {network_id}")
+        elif self._clean_type_priorities(prefs):
+            logger.info(f"Cleaned type_priorities for user {user_id} in network {network_id}")
             await db.commit()
             await db.refresh(prefs)
 
