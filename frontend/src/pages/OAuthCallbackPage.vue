@@ -149,6 +149,15 @@ onMounted(async () => {
 
         console.log('[OAuth] Token exchanged successfully');
 
+        // Check for pending agent connection code (from cloud agent flow)
+        const pendingAgentCode = sessionStorage.getItem('cartographer_pending_agent_code');
+        if (pendingAgentCode) {
+          console.log('[OAuth] Pending agent code found, redirecting to cloud connect page');
+          statusTitle.value = 'Success! Redirecting to agent connection...';
+          window.location.href = `/connect?code=${pendingAgentCode}`;
+          return;
+        }
+
         // Redirect to home page
         // In self-hosted mode: go directly to dashboard (no onboarding)
         // In cloud mode: this code path shouldn't be reached as nginx routes

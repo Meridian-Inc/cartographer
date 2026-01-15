@@ -783,8 +783,17 @@ function onSetupComplete() {
 }
 
 async function onLoginSuccess() {
-  // This is called when LoginScreen emits success
-  // The watcher on isAuthenticated will handle loading networks
+  // Check for pending agent connection code (from cloud agent flow)
+  // If user was trying to connect an agent, redirect back to cloud connect page
+  const pendingAgentCode = sessionStorage.getItem('cartographer_pending_agent_code');
+  if (pendingAgentCode) {
+    console.log('[HomePage] Pending agent code found, redirecting to cloud connect page');
+    // Redirect to cloud connect page with the code
+    window.location.href = `/connect?code=${pendingAgentCode}`;
+    return;
+  }
+
+  // Otherwise, the watcher on isAuthenticated will handle loading networks
 }
 
 function onLogout() {
