@@ -596,6 +596,151 @@ async def update_network_notification_settings(
 # ============================================================================
 
 
+# Device role classification patterns (similar to lan_mapper.sh)
+_ROLE_PATTERNS: dict[str, list[str]] = {
+    "gateway/router": ["routerboard", "mikrotik", "router", "gateway"],
+    "switch/ap": [
+        "tl-sg",
+        "tp-link",
+        "tplink",
+        "unifi",
+        "cisco",
+        "netgear",
+        "switch",
+        "ubiquiti",
+        "aruba",
+        "meraki",
+    ],
+    "firewall": ["firewalla", "pfsense", "opnsense", "fortinet", "sophos", "watchguard"],
+    "nas": ["nas", "synology", "qnap", "ugreen", "drobo", "netgear-readynas"],
+    "server": [
+        "server",
+        "debian",
+        "ubuntu",
+        "centos",
+        "redhat",
+        "fedora",
+        "proxmox",
+        "esxi",
+        "vmware",
+    ],
+    "service": [
+        "jellyfin",
+        "plex",
+        "grafana",
+        "prometheus",
+        "postgres",
+        "mysql",
+        "redis",
+        "docker",
+        "portainer",
+        "home-assistant",
+        "homeassistant",
+        "pihole",
+        "adguard",
+    ],
+}
+
+# Group assignments for each role
+_ROLE_TO_GROUP: dict[str, str] = {
+    "gateway/router": "root",  # Gateway becomes root, not placed in a group
+    "switch/ap": "Infrastructure",
+    "firewall": "Infrastructure",
+    "nas": "Servers",
+    "server": "Servers",
+    "service": "Servers",
+    "client": "Clients",
+    "unknown": "Clients",
+}
+
+
+def _classify_device_role(device, is_gateway_ip: bool = False) -> str:
+    """Classify a device's role based on hostname patterns and gateway flag.
+
+    Args:
+        device: Device object with hostname and is_gateway fields
+        is_gateway_ip: Whether this device's IP matches the network gateway
+
+    Returns:
+        Role string (e.g., "gateway/router", "switch/ap", "client")
+    """
+    # Explicit gateway flag takes precedence
+    if device.is_gateway or is_gateway_ip:
+        return "gateway/router"
+
+    hostname = (device.hostname or "").lower()
+
+    # Check hostname against role patterns
+    for role, patterns in _ROLE_PATTERNS.items():
+        if any(pattern in hostname for pattern in patterns):
+            return role
+
+    return "client"
+
+
+def _get_group_for_role(role: str) -> str:
+    """Get the group name for a device role.
+
+    Args:
+        role: Device role string
+
+    Returns:
+        Group name (Infrastructure, Servers, Clients) or "root" for gateways
+    """
+    return _ROLE_TO_GROUP.get(role, "Clients")
+
+
+def _ensure_groups_exist(root: dict) -> dict[str, dict]:
+    """Ensure group nodes exist under the root node.
+
+    Args:
+        root: Root node of the layout tree
+
+    Returns:
+        Dictionary mapping group names to group nodes
+    """
+    groups: dict[str, dict] = {}
+    existing_children = root.get("children", [])
+
+    # Find existing group nodes
+    for child in existing_children:
+        if child.get("role") == "group":
+            group_name = child.get("name", "")
+            groups[group_name] = child
+
+    # Create missing groups
+    for group_name in ["Infrastructure", "Servers", "Clients"]:
+        if group_name not in groups:
+            group_node = {
+                "id": f"group:{group_name.lower()}",
+                "name": group_name,
+                "role": "group",
+                "children": [],
+            }
+            groups[group_name] = group_node
+            existing_children.append(group_node)
+
+    root["children"] = existing_children
+    return groups
+
+
+def _find_device_in_groups(groups: dict[str, dict], ip: str) -> dict | None:
+    """Find a device node by IP within all groups.
+
+    Args:
+        groups: Dictionary of group nodes
+        ip: IP address to search for
+
+    Returns:
+        Device node if found, None otherwise
+    """
+    for group in groups.values():
+        for child in group.get("children", []):
+            if child.get("ip") == ip:
+                return child
+    return None
+
+
 def _initialize_layout_data(network_name: str, existing_data: dict | None) -> dict:
     """Initialize or retrieve layout data structure."""
     if existing_data:
@@ -659,16 +804,29 @@ def _update_existing_device(existing_node: dict, device, now: str) -> None:
         existing_node["lastResponseMs"] = device.response_time_ms
 
 
-def _create_new_device_node(device, root_id: str, now: str) -> dict:
-    """Create a new device node from scan data."""
+def _create_new_device_node(device, parent_id: str, now: str, role: str | None = None) -> dict:
+    """Create a new device node from scan data.
+
+    Args:
+        device: Device object from scan data
+        parent_id: ID of the parent node (root or group)
+        now: Current timestamp
+        role: Pre-classified device role (if None, uses is_gateway flag)
+
+    Returns:
+        New device node dictionary
+    """
+    if role is None:
+        role = "gateway/router" if device.is_gateway else "client"
+
     new_node = {
         "id": str(uuid.uuid4()),
         "name": device.hostname or device.ip,
         "ip": device.ip,
         "hostname": device.hostname,
         "mac": device.mac,
-        "role": "gateway/router" if device.is_gateway else "client",
-        "parentId": root_id,
+        "role": role,
+        "parentId": parent_id,
         "createdAt": now,
         "updatedAt": now,
         "lastSeenAt": now,
@@ -691,7 +849,9 @@ async def sync_agent_scan(
     Sync device scan data from Cartographer Agent.
 
     Merges discovered devices into the network's layout_data:
-    - New devices are added as children of the root node
+    - Gateway device becomes the root node
+    - Devices are classified by role (switch, server, client, etc.)
+    - Devices are organized into groups (Infrastructure, Servers, Clients)
     - Existing devices (matched by IP) are updated with latest data
     - Device positions are preserved if they were previously set
 
@@ -707,23 +867,94 @@ async def sync_agent_scan(
 
     layout_data = _initialize_layout_data(network.name, network.layout_data)
     root = _ensure_root_node(layout_data, network.name)
-    nodes_by_ip = _build_nodes_by_ip(root)
 
+    now = datetime.now(timezone.utc).isoformat()
     devices_added = 0
     devices_updated = 0
-    now = datetime.now(timezone.utc).isoformat()
 
+    # Find the gateway device from sync data
+    gateway_device = next((d for d in sync_data.devices if d.is_gateway), None)
+
+    # If we have a gateway device, update the root node to represent it
+    if gateway_device:
+        # Only update root if it's still a placeholder (no IP) or matches gateway
+        if not root.get("ip") or root.get("ip") == gateway_device.ip:
+            root["ip"] = gateway_device.ip
+            root["hostname"] = gateway_device.hostname
+            root["mac"] = gateway_device.mac
+            root["name"] = (
+                f"{gateway_device.ip} ({gateway_device.hostname})"
+                if gateway_device.hostname
+                else gateway_device.ip
+            )
+            root["role"] = "gateway/router"
+            root["updatedAt"] = now
+            root["lastSeenAt"] = now
+            if gateway_device.response_time_ms is not None:
+                root["lastResponseMs"] = gateway_device.response_time_ms
+            devices_updated += 1
+
+    # Ensure groups exist under root
+    groups = _ensure_groups_exist(root)
+
+    # Build map of existing devices by IP (across all groups)
+    nodes_by_ip: dict[str, dict] = {}
+    if root.get("ip"):
+        nodes_by_ip[root["ip"]] = root
+    for group in groups.values():
+        for child in group.get("children", []):
+            if child.get("ip"):
+                nodes_by_ip[child["ip"]] = child
+
+    # Also check for devices directly under root (legacy flat structure)
+    for child in root.get("children", []):
+        if child.get("role") != "group" and child.get("ip"):
+            nodes_by_ip[child["ip"]] = child
+
+    # Process each device
     for device in sync_data.devices:
+        # Skip gateway device if already handled as root
+        if gateway_device and device.ip == gateway_device.ip:
+            continue
+
+        # Classify the device
+        role = _classify_device_role(device)
+        target_group_name = _get_group_for_role(role)
+
         existing = nodes_by_ip.get(device.ip)
 
         if existing:
+            # Update existing device
             _update_existing_device(existing, device, now)
+            # Update role if it was previously just "client" and we now have better info
+            if existing.get("role") == "client" and role != "client":
+                existing["role"] = role
             devices_updated += 1
         else:
-            new_node = _create_new_device_node(device, root["id"], now)
-            root["children"].append(new_node)
+            # Create new device in appropriate group
+            target_group = groups.get(target_group_name, groups["Clients"])
+            new_node = _create_new_device_node(device, target_group["id"], now, role)
+            target_group["children"].append(new_node)
             nodes_by_ip[device.ip] = new_node
             devices_added += 1
+
+    # Migrate any legacy flat devices into proper groups
+    new_root_children = []
+    for child in root.get("children", []):
+        if child.get("role") == "group":
+            # Keep group nodes
+            new_root_children.append(child)
+        elif child.get("ip") and child.get("ip") != root.get("ip"):
+            # This is a device in legacy flat structure - migrate to group
+            device_role = child.get("role", "client")
+            target_group_name = _get_group_for_role(device_role)
+            target_group = groups.get(target_group_name, groups["Clients"])
+            # Check if not already in target group
+            if child not in target_group.get("children", []):
+                child["parentId"] = target_group["id"]
+                target_group["children"].append(child)
+
+    root["children"] = new_root_children
 
     # Update layout metadata
     layout_data["version"] = layout_data.get("version", 0) + 1

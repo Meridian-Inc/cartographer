@@ -1333,3 +1333,257 @@ class TestUpdateNetworkNotificationSettings:
             )
 
         assert exc_info.value.status_code == 403
+
+
+# ==================== Device Classification Tests ====================
+
+
+class TestDeviceClassification:
+    """Tests for device role classification based on hostname patterns"""
+
+    def test_classify_gateway_by_is_gateway_flag(self):
+        """Device with is_gateway=True should be classified as gateway/router"""
+        from app.routers.networks import _classify_device_role
+        from app.schemas.agent_sync import SyncDevice
+
+        device = SyncDevice(ip="192.168.1.1", hostname="some-device", is_gateway=True)
+        role = _classify_device_role(device)
+
+        assert role == "gateway/router"
+
+    def test_classify_gateway_by_hostname_routerboard(self):
+        """Device with 'routerboard' in hostname should be gateway/router"""
+        from app.routers.networks import _classify_device_role
+        from app.schemas.agent_sync import SyncDevice
+
+        device = SyncDevice(ip="192.168.1.1", hostname="routerboard.lan")
+        role = _classify_device_role(device)
+
+        assert role == "gateway/router"
+
+    def test_classify_switch_by_hostname(self):
+        """Device with switch-related hostname should be switch/ap"""
+        from app.routers.networks import _classify_device_role
+        from app.schemas.agent_sync import SyncDevice
+
+        test_cases = [
+            ("tl-sg108e.lan", "switch/ap"),
+            ("unifi-switch.local", "switch/ap"),
+            ("cisco-2960.lan", "switch/ap"),
+            ("netgear-gs108.lan", "switch/ap"),
+        ]
+
+        for hostname, expected_role in test_cases:
+            device = SyncDevice(ip="192.168.1.10", hostname=hostname)
+            role = _classify_device_role(device)
+            assert role == expected_role, f"Expected {expected_role} for {hostname}, got {role}"
+
+    def test_classify_firewall_by_hostname(self):
+        """Device with firewall-related hostname should be firewall"""
+        from app.routers.networks import _classify_device_role
+        from app.schemas.agent_sync import SyncDevice
+
+        test_cases = [
+            "firewalla.lan",
+            "pfsense.local",
+            "opnsense.lan",
+        ]
+
+        for hostname in test_cases:
+            device = SyncDevice(ip="192.168.1.10", hostname=hostname)
+            role = _classify_device_role(device)
+            assert role == "firewall", f"Expected firewall for {hostname}, got {role}"
+
+    def test_classify_nas_by_hostname(self):
+        """Device with NAS-related hostname should be nas"""
+        from app.routers.networks import _classify_device_role
+        from app.schemas.agent_sync import SyncDevice
+
+        test_cases = [
+            "synology-nas.lan",
+            "qnap-ts.local",
+            "ugreen-nas.lan",
+            "mynas.local",
+        ]
+
+        for hostname in test_cases:
+            device = SyncDevice(ip="192.168.1.10", hostname=hostname)
+            role = _classify_device_role(device)
+            assert role == "nas", f"Expected nas for {hostname}, got {role}"
+
+    def test_classify_server_by_hostname(self):
+        """Device with server-related hostname should be server"""
+        from app.routers.networks import _classify_device_role
+        from app.schemas.agent_sync import SyncDevice
+
+        test_cases = [
+            "ubuntu-server.lan",
+            "debian-vm.local",
+            "proxmox.lan",
+        ]
+
+        for hostname in test_cases:
+            device = SyncDevice(ip="192.168.1.10", hostname=hostname)
+            role = _classify_device_role(device)
+            assert role == "server", f"Expected server for {hostname}, got {role}"
+
+    def test_classify_service_by_hostname(self):
+        """Device with service-related hostname should be service"""
+        from app.routers.networks import _classify_device_role
+        from app.schemas.agent_sync import SyncDevice
+
+        test_cases = [
+            "jellyfin.lan",
+            "plex.local",
+            "grafana.lan",
+            "home-assistant.local",
+            "pihole.lan",
+        ]
+
+        for hostname in test_cases:
+            device = SyncDevice(ip="192.168.1.10", hostname=hostname)
+            role = _classify_device_role(device)
+            assert role == "service", f"Expected service for {hostname}, got {role}"
+
+    def test_classify_client_by_default(self):
+        """Device without recognized hostname should be client"""
+        from app.routers.networks import _classify_device_role
+        from app.schemas.agent_sync import SyncDevice
+
+        device = SyncDevice(ip="192.168.1.100", hostname="johns-iphone.lan")
+        role = _classify_device_role(device)
+
+        assert role == "client"
+
+    def test_classify_client_without_hostname(self):
+        """Device without hostname should be client"""
+        from app.routers.networks import _classify_device_role
+        from app.schemas.agent_sync import SyncDevice
+
+        device = SyncDevice(ip="192.168.1.100", hostname=None)
+        role = _classify_device_role(device)
+
+        assert role == "client"
+
+    def test_classify_case_insensitive(self):
+        """Classification should be case-insensitive"""
+        from app.routers.networks import _classify_device_role
+        from app.schemas.agent_sync import SyncDevice
+
+        device = SyncDevice(ip="192.168.1.10", hostname="SYNOLOGY-NAS.LAN")
+        role = _classify_device_role(device)
+
+        assert role == "nas"
+
+
+class TestGroupAssignment:
+    """Tests for assigning devices to groups based on role"""
+
+    def test_get_group_for_gateway(self):
+        """Gateway should not be in a group (goes to root)"""
+        from app.routers.networks import _get_group_for_role
+
+        group = _get_group_for_role("gateway/router")
+        assert group == "root"
+
+    def test_get_group_for_infrastructure(self):
+        """Switches and firewalls should go to Infrastructure"""
+        from app.routers.networks import _get_group_for_role
+
+        assert _get_group_for_role("switch/ap") == "Infrastructure"
+        assert _get_group_for_role("firewall") == "Infrastructure"
+
+    def test_get_group_for_servers(self):
+        """Servers, NAS, and services should go to Servers"""
+        from app.routers.networks import _get_group_for_role
+
+        assert _get_group_for_role("server") == "Servers"
+        assert _get_group_for_role("nas") == "Servers"
+        assert _get_group_for_role("service") == "Servers"
+
+    def test_get_group_for_clients(self):
+        """Clients should go to Clients group"""
+        from app.routers.networks import _get_group_for_role
+
+        assert _get_group_for_role("client") == "Clients"
+        assert _get_group_for_role("unknown") == "Clients"
+
+
+class TestEnsureGroupsExist:
+    """Tests for ensuring group nodes exist in layout"""
+
+    def test_creates_all_groups_when_none_exist(self):
+        """Should create Infrastructure, Servers, and Clients groups"""
+        from app.routers.networks import _ensure_groups_exist
+
+        root = {"id": "root", "children": []}
+        groups = _ensure_groups_exist(root)
+
+        assert "Infrastructure" in groups
+        assert "Servers" in groups
+        assert "Clients" in groups
+        assert len(root["children"]) == 3
+
+    def test_preserves_existing_groups(self):
+        """Should not duplicate existing group nodes"""
+        from app.routers.networks import _ensure_groups_exist
+
+        existing_group = {
+            "id": "group:infrastructure",
+            "name": "Infrastructure",
+            "role": "group",
+            "children": [{"id": "switch-1"}],
+        }
+        root = {"id": "root", "children": [existing_group]}
+        groups = _ensure_groups_exist(root)
+
+        assert groups["Infrastructure"] == existing_group
+        assert len(groups["Infrastructure"]["children"]) == 1
+
+    def test_creates_missing_groups_only(self):
+        """Should only create groups that don't exist"""
+        from app.routers.networks import _ensure_groups_exist
+
+        existing_group = {
+            "id": "group:servers",
+            "name": "Servers",
+            "role": "group",
+            "children": [],
+        }
+        root = {"id": "root", "children": [existing_group]}
+        groups = _ensure_groups_exist(root)
+
+        # Should have 3 groups now
+        assert len(groups) == 3
+        assert groups["Servers"] == existing_group
+
+
+class TestFindDeviceInGroups:
+    """Tests for finding devices within groups"""
+
+    def test_finds_device_by_ip(self):
+        """Should find device in any group by IP"""
+        from app.routers.networks import _find_device_in_groups
+
+        device = {"id": "device-1", "ip": "192.168.1.50"}
+        groups = {
+            "Infrastructure": {"children": []},
+            "Servers": {"children": [device]},
+            "Clients": {"children": []},
+        }
+
+        found = _find_device_in_groups(groups, "192.168.1.50")
+        assert found == device
+
+    def test_returns_none_when_not_found(self):
+        """Should return None when device not in any group"""
+        from app.routers.networks import _find_device_in_groups
+
+        groups = {
+            "Infrastructure": {"children": []},
+            "Servers": {"children": [{"id": "other", "ip": "192.168.1.10"}]},
+            "Clients": {"children": []},
+        }
+
+        found = _find_device_in_groups(groups, "192.168.1.50")
+        assert found is None
