@@ -1587,3 +1587,229 @@ class TestFindDeviceInGroups:
 
         found = _find_device_in_groups(groups, "192.168.1.50")
         assert found is None
+
+
+class TestUpdateRootWithGateway:
+    """Tests for updating root node with gateway device"""
+
+    def test_updates_placeholder_root(self):
+        """Should update root when it has no IP (placeholder)"""
+        from app.routers.networks import _update_root_with_gateway
+        from app.schemas.agent_sync import SyncDevice
+
+        root = {"id": "root", "name": "Test Network", "role": "gateway/router"}
+        gateway = SyncDevice(
+            ip="192.168.1.1",
+            hostname="router.lan",
+            mac="AA:BB:CC:DD:EE:FF",
+            response_time_ms=1.5,
+        )
+
+        result = _update_root_with_gateway(root, gateway, "2024-01-01T00:00:00Z")
+
+        assert result is True
+        assert root["ip"] == "192.168.1.1"
+        assert root["hostname"] == "router.lan"
+        assert root["mac"] == "AA:BB:CC:DD:EE:FF"
+        assert root["name"] == "192.168.1.1 (router.lan)"
+        assert root["lastResponseMs"] == 1.5
+
+    def test_updates_matching_gateway_ip(self):
+        """Should update root when it matches gateway IP"""
+        from app.routers.networks import _update_root_with_gateway
+        from app.schemas.agent_sync import SyncDevice
+
+        root = {"id": "root", "ip": "192.168.1.1", "name": "Old Name"}
+        gateway = SyncDevice(ip="192.168.1.1", hostname="new-name.lan")
+
+        result = _update_root_with_gateway(root, gateway, "2024-01-01T00:00:00Z")
+
+        assert result is True
+        assert root["name"] == "192.168.1.1 (new-name.lan)"
+
+    def test_skips_different_gateway_ip(self):
+        """Should not update root when it has different IP"""
+        from app.routers.networks import _update_root_with_gateway
+        from app.schemas.agent_sync import SyncDevice
+
+        root = {"id": "root", "ip": "192.168.1.1", "name": "Original"}
+        gateway = SyncDevice(ip="192.168.1.254", hostname="new-gateway.lan")
+
+        result = _update_root_with_gateway(root, gateway, "2024-01-01T00:00:00Z")
+
+        assert result is False
+        assert root["name"] == "Original"
+
+    def test_handles_no_hostname(self):
+        """Should use IP as name when hostname is None"""
+        from app.routers.networks import _update_root_with_gateway
+        from app.schemas.agent_sync import SyncDevice
+
+        root = {"id": "root"}
+        gateway = SyncDevice(ip="192.168.1.1", hostname=None)
+
+        _update_root_with_gateway(root, gateway, "2024-01-01T00:00:00Z")
+
+        assert root["name"] == "192.168.1.1"
+
+
+class TestBuildNodesbyIPWithGroups:
+    """Tests for building IP index including grouped devices"""
+
+    def test_includes_root_ip(self):
+        """Should include root node if it has IP"""
+        from app.routers.networks import _build_nodes_by_ip_with_groups
+
+        root = {"id": "root", "ip": "192.168.1.1", "children": []}
+        groups = {"Clients": {"children": []}}
+
+        nodes = _build_nodes_by_ip_with_groups(root, groups)
+
+        assert "192.168.1.1" in nodes
+        assert nodes["192.168.1.1"]["id"] == "root"
+
+    def test_includes_grouped_devices(self):
+        """Should include devices from all groups"""
+        from app.routers.networks import _build_nodes_by_ip_with_groups
+
+        device1 = {"id": "d1", "ip": "192.168.1.10"}
+        device2 = {"id": "d2", "ip": "192.168.1.20"}
+        root = {"id": "root", "children": []}
+        groups = {
+            "Infrastructure": {"children": [device1]},
+            "Clients": {"children": [device2]},
+        }
+
+        nodes = _build_nodes_by_ip_with_groups(root, groups)
+
+        assert "192.168.1.10" in nodes
+        assert "192.168.1.20" in nodes
+
+    def test_includes_legacy_flat_devices(self):
+        """Should include devices directly under root (legacy)"""
+        from app.routers.networks import _build_nodes_by_ip_with_groups
+
+        legacy_device = {"id": "legacy", "ip": "192.168.1.50", "role": "client"}
+        root = {"id": "root", "children": [legacy_device]}
+        groups = {"Clients": {"children": []}}
+
+        nodes = _build_nodes_by_ip_with_groups(root, groups)
+
+        assert "192.168.1.50" in nodes
+
+
+class TestMigrateLegacyDevices:
+    """Tests for migrating flat devices into groups"""
+
+    def test_migrates_client_to_clients_group(self):
+        """Should move client devices to Clients group"""
+        from app.routers.networks import _migrate_legacy_devices
+
+        device = {"id": "d1", "ip": "192.168.1.50", "role": "client"}
+        root = {"id": "root", "ip": "192.168.1.1", "children": [device]}
+        groups = {
+            "Infrastructure": {"id": "group:infrastructure", "children": []},
+            "Servers": {"id": "group:servers", "children": []},
+            "Clients": {"id": "group:clients", "children": []},
+        }
+
+        _migrate_legacy_devices(root, groups)
+
+        assert device in groups["Clients"]["children"]
+        assert device not in root["children"]
+
+    def test_preserves_group_nodes(self):
+        """Should not migrate group nodes"""
+        from app.routers.networks import _migrate_legacy_devices
+
+        group_node = {"id": "group:clients", "role": "group", "children": []}
+        root = {"id": "root", "children": [group_node]}
+        groups = {"Clients": {"id": "group:clients", "children": []}}
+
+        _migrate_legacy_devices(root, groups)
+
+        assert group_node in root["children"]
+
+    def test_skips_root_ip_device(self):
+        """Should not migrate device with same IP as root"""
+        from app.routers.networks import _migrate_legacy_devices
+
+        device = {"id": "d1", "ip": "192.168.1.1", "role": "gateway/router"}
+        root = {"id": "root", "ip": "192.168.1.1", "children": [device]}
+        groups = {"Clients": {"id": "group:clients", "children": []}}
+
+        _migrate_legacy_devices(root, groups)
+
+        # Device should not be in any group
+        assert device not in groups["Clients"]["children"]
+
+
+class TestProcessDeviceSync:
+    """Tests for processing individual devices during sync"""
+
+    def test_skips_gateway_device(self):
+        """Should skip device matching gateway IP"""
+        from app.routers.networks import _process_device_sync
+        from app.schemas.agent_sync import SyncDevice
+
+        device = SyncDevice(ip="192.168.1.1")
+        groups = {"Clients": {"id": "group:clients", "children": []}}
+        nodes_by_ip = {}
+
+        added, updated = _process_device_sync(
+            device, "192.168.1.1", groups, nodes_by_ip, "2024-01-01T00:00:00Z"
+        )
+
+        assert added == 0
+        assert updated == 0
+
+    def test_updates_existing_device(self):
+        """Should update device if already exists"""
+        from app.routers.networks import _process_device_sync
+        from app.schemas.agent_sync import SyncDevice
+
+        device = SyncDevice(ip="192.168.1.50", hostname="updated.lan")
+        existing = {"id": "d1", "ip": "192.168.1.50", "role": "client"}
+        groups = {"Clients": {"id": "group:clients", "children": []}}
+        nodes_by_ip = {"192.168.1.50": existing}
+
+        added, updated = _process_device_sync(
+            device, None, groups, nodes_by_ip, "2024-01-01T00:00:00Z"
+        )
+
+        assert added == 0
+        assert updated == 1
+
+    def test_creates_new_device(self):
+        """Should create new device if not exists"""
+        from app.routers.networks import _process_device_sync
+        from app.schemas.agent_sync import SyncDevice
+
+        device = SyncDevice(ip="192.168.1.50")
+        groups = {"Clients": {"id": "group:clients", "children": []}}
+        nodes_by_ip = {}
+
+        added, updated = _process_device_sync(
+            device, None, groups, nodes_by_ip, "2024-01-01T00:00:00Z"
+        )
+
+        assert added == 1
+        assert updated == 0
+        assert len(groups["Clients"]["children"]) == 1
+
+    def test_upgrades_client_role(self):
+        """Should upgrade role from client to more specific role"""
+        from app.routers.networks import _process_device_sync
+        from app.schemas.agent_sync import SyncDevice
+
+        device = SyncDevice(ip="192.168.1.50", hostname="synology-nas.lan")
+        existing = {"id": "d1", "ip": "192.168.1.50", "role": "client"}
+        groups = {
+            "Servers": {"id": "group:servers", "children": []},
+            "Clients": {"id": "group:clients", "children": []},
+        }
+        nodes_by_ip = {"192.168.1.50": existing}
+
+        _process_device_sync(device, None, groups, nodes_by_ip, "2024-01-01T00:00:00Z")
+
+        assert existing["role"] == "nas"

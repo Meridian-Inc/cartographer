@@ -741,6 +741,92 @@ def _find_device_in_groups(groups: dict[str, dict], ip: str) -> dict | None:
     return None
 
 
+def _update_root_with_gateway(root: dict, gateway_device, now: str) -> bool:
+    """Update the root node with gateway device information.
+
+    Args:
+        root: Root node to update
+        gateway_device: Gateway device from sync data
+        now: Current timestamp
+
+    Returns:
+        True if root was updated, False otherwise
+    """
+    # Only update root if it's still a placeholder (no IP) or matches gateway
+    if root.get("ip") and root.get("ip") != gateway_device.ip:
+        return False
+
+    root["ip"] = gateway_device.ip
+    root["hostname"] = gateway_device.hostname
+    root["mac"] = gateway_device.mac
+    root["name"] = (
+        f"{gateway_device.ip} ({gateway_device.hostname})"
+        if gateway_device.hostname
+        else gateway_device.ip
+    )
+    root["role"] = "gateway/router"
+    root["updatedAt"] = now
+    root["lastSeenAt"] = now
+    if gateway_device.response_time_ms is not None:
+        root["lastResponseMs"] = gateway_device.response_time_ms
+    return True
+
+
+def _build_nodes_by_ip_with_groups(root: dict, groups: dict[str, dict]) -> dict[str, dict]:
+    """Build a map of all nodes indexed by IP, including grouped devices.
+
+    Args:
+        root: Root node of the layout
+        groups: Dictionary of group nodes
+
+    Returns:
+        Dictionary mapping IP addresses to device nodes
+    """
+    nodes_by_ip: dict[str, dict] = {}
+
+    # Include root if it has an IP
+    if root.get("ip"):
+        nodes_by_ip[root["ip"]] = root
+
+    # Include devices in groups
+    for group in groups.values():
+        for child in group.get("children", []):
+            if child.get("ip"):
+                nodes_by_ip[child["ip"]] = child
+
+    # Include legacy flat devices directly under root
+    for child in root.get("children", []):
+        if child.get("role") != "group" and child.get("ip"):
+            nodes_by_ip[child["ip"]] = child
+
+    return nodes_by_ip
+
+
+def _migrate_legacy_devices(root: dict, groups: dict[str, dict]) -> None:
+    """Migrate devices from legacy flat structure into proper groups.
+
+    Args:
+        root: Root node containing children to migrate
+        groups: Dictionary of group nodes to migrate devices into
+    """
+    new_root_children = []
+    root_ip = root.get("ip")
+
+    for child in root.get("children", []):
+        if child.get("role") == "group":
+            new_root_children.append(child)
+        elif child.get("ip") and child.get("ip") != root_ip:
+            # Migrate device to appropriate group
+            device_role = child.get("role", "client")
+            target_group_name = _get_group_for_role(device_role)
+            target_group = groups.get(target_group_name, groups["Clients"])
+            if child not in target_group.get("children", []):
+                child["parentId"] = target_group["id"]
+                target_group["children"].append(child)
+
+    root["children"] = new_root_children
+
+
 def _initialize_layout_data(network_name: str, existing_data: dict | None) -> dict:
     """Initialize or retrieve layout data structure."""
     if existing_data:
@@ -838,6 +924,42 @@ def _create_new_device_node(device, parent_id: str, now: str, role: str | None =
     return new_node
 
 
+def _process_device_sync(
+    device, gateway_ip: str | None, groups: dict, nodes_by_ip: dict, now: str
+) -> tuple[int, int]:
+    """Process a single device during sync.
+
+    Args:
+        device: Device from sync data
+        gateway_ip: IP of the gateway device (to skip)
+        groups: Dictionary of group nodes
+        nodes_by_ip: Map of existing devices by IP
+        now: Current timestamp
+
+    Returns:
+        Tuple of (devices_added, devices_updated) counts
+    """
+    # Skip gateway device (already handled as root)
+    if gateway_ip and device.ip == gateway_ip:
+        return 0, 0
+
+    role = _classify_device_role(device)
+    target_group_name = _get_group_for_role(role)
+    existing = nodes_by_ip.get(device.ip)
+
+    if existing:
+        _update_existing_device(existing, device, now)
+        if existing.get("role") == "client" and role != "client":
+            existing["role"] = role
+        return 0, 1
+
+    target_group = groups.get(target_group_name, groups["Clients"])
+    new_node = _create_new_device_node(device, target_group["id"], now, role)
+    target_group["children"].append(new_node)
+    nodes_by_ip[device.ip] = new_node
+    return 1, 0
+
+
 @router.post("/{network_id}/scan", response_model=AgentSyncResponse)
 async def sync_agent_scan(
     network_id: str,
@@ -867,96 +989,30 @@ async def sync_agent_scan(
 
     layout_data = _initialize_layout_data(network.name, network.layout_data)
     root = _ensure_root_node(layout_data, network.name)
-
     now = datetime.now(timezone.utc).isoformat()
+
     devices_added = 0
     devices_updated = 0
 
-    # Find the gateway device from sync data
+    # Handle gateway device
     gateway_device = next((d for d in sync_data.devices if d.is_gateway), None)
+    gateway_ip = None
+    if gateway_device and _update_root_with_gateway(root, gateway_device, now):
+        devices_updated += 1
+        gateway_ip = gateway_device.ip
 
-    # If we have a gateway device, update the root node to represent it
-    if gateway_device:
-        # Only update root if it's still a placeholder (no IP) or matches gateway
-        if not root.get("ip") or root.get("ip") == gateway_device.ip:
-            root["ip"] = gateway_device.ip
-            root["hostname"] = gateway_device.hostname
-            root["mac"] = gateway_device.mac
-            root["name"] = (
-                f"{gateway_device.ip} ({gateway_device.hostname})"
-                if gateway_device.hostname
-                else gateway_device.ip
-            )
-            root["role"] = "gateway/router"
-            root["updatedAt"] = now
-            root["lastSeenAt"] = now
-            if gateway_device.response_time_ms is not None:
-                root["lastResponseMs"] = gateway_device.response_time_ms
-            devices_updated += 1
-
-    # Ensure groups exist under root
+    # Setup groups and device index
     groups = _ensure_groups_exist(root)
-
-    # Build map of existing devices by IP (across all groups)
-    nodes_by_ip: dict[str, dict] = {}
-    if root.get("ip"):
-        nodes_by_ip[root["ip"]] = root
-    for group in groups.values():
-        for child in group.get("children", []):
-            if child.get("ip"):
-                nodes_by_ip[child["ip"]] = child
-
-    # Also check for devices directly under root (legacy flat structure)
-    for child in root.get("children", []):
-        if child.get("role") != "group" and child.get("ip"):
-            nodes_by_ip[child["ip"]] = child
+    nodes_by_ip = _build_nodes_by_ip_with_groups(root, groups)
 
     # Process each device
     for device in sync_data.devices:
-        # Skip gateway device if already handled as root
-        if gateway_device and device.ip == gateway_device.ip:
-            continue
+        added, updated = _process_device_sync(device, gateway_ip, groups, nodes_by_ip, now)
+        devices_added += added
+        devices_updated += updated
 
-        # Classify the device
-        role = _classify_device_role(device)
-        target_group_name = _get_group_for_role(role)
-
-        existing = nodes_by_ip.get(device.ip)
-
-        if existing:
-            # Update existing device
-            _update_existing_device(existing, device, now)
-            # Update role if it was previously just "client" and we now have better info
-            if existing.get("role") == "client" and role != "client":
-                existing["role"] = role
-            devices_updated += 1
-        else:
-            # Create new device in appropriate group
-            target_group = groups.get(target_group_name, groups["Clients"])
-            new_node = _create_new_device_node(device, target_group["id"], now, role)
-            target_group["children"].append(new_node)
-            nodes_by_ip[device.ip] = new_node
-            devices_added += 1
-
-    # Migrate any legacy flat devices into proper groups
-    new_root_children = []
-    for child in root.get("children", []):
-        if child.get("role") == "group":
-            # Keep group nodes
-            new_root_children.append(child)
-        elif child.get("ip") and child.get("ip") != root.get("ip"):
-            # This is a device in legacy flat structure - migrate to group
-            device_role = child.get("role", "client")
-            target_group_name = _get_group_for_role(device_role)
-            target_group = groups.get(target_group_name, groups["Clients"])
-            # Check if not already in target group
-            if child not in target_group.get("children", []):
-                child["parentId"] = target_group["id"]
-                target_group["children"].append(child)
-
-    root["children"] = new_root_children
-
-    # Update layout metadata
+    # Migrate legacy flat structure and update metadata
+    _migrate_legacy_devices(root, groups)
     layout_data["version"] = layout_data.get("version", 0) + 1
     layout_data["timestamp"] = now
 
