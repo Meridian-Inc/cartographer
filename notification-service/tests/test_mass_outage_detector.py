@@ -140,7 +140,7 @@ class TestMassOutageDetector:
 
         assert mass_event is not None
         assert mass_event.event_type == NotificationType.MASS_OUTAGE
-        assert mass_event.priority == NotificationPriority.HIGH
+        assert mass_event.priority == NotificationPriority.CRITICAL
         assert mass_event.network_id == network_id
         assert "Mass Device Outage" in mass_event.title
         assert "5 devices" in mass_event.message
@@ -473,7 +473,7 @@ class TestMassRecoveryDetector:
 
         assert mass_event is not None
         assert mass_event.event_type == NotificationType.MASS_RECOVERY
-        assert mass_event.priority == NotificationPriority.LOW
+        assert mass_event.priority == NotificationPriority.MEDIUM
         assert mass_event.network_id == network_id
         assert "Mass Device Recovery" in mass_event.title
         assert "5 devices" in mass_event.message

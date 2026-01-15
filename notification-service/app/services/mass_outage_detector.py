@@ -255,7 +255,7 @@ class MassOutageDetector:
             event_id=str(uuid.uuid4()),
             timestamp=datetime.utcnow(),
             event_type=NotificationType.MASS_OUTAGE,
-            priority=NotificationPriority.HIGH,
+            priority=NotificationPriority.CRITICAL,
             network_id=network_id,
             title="Mass Device Outage Detected",
             message=(
@@ -469,7 +469,7 @@ class MassOutageDetector:
             event_id=str(uuid.uuid4()),
             timestamp=datetime.utcnow(),
             event_type=NotificationType.MASS_RECOVERY,
-            priority=NotificationPriority.LOW,
+            priority=NotificationPriority.MEDIUM,
             network_id=network_id,
             title="Mass Device Recovery Detected",
             message=(
