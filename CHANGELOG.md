@@ -5,6 +5,13 @@ All notable changes to Cartographer will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.24.0](https://github.com/devartech/cartographer/compare/v0.23.1...v0.24.0) (2026-01-15)
+
+
+### ✨ Features
+
+* add sync endpoints for agent ([4ec78fc](https://github.com/devartech/cartographer/commit/4ec78fc215be7491666f9e5e99a7a37111219568))
+
 ### [0.23.1](https://github.com/devartech/cartographer/compare/v0.23.0...v0.23.1) (2026-01-15)
 
 
