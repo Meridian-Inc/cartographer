@@ -594,6 +594,90 @@ async def update_network_notification_settings(
 # ============================================================================
 
 
+def _initialize_layout_data(network_name: str, existing_data: dict | None) -> dict:
+    """Initialize or retrieve layout data structure."""
+    if existing_data:
+        return existing_data
+
+    return {
+        "version": 1,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "positions": {},
+        "root": {
+            "id": "root",
+            "name": network_name,
+            "role": "gateway/router",
+            "children": [],
+        },
+    }
+
+
+def _ensure_root_node(layout_data: dict, network_name: str) -> dict:
+    """Ensure layout has a valid root node with children list."""
+    root = layout_data.get("root")
+    if not root:
+        root = {
+            "id": "root",
+            "name": network_name,
+            "role": "gateway/router",
+            "children": [],
+        }
+        layout_data["root"] = root
+
+    if "children" not in root:
+        root["children"] = []
+
+    return root
+
+
+def _build_nodes_by_ip(root: dict) -> dict[str, dict]:
+    """Build a map of all nodes indexed by IP address."""
+
+    def find_all_nodes(node: dict, by_ip: dict):
+        """Recursively find all nodes and index by IP."""
+        if node.get("ip"):
+            by_ip[node["ip"]] = node
+        for child in node.get("children", []):
+            find_all_nodes(child, by_ip)
+
+    nodes_by_ip: dict[str, dict] = {}
+    find_all_nodes(root, nodes_by_ip)
+    return nodes_by_ip
+
+
+def _update_existing_device(existing_node: dict, device, now: str) -> None:
+    """Update an existing device node with new scan data."""
+    if device.hostname and not existing_node.get("hostname"):
+        existing_node["hostname"] = device.hostname
+    if device.mac and not existing_node.get("mac"):
+        existing_node["mac"] = device.mac
+    existing_node["updatedAt"] = now
+    existing_node["lastSeenAt"] = now
+    if device.response_time_ms is not None:
+        existing_node["lastResponseMs"] = device.response_time_ms
+
+
+def _create_new_device_node(device, root_id: str, now: str) -> dict:
+    """Create a new device node from scan data."""
+    new_node = {
+        "id": str(uuid.uuid4()),
+        "name": device.hostname or device.ip,
+        "ip": device.ip,
+        "hostname": device.hostname,
+        "mac": device.mac,
+        "role": "gateway/router" if device.is_gateway else "client",
+        "parentId": root_id,
+        "createdAt": now,
+        "updatedAt": now,
+        "lastSeenAt": now,
+        "monitoringEnabled": True,
+        "children": [],
+    }
+    if device.response_time_ms is not None:
+        new_node["lastResponseMs"] = device.response_time_ms
+    return new_node
+
+
 @router.post("/{network_id}/scan", response_model=AgentSyncResponse)
 async def sync_agent_scan(
     network_id: str,
@@ -619,44 +703,9 @@ async def sync_agent_scan(
         is_service=is_service_token(current_user.user_id),
     )
 
-    # Get or initialize layout_data
-    layout_data = network.layout_data or {
-        "version": 1,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "positions": {},
-        "root": {
-            "id": "root",
-            "name": network.name,
-            "role": "gateway/router",
-            "children": [],
-        },
-    }
-
-    # Ensure we have a root node
-    root = layout_data.get("root")
-    if not root:
-        root = {
-            "id": "root",
-            "name": network.name,
-            "role": "gateway/router",
-            "children": [],
-        }
-        layout_data["root"] = root
-
-    # Ensure root has children list
-    if "children" not in root:
-        root["children"] = []
-
-    # Build a map of existing nodes by IP for quick lookup
-    def find_all_nodes(node: dict, by_ip: dict):
-        """Recursively find all nodes and index by IP."""
-        if node.get("ip"):
-            by_ip[node["ip"]] = node
-        for child in node.get("children", []):
-            find_all_nodes(child, by_ip)
-
-    nodes_by_ip: dict[str, dict] = {}
-    find_all_nodes(root, nodes_by_ip)
+    layout_data = _initialize_layout_data(network.name, network.layout_data)
+    root = _ensure_root_node(layout_data, network.name)
+    nodes_by_ip = _build_nodes_by_ip(root)
 
     devices_added = 0
     devices_updated = 0
@@ -666,36 +715,10 @@ async def sync_agent_scan(
         existing = nodes_by_ip.get(device.ip)
 
         if existing:
-            # Update existing node
-            if device.hostname and not existing.get("hostname"):
-                existing["hostname"] = device.hostname
-            if device.mac and not existing.get("mac"):
-                existing["mac"] = device.mac
-            existing["updatedAt"] = now
-            existing["lastSeenAt"] = now
-            if device.response_time_ms is not None:
-                existing["lastResponseMs"] = device.response_time_ms
+            _update_existing_device(existing, device, now)
             devices_updated += 1
         else:
-            # Create new node
-            new_node = {
-                "id": str(uuid.uuid4()),
-                "name": device.hostname or device.ip,
-                "ip": device.ip,
-                "hostname": device.hostname,
-                "mac": device.mac,
-                "role": "gateway/router" if device.is_gateway else "client",
-                "parentId": root["id"],
-                "createdAt": now,
-                "updatedAt": now,
-                "lastSeenAt": now,
-                "monitoringEnabled": True,
-                "children": [],
-            }
-            if device.response_time_ms is not None:
-                new_node["lastResponseMs"] = device.response_time_ms
-
-            # Add to root's children
+            new_node = _create_new_device_node(device, root["id"], now)
             root["children"].append(new_node)
             nodes_by_ip[device.ip] = new_node
             devices_added += 1
