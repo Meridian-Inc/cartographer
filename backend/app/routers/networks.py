@@ -2,6 +2,9 @@
 Network management API routes.
 """
 
+import uuid
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +14,8 @@ from ..database import get_db
 from ..dependencies.auth import AuthenticatedUser, require_auth
 from ..models.network import Network, NetworkNotificationSettings, NetworkPermission, PermissionRole
 from ..schemas import (
+    AgentSyncRequest,
+    AgentSyncResponse,
     NetworkCreate,
     NetworkLayoutResponse,
     NetworkLayoutSave,
@@ -582,3 +587,132 @@ async def update_network_notification_settings(
     await db.refresh(settings)
 
     return NetworkNotificationSettingsResponse.model_validate(settings)
+
+
+# ============================================================================
+# Agent Sync
+# ============================================================================
+
+
+@router.post("/{network_id}/scan", response_model=AgentSyncResponse)
+async def sync_agent_scan(
+    network_id: str,
+    sync_data: AgentSyncRequest,
+    current_user: AuthenticatedUser = Depends(require_auth),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Sync device scan data from Cartographer Agent.
+
+    Merges discovered devices into the network's layout_data:
+    - New devices are added as children of the root node
+    - Existing devices (matched by IP) are updated with latest data
+    - Device positions are preserved if they were previously set
+
+    This endpoint is called by the cloud backend when proxying agent sync requests.
+    """
+    network, is_owner, permission = await get_network_with_access(
+        network_id,
+        current_user.user_id,
+        db,
+        require_write=True,
+        is_service=is_service_token(current_user.user_id),
+    )
+
+    # Get or initialize layout_data
+    layout_data = network.layout_data or {
+        "version": 1,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "positions": {},
+        "root": {
+            "id": "root",
+            "name": network.name,
+            "role": "gateway/router",
+            "children": [],
+        },
+    }
+
+    # Ensure we have a root node
+    root = layout_data.get("root")
+    if not root:
+        root = {
+            "id": "root",
+            "name": network.name,
+            "role": "gateway/router",
+            "children": [],
+        }
+        layout_data["root"] = root
+
+    # Ensure root has children list
+    if "children" not in root:
+        root["children"] = []
+
+    # Build a map of existing nodes by IP for quick lookup
+    def find_all_nodes(node: dict, by_ip: dict):
+        """Recursively find all nodes and index by IP."""
+        if node.get("ip"):
+            by_ip[node["ip"]] = node
+        for child in node.get("children", []):
+            find_all_nodes(child, by_ip)
+
+    nodes_by_ip: dict[str, dict] = {}
+    find_all_nodes(root, nodes_by_ip)
+
+    devices_added = 0
+    devices_updated = 0
+    now = datetime.now(timezone.utc).isoformat()
+
+    for device in sync_data.devices:
+        existing = nodes_by_ip.get(device.ip)
+
+        if existing:
+            # Update existing node
+            if device.hostname and not existing.get("hostname"):
+                existing["hostname"] = device.hostname
+            if device.mac and not existing.get("mac"):
+                existing["mac"] = device.mac
+            existing["updatedAt"] = now
+            existing["lastSeenAt"] = now
+            if device.response_time_ms is not None:
+                existing["lastResponseMs"] = device.response_time_ms
+            devices_updated += 1
+        else:
+            # Create new node
+            new_node = {
+                "id": str(uuid.uuid4()),
+                "name": device.hostname or device.ip,
+                "ip": device.ip,
+                "hostname": device.hostname,
+                "mac": device.mac,
+                "role": "gateway/router" if device.is_gateway else "client",
+                "parentId": root["id"],
+                "createdAt": now,
+                "updatedAt": now,
+                "lastSeenAt": now,
+                "monitoringEnabled": True,
+                "children": [],
+            }
+            if device.response_time_ms is not None:
+                new_node["lastResponseMs"] = device.response_time_ms
+
+            # Add to root's children
+            root["children"].append(new_node)
+            nodes_by_ip[device.ip] = new_node
+            devices_added += 1
+
+    # Update layout metadata
+    layout_data["version"] = layout_data.get("version", 0) + 1
+    layout_data["timestamp"] = now
+
+    # Save updated layout
+    network.layout_data = layout_data
+    network.last_sync_at = datetime.now(timezone.utc)
+    await db.commit()
+
+    return AgentSyncResponse(
+        success=True,
+        devices_received=len(sync_data.devices),
+        devices_added=devices_added,
+        devices_updated=devices_updated,
+        message=f"Synced {devices_added} new and {devices_updated} existing devices",
+    )

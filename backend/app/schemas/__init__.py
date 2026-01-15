@@ -5,10 +5,12 @@ Domain-specific schemas are organized into submodules:
 - network: Network CRUD schemas
 - permission: Permission management schemas
 - notification: Notification settings schemas
+- agent_sync: Agent scan sync schemas
 
 All schemas are re-exported here for backwards compatibility.
 """
 
+from .agent_sync import AgentSyncRequest, AgentSyncResponse, NetworkInfo, SyncDevice
 from .network import (
     NetworkCreate,
     NetworkLayoutResponse,
@@ -41,4 +43,9 @@ __all__ = [
     "NotificationPreferencesCreate",
     "NetworkNotificationSettingsCreate",
     "NetworkNotificationSettingsResponse",
+    # Agent Sync
+    "SyncDevice",
+    "NetworkInfo",
+    "AgentSyncRequest",
+    "AgentSyncResponse",
 ]
