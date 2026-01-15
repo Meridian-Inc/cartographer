@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     # API documentation
     disable_docs: bool = False
 
+    # Security: Disable active health checks (ping, port scan, DNS)
+    # When enabled, the service will only store/report agent-provided data
+    # and will not perform any outbound network probes
+    disable_active_checks: bool = False
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 

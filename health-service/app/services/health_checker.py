@@ -232,6 +232,11 @@ class HealthChecker:
         Ping a host and return results.
         Uses subprocess to run system ping for reliability.
         """
+        # Security: Skip active checks if disabled (e.g., cloud deployment)
+        if settings.disable_active_checks:
+            logger.debug(f"Active checks disabled, skipping ping for {ip}")
+            return PingResult(success=False, packet_loss_percent=100.0)
+
         try:
             # Use system ping command for reliability
             import re
@@ -305,6 +310,11 @@ class HealthChecker:
 
     async def check_dns(self, ip: str) -> DnsResult:
         """Perform DNS resolution and reverse DNS lookup"""
+        # Security: Skip active checks if disabled (e.g., cloud deployment)
+        if settings.disable_active_checks:
+            logger.debug(f"Active checks disabled, skipping DNS check for {ip}")
+            return DnsResult(success=False)
+
         try:
             import dns.resolver
             import dns.reversename
@@ -342,6 +352,11 @@ class HealthChecker:
 
     async def check_port(self, ip: str, port: int, timeout: float = 2.0) -> PortCheckResult:
         """Check if a specific port is open"""
+        # Security: Skip active checks if disabled (e.g., cloud deployment)
+        if settings.disable_active_checks:
+            logger.debug(f"Active checks disabled, skipping port check for {ip}:{port}")
+            return PortCheckResult(port=port, open=False, service=COMMON_PORTS.get(port))
+
         try:
             start_time = time.time()
 
@@ -980,6 +995,11 @@ class HealthChecker:
 
     def start_monitoring(self) -> None:
         """Start the background monitoring task"""
+        # Security: Don't start monitoring if active checks are disabled
+        if settings.disable_active_checks:
+            logger.info("Background monitoring disabled (DISABLE_ACTIVE_CHECKS=true)")
+            return
+
         if self._monitoring_task and not self._monitoring_task.done():
             logger.warning("Monitoring already running")
             return
