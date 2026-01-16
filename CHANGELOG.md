@@ -5,6 +5,13 @@ All notable changes to Cartographer will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+### [0.26.4](https://github.com/devartech/cartographer/compare/v0.26.3...v0.26.4) (2026-01-16)
+
+
+### 🐛 Bug Fixes
+
+* datetime serialization for timezones ([b087785](https://github.com/devartech/cartographer/commit/b0877859ceae845793e90d1439104edb2f51d223))
+
 ### [0.26.3](https://github.com/devartech/cartographer/compare/v0.26.2...v0.26.3) (2026-01-16)
 
 
