@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Query
 
@@ -78,7 +78,7 @@ async def check_multiple_devices(request: HealthCheckRequest):
     if settings.disable_active_checks:
         all_cached = health_checker.get_all_cached_metrics()
         metrics = {ip: all_cached[ip] for ip in request.ips if ip in all_cached}
-        return BatchHealthResponse(devices=metrics, check_timestamp=datetime.utcnow())
+        return BatchHealthResponse(devices=metrics, check_timestamp=datetime.now(timezone.utc))
 
     try:
         metrics = await health_checker.check_multiple_devices(
@@ -86,7 +86,7 @@ async def check_multiple_devices(request: HealthCheckRequest):
             include_ports=request.include_ports,
             include_dns=request.include_dns,
         )
-        return BatchHealthResponse(devices=metrics, check_timestamp=datetime.utcnow())
+        return BatchHealthResponse(devices=metrics, check_timestamp=datetime.now(timezone.utc))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -332,7 +332,7 @@ async def trigger_immediate_check():
     return {
         "message": "Check completed",
         "checked_devices": len(health_checker.get_monitored_devices()),
-        "timestamp": datetime.utcnow(),
+        "timestamp": datetime.now(timezone.utc),
     }
 
 

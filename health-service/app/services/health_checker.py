@@ -4,7 +4,7 @@ import logging
 import socket
 import time
 from collections import deque
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from ..config import settings
@@ -190,14 +190,14 @@ class HealthChecker:
         """Record a health check result for historical tracking"""
         if ip not in self._history:
             self._history[ip] = deque(maxlen=self._history_max_size)
-        self._history[ip].append((datetime.utcnow(), success, latency_ms))
+        self._history[ip].append((datetime.now(timezone.utc), success, latency_ms))
 
     def _calculate_historical_stats(self, ip: str) -> tuple[float | None, float | None, int, int]:
         """Calculate 24-hour historical statistics"""
         if ip not in self._history or len(self._history[ip]) == 0:
             return None, None, 0, 0
 
-        cutoff = datetime.utcnow() - timedelta(hours=24)
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
         recent = [(ts, success, lat) for ts, success, lat in self._history[ip] if ts > cutoff]
 
         if not recent:
@@ -218,7 +218,7 @@ class HealthChecker:
         if ip not in self._history or len(self._history[ip]) == 0:
             return []
 
-        cutoff = datetime.utcnow() - timedelta(hours=hours)
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
         history = []
 
         for ts, success, latency in self._history[ip]:
@@ -401,7 +401,7 @@ class HealthChecker:
         """
         Perform a comprehensive health check on a device.
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         # Get cached metrics or create new
         cached = self._metrics_cache.get(ip)
@@ -513,7 +513,7 @@ class HealthChecker:
                 metrics_map[ip] = DeviceMetrics(
                     ip=ip,
                     status=HealthStatus.UNKNOWN,
-                    last_check=datetime.utcnow(),
+                    last_check=datetime.now(timezone.utc),
                     error_message=str(result),
                 )
                 failures += 1
@@ -565,7 +565,7 @@ class HealthChecker:
 
         Returns True if the cache was updated (new or existing entry).
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         # Get or create cached entry
         cached = self._metrics_cache.get(ip)
@@ -698,7 +698,7 @@ class HealthChecker:
         key = self._get_test_ip_history_key(gateway_ip, test_ip)
         if key not in self._test_ip_history:
             self._test_ip_history[key] = deque(maxlen=self._history_max_size)
-        self._test_ip_history[key].append((datetime.utcnow(), success, latency_ms))
+        self._test_ip_history[key].append((datetime.now(timezone.utc), success, latency_ms))
 
     def _calculate_test_ip_historical_stats(
         self, gateway_ip: str, test_ip: str
@@ -708,7 +708,7 @@ class HealthChecker:
         if key not in self._test_ip_history or len(self._test_ip_history[key]) == 0:
             return None, None, 0, 0
 
-        cutoff = datetime.utcnow() - timedelta(hours=24)
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
         recent = [
             (ts, success, lat) for ts, success, lat in self._test_ip_history[key] if ts > cutoff
         ]
@@ -734,7 +734,7 @@ class HealthChecker:
         if key not in self._test_ip_history or len(self._test_ip_history[key]) == 0:
             return []
 
-        cutoff = datetime.utcnow() - timedelta(hours=hours)
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
         history = []
 
         for ts, success, latency in self._test_ip_history[key]:
@@ -747,7 +747,7 @@ class HealthChecker:
         self, gateway_ip: str, test_ip: str, label: str | None = None
     ) -> GatewayTestIPMetrics:
         """Check a single test IP and return metrics"""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         # Get cached metrics if available
         cached = self._test_ip_metrics_cache.get(gateway_ip, {}).get(test_ip)
@@ -833,7 +833,7 @@ class HealthChecker:
                         ip=tip.ip,
                         label=tip.label,
                         status=HealthStatus.UNKNOWN,
-                        last_check=datetime.utcnow(),
+                        last_check=datetime.now(timezone.utc),
                     )
                 )
             else:
@@ -842,7 +842,7 @@ class HealthChecker:
         return GatewayTestIPsResponse(
             gateway_ip=gateway_ip,
             test_ips=metrics_list,
-            last_check=datetime.utcnow(),
+            last_check=datetime.now(timezone.utc),
         )
 
     def get_cached_test_ip_metrics(self, gateway_ip: str) -> GatewayTestIPsResponse:
@@ -913,7 +913,7 @@ class HealthChecker:
 
             result = SpeedTestResult(
                 success=True,
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(timezone.utc),
                 download_mbps=round(download_mbps, 2),
                 upload_mbps=round(upload_mbps, 2),
                 ping_ms=ping_ms,
@@ -938,7 +938,7 @@ class HealthChecker:
             logger.error("speedtest-cli not installed")
             return SpeedTestResult(
                 success=False,
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(timezone.utc),
                 error_message="speedtest-cli is not installed",
                 duration_seconds=time.time() - start_time,
             )
@@ -946,7 +946,7 @@ class HealthChecker:
             logger.error(f"Speed test failed: {e}")
             return SpeedTestResult(
                 success=False,
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(timezone.utc),
                 error_message=str(e),
                 duration_seconds=time.time() - start_time,
             )
@@ -1030,7 +1030,7 @@ class HealthChecker:
 
         self._is_checking = True
         try:
-            self._last_check_time = datetime.utcnow()
+            self._last_check_time = datetime.now(timezone.utc)
 
             # Check all devices in parallel
             if self._monitored_devices:
@@ -1089,7 +1089,7 @@ class HealthChecker:
 
                 # Calculate next check time
                 interval = self._monitoring_config.check_interval_seconds
-                self._next_check_time = datetime.utcnow() + timedelta(seconds=interval)
+                self._next_check_time = datetime.now(timezone.utc) + timedelta(seconds=interval)
 
                 # Wait for next interval
                 await asyncio.sleep(interval)

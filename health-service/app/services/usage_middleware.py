@@ -9,7 +9,7 @@ import asyncio
 import logging
 import time
 from collections import deque
-from datetime import datetime
+from datetime import datetime, timezone
 
 import httpx
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -170,7 +170,7 @@ class UsageTrackingMiddleware(BaseHTTPMiddleware):
             method=request.method,
             status_code=response.status_code,
             response_time_ms=response_time_ms,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
         )
 
         # Add to buffer (non-blocking)
