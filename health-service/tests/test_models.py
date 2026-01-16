@@ -2,7 +2,7 @@
 Unit tests for health service models.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 
@@ -113,7 +113,7 @@ class TestDeviceMetrics:
 
     def test_device_metrics_healthy(self):
         """Should create healthy device metrics"""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         metrics = DeviceMetrics(
             ip="192.168.1.1",
             status=HealthStatus.HEALTHY,
@@ -127,7 +127,7 @@ class TestDeviceMetrics:
 
     def test_device_metrics_with_history(self):
         """Should include check history"""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         history = [
             CheckHistoryEntry(timestamp=now, success=True, latency_ms=25.0),
             CheckHistoryEntry(timestamp=now, success=True, latency_ms=30.0),
@@ -205,7 +205,7 @@ class TestGatewayTestIPModels:
 
     def test_gateway_test_ip_metrics(self):
         """Should create test IP metrics"""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         metrics = GatewayTestIPMetrics(
             ip="8.8.8.8",
             label="Google DNS",
@@ -224,7 +224,7 @@ class TestSpeedTestResult:
         """Should create successful speed test result"""
         result = SpeedTestResult(
             success=True,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             download_mbps=100.5,
             upload_mbps=50.2,
             ping_ms=15.0,
@@ -240,7 +240,7 @@ class TestSpeedTestResult:
     def test_speed_test_failure(self):
         """Should create failed speed test result"""
         result = SpeedTestResult(
-            success=False, timestamp=datetime.utcnow(), error_message="Connection timeout"
+            success=False, timestamp=datetime.now(timezone.utc), error_message="Connection timeout"
         )
 
         assert result.success is False

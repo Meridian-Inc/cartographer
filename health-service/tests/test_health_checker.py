@@ -5,7 +5,7 @@ Unit tests for health_checker service.
 import asyncio
 import json
 from collections import deque
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -267,7 +267,9 @@ class TestCheckMultipleDevices:
         async def mock_check(ip, include_ports, include_dns):
             if ip == "192.168.1.2":
                 raise RuntimeError("Check failed")
-            return DeviceMetrics(ip=ip, status=HealthStatus.HEALTHY, last_check=datetime.utcnow())
+            return DeviceMetrics(
+                ip=ip, status=HealthStatus.HEALTHY, last_check=datetime.now(timezone.utc)
+            )
 
         health_checker_instance.check_device_health = mock_check
 
@@ -330,7 +332,7 @@ class TestHistoricalStats:
 
     def test_calculate_stats_with_data(self, health_checker_instance):
         """Should calculate correct statistics"""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         health_checker_instance._history["192.168.1.1"] = deque(
             [
                 (now, True, 20.0),
@@ -351,7 +353,7 @@ class TestHistoricalStats:
 
     def test_get_check_history(self, health_checker_instance):
         """Should return check history entries"""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         health_checker_instance._history["192.168.1.1"] = deque(
             [
                 (now, True, 20.0),
@@ -506,7 +508,10 @@ class TestSpeedTest:
     def test_get_last_speed_test(self, health_checker_instance):
         """Should return last speed test result"""
         result = SpeedTestResult(
-            success=True, timestamp=datetime.utcnow(), download_mbps=100.0, upload_mbps=50.0
+            success=True,
+            timestamp=datetime.now(timezone.utc),
+            download_mbps=100.0,
+            upload_mbps=50.0,
         )
         health_checker_instance._speed_test_results["192.168.1.1"] = result
 
@@ -518,7 +523,10 @@ class TestSpeedTest:
     def test_get_all_speed_tests(self, health_checker_instance):
         """Should return all speed test results"""
         result = SpeedTestResult(
-            success=True, timestamp=datetime.utcnow(), download_mbps=100.0, upload_mbps=50.0
+            success=True,
+            timestamp=datetime.now(timezone.utc),
+            download_mbps=100.0,
+            upload_mbps=50.0,
         )
         health_checker_instance._speed_test_results["192.168.1.1"] = result
 
@@ -692,7 +700,10 @@ class TestDataPersistence:
     def test_save_speed_test_results(self, health_checker_instance, tmp_path):
         """Should save speed test results"""
         result = SpeedTestResult(
-            success=True, timestamp=datetime.utcnow(), download_mbps=100.0, upload_mbps=50.0
+            success=True,
+            timestamp=datetime.now(timezone.utc),
+            download_mbps=100.0,
+            upload_mbps=50.0,
         )
 
         with patch("app.services.health_checker.DATA_DIR", tmp_path):

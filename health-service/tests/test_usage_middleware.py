@@ -4,7 +4,7 @@ Unit tests for usage tracking middleware.
 
 import asyncio
 from collections import deque
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -27,7 +27,7 @@ class TestUsageRecord:
 
     def test_create_usage_record(self):
         """Should create a usage record with all fields"""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         record = UsageRecord(
             endpoint="/api/health/ping",
             method="GET",
@@ -44,7 +44,7 @@ class TestUsageRecord:
 
     def test_to_dict(self):
         """Should convert record to dict"""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         record = UsageRecord(
             endpoint="/api/health/check",
             method="POST",
@@ -166,7 +166,7 @@ class TestUsageTrackingMiddlewareFlush:
     async def test_flush_with_records(self, middleware):
         """Should send records to metrics service"""
         # Add some records to buffer
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         middleware._buffer.append(
             UsageRecord(
                 endpoint="/api/test",
@@ -193,7 +193,7 @@ class TestUsageTrackingMiddlewareFlush:
     async def test_flush_handles_failure(self, middleware):
         """Should put records back on failure"""
         # Add some records to buffer
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         middleware._buffer.append(
             UsageRecord(
                 endpoint="/api/test",
@@ -221,7 +221,7 @@ class TestUsageTrackingMiddlewareFlush:
     async def test_flush_handles_exception(self, middleware):
         """Should handle exceptions during flush"""
         # Add some records to buffer
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         middleware._buffer.append(
             UsageRecord(
                 endpoint="/api/test",
@@ -362,7 +362,7 @@ class TestUsageTrackingMiddlewareShutdown:
         middleware._flush_task = asyncio.create_task(asyncio.sleep(100))
 
         # Add a record
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         middleware._buffer.append(
             UsageRecord(
                 endpoint="/api/test",

@@ -2,7 +2,7 @@
 Unit tests for health router endpoints.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -46,7 +46,7 @@ def sample_metrics():
     return DeviceMetrics(
         ip="192.168.1.1",
         status=HealthStatus.HEALTHY,
-        last_check=datetime.utcnow(),
+        last_check=datetime.now(timezone.utc),
         ping=PingResult(success=True, latency_ms=25.0, packet_loss_percent=0.0),
     )
 
@@ -378,8 +378,8 @@ class TestMonitoringStatus:
             check_interval_seconds=30,
             include_dns=True,
             monitored_devices=["192.168.1.1"],
-            last_check=datetime.utcnow(),
-            next_check=datetime.utcnow(),
+            last_check=datetime.now(timezone.utc),
+            next_check=datetime.now(timezone.utc),
         )
 
         with patch("app.routers.health.health_checker") as mock_checker:
@@ -533,7 +533,7 @@ class TestGatewayTestIPs:
             gateway_ip="192.168.1.1", test_ips=[GatewayTestIP(ip="8.8.8.8")], enabled=True
         )
         response_data = GatewayTestIPsResponse(
-            gateway_ip="192.168.1.1", test_ips=[], last_check=datetime.utcnow()
+            gateway_ip="192.168.1.1", test_ips=[], last_check=datetime.now(timezone.utc)
         )
 
         with patch("app.routers.health.health_checker") as mock_checker:
@@ -573,7 +573,10 @@ class TestSpeedTestEndpoints:
     def test_run_speed_test(self, client):
         """Should run speed test"""
         result = SpeedTestResult(
-            success=True, timestamp=datetime.utcnow(), download_mbps=100.0, upload_mbps=50.0
+            success=True,
+            timestamp=datetime.now(timezone.utc),
+            download_mbps=100.0,
+            upload_mbps=50.0,
         )
 
         with patch("app.routers.health.health_checker") as mock_checker:
@@ -588,7 +591,10 @@ class TestSpeedTestEndpoints:
     def test_run_gateway_speed_test(self, client):
         """Should run speed test for gateway"""
         result = SpeedTestResult(
-            success=True, timestamp=datetime.utcnow(), download_mbps=100.0, upload_mbps=50.0
+            success=True,
+            timestamp=datetime.now(timezone.utc),
+            download_mbps=100.0,
+            upload_mbps=50.0,
         )
 
         with patch("app.routers.health.health_checker") as mock_checker:
@@ -601,7 +607,10 @@ class TestSpeedTestEndpoints:
     def test_get_gateway_speed_test(self, client):
         """Should return last speed test for gateway"""
         result = SpeedTestResult(
-            success=True, timestamp=datetime.utcnow(), download_mbps=100.0, upload_mbps=50.0
+            success=True,
+            timestamp=datetime.now(timezone.utc),
+            download_mbps=100.0,
+            upload_mbps=50.0,
         )
 
         with patch("app.routers.health.health_checker") as mock_checker:
@@ -623,7 +632,10 @@ class TestSpeedTestEndpoints:
     def test_get_all_speed_tests(self, client):
         """Should return all speed test results"""
         result = SpeedTestResult(
-            success=True, timestamp=datetime.utcnow(), download_mbps=100.0, upload_mbps=50.0
+            success=True,
+            timestamp=datetime.now(timezone.utc),
+            download_mbps=100.0,
+            upload_mbps=50.0,
         )
 
         with patch("app.routers.health.health_checker") as mock_checker:
@@ -646,7 +658,7 @@ class TestAgentSync:
             response = client.post(
                 "/api/health/agent-sync",
                 json={
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                     "network_id": "test-network-uuid",
                     "results": [
                         {"ip": "192.168.1.10", "reachable": True, "response_time_ms": 25.0},
@@ -669,7 +681,7 @@ class TestAgentSync:
         response = client.post(
             "/api/health/agent-sync",
             json={
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "network_id": "test-network-uuid",
                 "results": [],
             },
@@ -691,7 +703,7 @@ class TestAgentSync:
             response = client.post(
                 "/api/health/agent-sync",
                 json={
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                     "network_id": "test-network-uuid",
                     "results": [
                         {"ip": "192.168.1.10", "reachable": True, "response_time_ms": 25.0},

@@ -5,7 +5,7 @@ Edge case and integration tests for additional coverage.
 import asyncio
 import json
 from collections import deque
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -100,8 +100,8 @@ class TestHistoricalStatsEdgeCases:
 
     def test_old_history_excluded(self, health_checker_instance):
         """Should exclude history older than 24 hours"""
-        old_time = datetime.utcnow() - timedelta(hours=25)
-        recent_time = datetime.utcnow()
+        old_time = datetime.now(timezone.utc) - timedelta(hours=25)
+        recent_time = datetime.now(timezone.utc)
 
         health_checker_instance._history["192.168.1.1"] = deque(
             [
@@ -122,7 +122,7 @@ class TestHistoricalStatsEdgeCases:
 
     def test_history_with_no_latencies(self, health_checker_instance):
         """Should handle history with no latency data"""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         health_checker_instance._history["192.168.1.1"] = deque(
             [
                 (now, False, None),
@@ -496,7 +496,7 @@ class TestCheckHistoryEntry:
 
     def test_get_test_ip_check_history_with_hours(self, health_checker_instance):
         """Should respect hours parameter"""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         old_time = now - timedelta(hours=12)
 
         key = health_checker_instance._get_test_ip_history_key("192.168.1.1", "8.8.8.8")

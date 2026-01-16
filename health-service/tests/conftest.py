@@ -4,7 +4,7 @@ Shared test fixtures for health service unit tests.
 
 import os
 from collections import deque
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -67,7 +67,7 @@ def sample_device_metrics():
     return DeviceMetrics(
         ip="192.168.1.1",
         status=HealthStatus.HEALTHY,
-        last_check=datetime.utcnow(),
+        last_check=datetime.now(timezone.utc),
         ping=PingResult(success=True, latency_ms=25.0, packet_loss_percent=0.0),
     )
 
