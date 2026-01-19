@@ -325,11 +325,17 @@ function render() {
     return (height - marginY * 2 - total) / 2 + marginY;
   };
 
+  // Format node label: "IP (hostname)" or "IP (vendor)" or just "IP"
+  const getNodeLabel = (node: TreeNode): string => {
+    const ip = node.ip || node.id;
+    const suffix = node.hostname || node.vendor;
+    return suffix ? `${ip} (${suffix})` : ip;
+  };
+
   // Place root node (depth 0)
-  // Use hostname, then vendor (manufacturer), then name as fallback for display
   const router: DrawNode = {
     id: data.id,
-    name: data.hostname || data.vendor || data.name,
+    name: getNodeLabel(data),
     role: data.role,
     x: typeof (data as any).fx === 'number' ? (data as any).fx : marginX,
     y: typeof (data as any).fy === 'number' ? (data as any).fy : height / 2,
@@ -353,10 +359,9 @@ function render() {
     const startY = centerColumnY(nodesAtDepth.length);
 
     nodesAtDepth.forEach((c, idx) => {
-      // Use hostname, then vendor (manufacturer), then name as fallback for display
       const dev: DrawNode = {
         id: c.id,
-        name: c.hostname || c.vendor || c.name,
+        name: getNodeLabel(c),
         role: c.role,
         x: typeof (c as any).fx === 'number' ? (c as any).fx : columnX,
         y: typeof (c as any).fy === 'number' ? (c as any).fy : startY + idx * nodeGapY,
