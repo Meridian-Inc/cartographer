@@ -35,6 +35,12 @@ export interface TreeNode {
   role?: DeviceRole | 'group';
   ip?: string;
   hostname?: string;
+  /** Device vendor/manufacturer from MAC OUI lookup */
+  vendor?: string;
+  /** Inferred device type from vendor (router, firewall, server, service, nas, etc.) */
+  deviceType?: string;
+  /** MAC address */
+  mac?: string;
   children?: TreeNode[];
   /** Freeform layout X position (persisted) */
   fx?: number;

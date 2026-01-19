@@ -326,9 +326,10 @@ function render() {
   };
 
   // Place root node (depth 0)
+  // Use hostname, then vendor (manufacturer), then name as fallback for display
   const router: DrawNode = {
     id: data.id,
-    name: data.name,
+    name: data.hostname || data.vendor || data.name,
     role: data.role,
     x: typeof (data as any).fx === 'number' ? (data as any).fx : marginX,
     y: typeof (data as any).fy === 'number' ? (data as any).fy : height / 2,
@@ -352,9 +353,10 @@ function render() {
     const startY = centerColumnY(nodesAtDepth.length);
 
     nodesAtDepth.forEach((c, idx) => {
+      // Use hostname, then vendor (manufacturer), then name as fallback for display
       const dev: DrawNode = {
         id: c.id,
-        name: c.name,
+        name: c.hostname || c.vendor || c.name,
         role: c.role,
         x: typeof (c as any).fx === 'number' ? (c as any).fx : columnX,
         y: typeof (c as any).fy === 'number' ? (c as any).fy : startY + idx * nodeGapY,

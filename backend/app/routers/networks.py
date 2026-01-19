@@ -760,9 +760,14 @@ def _update_root_with_gateway(root: dict, gateway_device, now: str) -> bool:
     root["ip"] = gateway_device.ip
     root["hostname"] = gateway_device.hostname
     root["mac"] = gateway_device.mac
+    root["vendor"] = gateway_device.vendor
+    root["deviceType"] = gateway_device.device_type
+
+    # Use hostname, then vendor, then IP for display name
+    display_name = gateway_device.hostname or gateway_device.vendor or gateway_device.ip
     root["name"] = (
-        f"{gateway_device.ip} ({gateway_device.hostname})"
-        if gateway_device.hostname
+        f"{gateway_device.ip} ({display_name})"
+        if display_name != gateway_device.ip
         else gateway_device.ip
     )
     root["role"] = "gateway/router"
@@ -885,6 +890,18 @@ def _update_existing_device(existing_node: dict, device, now: str) -> None:
         existing_node["hostname"] = device.hostname
     if device.mac and not existing_node.get("mac"):
         existing_node["mac"] = device.mac
+    # Update vendor info if not already set
+    if device.vendor and not existing_node.get("vendor"):
+        existing_node["vendor"] = device.vendor
+    if device.device_type and not existing_node.get("deviceType"):
+        existing_node["deviceType"] = device.device_type
+    # Update display name if it was just the IP and we now have vendor
+    if (
+        existing_node.get("name") == existing_node.get("ip")
+        and not existing_node.get("hostname")
+        and device.vendor
+    ):
+        existing_node["name"] = device.vendor
     existing_node["updatedAt"] = now
     existing_node["lastSeenAt"] = now
     if device.response_time_ms is not None:
@@ -904,14 +921,23 @@ def _create_new_device_node(device, parent_id: str, now: str, role: str | None =
         New device node dictionary
     """
     if role is None:
-        role = "gateway/router" if device.is_gateway else "client"
+        # Use device_type from agent if available, otherwise infer from is_gateway
+        if device.device_type:
+            role = _map_device_type_to_role(device.device_type)
+        else:
+            role = "gateway/router" if device.is_gateway else "client"
+
+    # Use hostname, then vendor (manufacturer), then IP as display name
+    display_name = device.hostname or device.vendor or device.ip
 
     new_node = {
         "id": str(uuid.uuid4()),
-        "name": device.hostname or device.ip,
+        "name": display_name,
         "ip": device.ip,
         "hostname": device.hostname,
         "mac": device.mac,
+        "vendor": device.vendor,
+        "deviceType": device.device_type,
         "role": role,
         "parentId": parent_id,
         "createdAt": now,
@@ -923,6 +949,24 @@ def _create_new_device_node(device, parent_id: str, now: str, role: str | None =
     if device.response_time_ms is not None:
         new_node["lastResponseMs"] = device.response_time_ms
     return new_node
+
+
+def _map_device_type_to_role(device_type: str) -> str:
+    """Map device type from OUI inference to network role."""
+    mapping = {
+        "router": "gateway/router",
+        "firewall": "firewall",
+        "server": "server",
+        "service": "service",
+        "nas": "nas",
+        "apple": "client",
+        "computer": "client",
+        "mobile": "client",
+        "gaming": "client",
+        "iot": "client",
+        "printer": "client",
+    }
+    return mapping.get(device_type, "client")
 
 
 def _process_device_sync(

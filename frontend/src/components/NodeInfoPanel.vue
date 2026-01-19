@@ -10,7 +10,7 @@
         <span class="text-lg">{{ roleIcon(node?.role) }}</span>
         <div class="min-w-0">
           <h2 class="font-semibold text-slate-800 dark:text-slate-100 truncate">
-            {{ node?.hostname || node?.name }}
+            {{ node?.hostname || node?.vendor || node?.name }}
           </h2>
           <p class="text-xs text-slate-500 dark:text-slate-400 font-mono">
             {{ node?.ip || node?.id }}
@@ -1058,6 +1058,24 @@
               <span class="text-xs text-slate-500 dark:text-slate-400">Role</span>
               <span class="text-sm font-medium text-slate-700 dark:text-slate-300 capitalize">{{
                 node?.role?.replace('/', ' / ') || 'Unknown'
+              }}</span>
+            </div>
+            <div v-if="node?.vendor" class="flex items-center justify-between">
+              <span class="text-xs text-slate-500 dark:text-slate-400">Manufacturer</span>
+              <span class="text-sm font-medium text-slate-700 dark:text-slate-300">{{
+                node.vendor
+              }}</span>
+            </div>
+            <div v-if="node?.deviceType" class="flex items-center justify-between">
+              <span class="text-xs text-slate-500 dark:text-slate-400">Device Type</span>
+              <span class="text-sm font-medium text-slate-700 dark:text-slate-300 capitalize">{{
+                node.deviceType
+              }}</span>
+            </div>
+            <div v-if="node?.mac" class="flex items-center justify-between">
+              <span class="text-xs text-slate-500 dark:text-slate-400">MAC Address</span>
+              <span class="text-sm font-mono text-slate-700 dark:text-slate-300">{{
+                node.mac
               }}</span>
             </div>
             <div v-if="node?.connectionSpeed" class="flex items-center justify-between">
@@ -2243,6 +2261,24 @@
               <span class="text-xs text-slate-500 dark:text-slate-400">Role</span>
               <span class="text-sm font-medium text-slate-700 dark:text-slate-300 capitalize">{{
                 node?.role?.replace('/', ' / ') || 'Unknown'
+              }}</span>
+            </div>
+            <div v-if="node?.vendor" class="flex items-center justify-between">
+              <span class="text-xs text-slate-500 dark:text-slate-400">Manufacturer</span>
+              <span class="text-sm font-medium text-slate-700 dark:text-slate-300">{{
+                node.vendor
+              }}</span>
+            </div>
+            <div v-if="node?.deviceType" class="flex items-center justify-between">
+              <span class="text-xs text-slate-500 dark:text-slate-400">Device Type</span>
+              <span class="text-sm font-medium text-slate-700 dark:text-slate-300 capitalize">{{
+                node.deviceType
+              }}</span>
+            </div>
+            <div v-if="node?.mac" class="flex items-center justify-between">
+              <span class="text-xs text-slate-500 dark:text-slate-400">MAC Address</span>
+              <span class="text-sm font-mono text-slate-700 dark:text-slate-300">{{
+                node.mac
               }}</span>
             </div>
             <div v-if="node?.connectionSpeed" class="flex items-center justify-between">

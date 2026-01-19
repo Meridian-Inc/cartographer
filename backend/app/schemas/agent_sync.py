@@ -16,6 +16,13 @@ class SyncDevice(BaseModel):
     hostname: Optional[str] = Field(None, description="Hostname if resolved")
     response_time_ms: Optional[float] = Field(None, description="Ping response time in ms")
     is_gateway: bool = Field(False, description="Whether this device is the gateway")
+    vendor: Optional[str] = Field(
+        None, description="Device vendor/manufacturer from MAC OUI lookup"
+    )
+    device_type: Optional[str] = Field(
+        None,
+        description="Inferred device type (router, firewall, server, service, nas, apple, iot, printer, gaming, mobile, computer)",
+    )
 
 
 class NetworkInfo(BaseModel):
