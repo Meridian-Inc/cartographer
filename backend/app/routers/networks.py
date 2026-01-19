@@ -759,8 +759,11 @@ def _update_root_with_gateway(root: dict, gateway_device, now: str) -> bool:
     Returns:
         True if root was updated, False otherwise
     """
-    # Only update root if it's still a placeholder (no IP) or matches gateway
-    if root.get("ip") and root.get("ip") != gateway_device.ip:
+    # Check if root is a placeholder (has no real device info)
+    root_has_device_info = root.get("ip") and root.get("mac")
+
+    # Only skip update if root already has real device info AND it's a different device
+    if root_has_device_info and root.get("ip") != gateway_device.ip:
         return False
 
     root["ip"] = gateway_device.ip
@@ -1049,8 +1052,15 @@ async def sync_agent_scan(
     gateway_device = next((d for d in sync_data.devices if d.is_gateway), None)
 
     # Fallback: if no explicit gateway, look for a router by device_type (from OUI)
-    # Only use fallback if root has no IP yet (first sync or placeholder)
-    if not gateway_device and not root.get("ip"):
+    # Use fallback if:
+    # - Root has no IP yet (placeholder)
+    # - OR root's name equals the network name (still a placeholder with just the name)
+    root_is_placeholder = (
+        not root.get("ip")
+        or root.get("name") == network.name
+        or root.get("name") == layout_data.get("root", {}).get("name", network.name)
+    )
+    if not gateway_device and root_is_placeholder:
         gateway_device = next(
             (d for d in sync_data.devices if d.device_type == "router"),
             None,

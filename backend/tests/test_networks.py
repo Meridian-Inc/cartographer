@@ -1629,11 +1629,12 @@ class TestUpdateRootWithGateway:
         assert root["name"] == "192.168.1.1 (new-name.lan)"
 
     def test_skips_different_gateway_ip(self):
-        """Should not update root when it has different IP"""
+        """Should not update root when it has real device info with different IP"""
         from app.routers.networks import _update_root_with_gateway
         from app.schemas.agent_sync import SyncDevice
 
-        root = {"id": "root", "ip": "192.168.1.1", "name": "Original"}
+        # Root with both IP and MAC is considered to have "real" device info
+        root = {"id": "root", "ip": "192.168.1.1", "mac": "AA:BB:CC:DD:EE:FF", "name": "Original"}
         gateway = SyncDevice(ip="192.168.1.254", hostname="new-gateway.lan")
 
         result = _update_root_with_gateway(root, gateway, "2024-01-01T00:00:00Z")
