@@ -11,16 +11,24 @@ from pydantic import BaseModel, Field
 class SyncDevice(BaseModel):
     """Device discovered by the agent."""
 
+    # Agent sends camelCase (Rust serde), so we need aliases to accept both formats
+    model_config = {"populate_by_name": True}
+
     ip: str = Field(..., description="IP address of the device")
     mac: Optional[str] = Field(None, description="MAC address if available")
     hostname: Optional[str] = Field(None, description="Hostname if resolved")
-    response_time_ms: Optional[float] = Field(None, description="Ping response time in ms")
-    is_gateway: bool = Field(False, description="Whether this device is the gateway")
+    response_time_ms: Optional[float] = Field(
+        None, alias="responseTimeMs", description="Ping response time in ms"
+    )
+    is_gateway: bool = Field(
+        False, alias="isGateway", description="Whether this device is the gateway"
+    )
     vendor: Optional[str] = Field(
         None, description="Device vendor/manufacturer from MAC OUI lookup"
     )
     device_type: Optional[str] = Field(
         None,
+        alias="deviceType",
         description="Inferred device type (router, firewall, server, service, nas, apple, iot, printer, gaming, mobile, computer)",
     )
 

@@ -100,6 +100,52 @@ class TestGenerateAgentKey:
 class TestAgentSyncHelpers:
     """Tests for agent sync helper functions"""
 
+    def test_sync_device_accepts_camel_case_fields(self):
+        """Agent sends camelCase (Rust serde), schema should accept both formats.
+
+        This is critical for agent sync - without camelCase aliases, the gateway
+        device would never be identified and the root would stay as a placeholder.
+        """
+        from app.schemas.agent_sync import SyncDevice
+
+        # Agent sends camelCase (from Rust #[serde(rename_all = "camelCase")])
+        camel_case_data = {
+            "ip": "192.168.1.1",
+            "mac": "AA:BB:CC:DD:EE:FF",
+            "hostname": "router",
+            "responseTimeMs": 5.5,
+            "isGateway": True,
+            "vendor": "NETGEAR",
+            "deviceType": "router",
+        }
+        device = SyncDevice.model_validate(camel_case_data)
+
+        assert device.ip == "192.168.1.1"
+        assert device.response_time_ms == 5.5
+        assert device.is_gateway is True
+        assert device.device_type == "router"
+
+    def test_sync_device_accepts_snake_case_fields(self):
+        """Schema should also accept snake_case for backward compatibility."""
+        from app.schemas.agent_sync import SyncDevice
+
+        # Also accept snake_case (for tests and backward compatibility)
+        snake_case_data = {
+            "ip": "192.168.1.1",
+            "mac": "AA:BB:CC:DD:EE:FF",
+            "hostname": "router",
+            "response_time_ms": 5.5,
+            "is_gateway": True,
+            "vendor": "NETGEAR",
+            "device_type": "router",
+        }
+        device = SyncDevice.model_validate(snake_case_data)
+
+        assert device.ip == "192.168.1.1"
+        assert device.response_time_ms == 5.5
+        assert device.is_gateway is True
+        assert device.device_type == "router"
+
     def test_initialize_layout_data_with_existing_data(self):
         """Should return existing layout data unchanged"""
         from app.routers.networks import _initialize_layout_data
