@@ -686,3 +686,353 @@ class TestEdgeCases:
                     create_embed(config={"name": "Test"}, user=readwrite_user)
 
                 assert "500" in str(exc_info.value.status_code)
+
+    def test_run_mapper_runtime_error(self, temp_project_root, readwrite_user):
+        """Should return 500 for runtime errors"""
+        from app.routers.mapper import run_mapper
+        from app.services import mapper_runner_service
+
+        with patch.object(mapper_runner_service, "project_root", return_value=temp_project_root):
+            with patch.object(
+                mapper_runner_service,
+                "script_path",
+                return_value=temp_project_root / "lan_mapper.sh",
+            ):
+                with patch.object(
+                    mapper_runner_service,
+                    "run_mapper_sync",
+                    side_effect=RuntimeError("Script execution failed"),
+                ):
+                    with pytest.raises(Exception) as exc_info:
+                        run_mapper(user=readwrite_user)
+
+                    assert "500" in str(exc_info.value.status_code)
+
+    def test_run_mapper_file_not_found(self, temp_project_root, readwrite_user):
+        """Should return 404 when mapper script raises FileNotFoundError"""
+        from app.routers.mapper import run_mapper
+        from app.services import mapper_runner_service
+
+        with patch.object(
+            mapper_runner_service,
+            "run_mapper_sync",
+            side_effect=FileNotFoundError("Script not found"),
+        ):
+            with pytest.raises(Exception) as exc_info:
+                run_mapper(user=readwrite_user)
+
+            assert "404" in str(exc_info.value.status_code)
+
+    def test_run_mapper_timeout_error(self, temp_project_root, readwrite_user):
+        """Should return 504 when mapper script times out"""
+        from app.routers.mapper import run_mapper
+        from app.services import mapper_runner_service
+
+        with patch.object(
+            mapper_runner_service,
+            "run_mapper_sync",
+            side_effect=TimeoutError("Script timed out"),
+        ):
+            with pytest.raises(Exception) as exc_info:
+                run_mapper(user=readwrite_user)
+
+            assert "504" in str(exc_info.value.status_code)
+
+    async def test_get_embed_data_db_exception(self, temp_data_dir):
+        """Should return 500 when database query fails"""
+        from app.routers.mapper import get_embed_data
+        from app.services import embed_service
+
+        embeds_file = temp_data_dir / "embeds.json"
+        embeds_file.write_text(
+            json.dumps(
+                {
+                    "embed123": {
+                        "name": "Test",
+                        "networkId": "some-uuid",
+                        "createdAt": "2024-01-01T00:00:00Z",
+                    }
+                }
+            )
+        )
+
+        mock_db = AsyncMock()
+        mock_db.execute.side_effect = Exception("Database connection failed")
+
+        with patch.object(embed_service, "_embeds_config_path", return_value=embeds_file):
+            with pytest.raises(HTTPException) as exc_info:
+                await get_embed_data(embed_id="embed123", db=mock_db)
+
+            assert exc_info.value.status_code == 500
+
+    async def test_register_embed_health_generic_exception(self, temp_data_dir):
+        """Should return 500 for generic exceptions in device registration"""
+        import httpx
+
+        from app.routers.mapper import EmbedHealthRegisterRequest, register_embed_health_devices
+        from app.services import embed_service, health_proxy_service
+
+        embeds_file = temp_data_dir / "embeds.json"
+        embeds_file.write_text(
+            json.dumps({"embed123": {"name": "Test", "createdAt": "2024-01-01T00:00:00Z"}})
+        )
+
+        with patch.object(embed_service, "_embeds_config_path", return_value=embeds_file):
+            with patch.object(
+                embed_service, "translate_anon_ids_to_ips", return_value=["192.168.1.1"]
+            ):
+                with patch.object(
+                    health_proxy_service,
+                    "register_devices",
+                    new_callable=AsyncMock,
+                    side_effect=Exception("Unexpected error"),
+                ):
+                    with pytest.raises(HTTPException) as exc_info:
+                        await register_embed_health_devices(
+                            embed_id="embed123",
+                            request=EmbedHealthRegisterRequest(device_ids=["device_abc"]),
+                        )
+
+                    assert exc_info.value.status_code == 500
+
+    async def test_register_embed_health_connect_error(self, temp_data_dir):
+        """Should return 503 when health service is unavailable"""
+        import httpx
+
+        from app.routers.mapper import EmbedHealthRegisterRequest, register_embed_health_devices
+        from app.services import embed_service, health_proxy_service
+
+        embeds_file = temp_data_dir / "embeds.json"
+        embeds_file.write_text(
+            json.dumps({"embed123": {"name": "Test", "createdAt": "2024-01-01T00:00:00Z"}})
+        )
+
+        with patch.object(embed_service, "_embeds_config_path", return_value=embeds_file):
+            with patch.object(
+                embed_service, "translate_anon_ids_to_ips", return_value=["192.168.1.1"]
+            ):
+                with patch.object(
+                    health_proxy_service,
+                    "register_devices",
+                    new_callable=AsyncMock,
+                    side_effect=httpx.ConnectError("Connection refused"),
+                ):
+                    with pytest.raises(HTTPException) as exc_info:
+                        await register_embed_health_devices(
+                            embed_id="embed123",
+                            request=EmbedHealthRegisterRequest(device_ids=["device_abc"]),
+                        )
+
+                    assert exc_info.value.status_code == 503
+
+    async def test_trigger_health_check_connect_error(self, temp_data_dir):
+        """Should return 503 when health service is unavailable for check trigger"""
+        import httpx
+
+        from app.routers.mapper import trigger_embed_health_check
+        from app.services import embed_service, health_proxy_service
+
+        embeds_file = temp_data_dir / "embeds.json"
+        embeds_file.write_text(
+            json.dumps({"embed123": {"name": "Test", "createdAt": "2024-01-01T00:00:00Z"}})
+        )
+
+        with patch.object(embed_service, "_embeds_config_path", return_value=embeds_file):
+            with patch.object(
+                health_proxy_service,
+                "trigger_health_check",
+                new_callable=AsyncMock,
+                side_effect=httpx.ConnectError("Connection refused"),
+            ):
+                with pytest.raises(HTTPException) as exc_info:
+                    await trigger_embed_health_check(embed_id="embed123")
+
+                assert exc_info.value.status_code == 503
+
+    async def test_trigger_health_check_generic_exception(self, temp_data_dir):
+        """Should return 500 for generic exceptions in trigger check"""
+        from app.routers.mapper import trigger_embed_health_check
+        from app.services import embed_service, health_proxy_service
+
+        embeds_file = temp_data_dir / "embeds.json"
+        embeds_file.write_text(
+            json.dumps({"embed123": {"name": "Test", "createdAt": "2024-01-01T00:00:00Z"}})
+        )
+
+        with patch.object(embed_service, "_embeds_config_path", return_value=embeds_file):
+            with patch.object(
+                health_proxy_service,
+                "trigger_health_check",
+                new_callable=AsyncMock,
+                side_effect=Exception("Unexpected error"),
+            ):
+                with pytest.raises(HTTPException) as exc_info:
+                    await trigger_embed_health_check(embed_id="embed123")
+
+                assert exc_info.value.status_code == 500
+
+    async def test_get_cached_health_connect_error(self, temp_data_dir):
+        """Should return 503 when health service is unavailable for cached health"""
+        import httpx
+
+        from app.routers.mapper import get_embed_cached_health
+        from app.services import embed_service, health_proxy_service
+
+        embeds_file = temp_data_dir / "embeds.json"
+        embeds_file.write_text(
+            json.dumps({"embed123": {"name": "Test", "createdAt": "2024-01-01T00:00:00Z"}})
+        )
+
+        with patch.object(embed_service, "_embeds_config_path", return_value=embeds_file):
+            with patch.object(
+                health_proxy_service,
+                "get_cached_metrics",
+                new_callable=AsyncMock,
+                side_effect=httpx.ConnectError("Connection refused"),
+            ):
+                with pytest.raises(HTTPException) as exc_info:
+                    await get_embed_cached_health(embed_id="embed123")
+
+                assert exc_info.value.status_code == 503
+
+    async def test_get_cached_health_generic_exception(self, temp_data_dir):
+        """Should return 500 for generic exceptions in cached health"""
+        from app.routers.mapper import get_embed_cached_health
+        from app.services import embed_service, health_proxy_service
+
+        embeds_file = temp_data_dir / "embeds.json"
+        embeds_file.write_text(
+            json.dumps({"embed123": {"name": "Test", "createdAt": "2024-01-01T00:00:00Z"}})
+        )
+
+        with patch.object(embed_service, "_embeds_config_path", return_value=embeds_file):
+            with patch.object(
+                health_proxy_service,
+                "get_cached_metrics",
+                new_callable=AsyncMock,
+                side_effect=Exception("Unexpected error"),
+            ):
+                with pytest.raises(HTTPException) as exc_info:
+                    await get_embed_cached_health(embed_id="embed123")
+
+                assert exc_info.value.status_code == 500
+
+    def test_update_embed_generic_exception(self, temp_data_dir, readwrite_user):
+        """Should return 500 for generic exceptions during embed update"""
+        from app.routers.mapper import update_embed
+        from app.services import embed_service
+
+        embeds_file = temp_data_dir / "embeds.json"
+        embeds_file.write_text(
+            json.dumps(
+                {
+                    "embed123": {
+                        "name": "Test",
+                        "createdAt": "2024-01-01T00:00:00Z",
+                    }
+                }
+            )
+        )
+
+        with patch.object(embed_service, "_embeds_config_path", return_value=embeds_file):
+            with patch.object(
+                embed_service, "save_all_embeds", side_effect=Exception("Write failed")
+            ):
+                with pytest.raises(HTTPException) as exc_info:
+                    update_embed(
+                        embed_id="embed123", config={"name": "New Name"}, user=readwrite_user
+                    )
+
+                assert exc_info.value.status_code == 500
+
+    def test_delete_embed_generic_exception(self, temp_data_dir, owner_user):
+        """Should return 500 for generic exceptions during embed delete"""
+        from app.routers.mapper import delete_embed
+        from app.services import embed_service
+
+        embeds_file = temp_data_dir / "embeds.json"
+        embeds_file.write_text(
+            json.dumps(
+                {
+                    "embed123": {
+                        "name": "Test",
+                        "createdAt": "2024-01-01T00:00:00Z",
+                    }
+                }
+            )
+        )
+
+        with patch.object(embed_service, "_embeds_config_path", return_value=embeds_file):
+            with patch.object(
+                embed_service, "save_all_embeds", side_effect=Exception("Write failed")
+            ):
+                with pytest.raises(HTTPException) as exc_info:
+                    delete_embed(embed_id="embed123", user=owner_user)
+
+                assert exc_info.value.status_code == 500
+
+    async def test_get_embed_data_legacy_runtime_error(self, temp_data_dir):
+        """Should return 500 when legacy layout loading fails"""
+        from app.routers.mapper import get_embed_data
+        from app.services import embed_service, mapper_runner_service
+
+        embeds_file = temp_data_dir / "embeds.json"
+        embeds_file.write_text(
+            json.dumps(
+                {
+                    "embed123": {
+                        "name": "Test",
+                        "createdAt": "2024-01-01T00:00:00Z",
+                    }
+                }
+            )
+        )
+
+        mock_db = AsyncMock()
+
+        with patch.object(embed_service, "_embeds_config_path", return_value=embeds_file):
+            with patch.object(
+                mapper_runner_service,
+                "load_layout",
+                side_effect=RuntimeError("Failed to load layout"),
+            ):
+                with pytest.raises(HTTPException) as exc_info:
+                    await get_embed_data(embed_id="embed123", db=mock_db)
+
+                assert exc_info.value.status_code == 500
+
+    def test_list_embeds_filter_by_network_id(self, temp_data_dir, owner_user):
+        """Should filter embeds by network_id when provided"""
+        from app.routers.mapper import list_embeds
+        from app.services import embed_service
+
+        embeds_file = temp_data_dir / "embeds.json"
+        embeds_file.write_text(
+            json.dumps(
+                {
+                    "embed1": {
+                        "name": "Network A",
+                        "networkId": "network-123",
+                        "createdAt": "2024-01-01T00:00:00Z",
+                    },
+                    "embed2": {
+                        "name": "Network B",
+                        "networkId": "network-456",
+                        "createdAt": "2024-01-01T00:00:00Z",
+                    },
+                    "embed3": {
+                        "name": "Network A too",
+                        "networkId": "network-123",
+                        "createdAt": "2024-01-02T00:00:00Z",
+                    },
+                }
+            )
+        )
+
+        with patch.object(embed_service, "_embeds_config_path", return_value=embeds_file):
+            response = list_embeds(user=owner_user, network_id="network-123")
+
+            data = json.loads(response.body.decode())
+            assert len(data["embeds"]) == 2
+            for embed in data["embeds"]:
+                assert embed["networkId"] == "network-123"

@@ -75,6 +75,69 @@ class TestAssistantStreamProxy:
             assert response.headers.get("X-Accel-Buffering") == "no"
 
 
+class TestWebSocketProxyService:
+    """Tests for websocket_proxy_service.py functions"""
+
+    @pytest.mark.asyncio
+    async def test_forward_to_client_exception_handling(self):
+        """Test that forward_to_client handles exceptions gracefully"""
+        from app.services.websocket_proxy_service import forward_to_client
+
+        # Mock upstream WebSocket that raises an exception
+        mock_upstream = AsyncMock()
+        mock_upstream.__aiter__ = MagicMock(side_effect=Exception("Connection closed"))
+
+        mock_client = AsyncMock()
+
+        # Should not raise - exceptions are caught internally
+        await forward_to_client(mock_upstream, mock_client)
+
+    @pytest.mark.asyncio
+    async def test_forward_to_upstream_exception_handling(self):
+        """Test that forward_to_upstream handles exceptions gracefully"""
+        from app.services.websocket_proxy_service import forward_to_upstream
+
+        mock_client = AsyncMock()
+        mock_client.receive_text.side_effect = Exception("Client disconnected")
+
+        mock_upstream = AsyncMock()
+
+        # Should not raise - exceptions are caught internally
+        await forward_to_upstream(mock_client, mock_upstream)
+
+    @pytest.mark.asyncio
+    async def test_proxy_websocket_disconnect_handling(self):
+        """Test that proxy_websocket handles client disconnect"""
+        from app.services.websocket_proxy_service import proxy_websocket
+
+        mock_client = AsyncMock()
+        mock_client.accept = AsyncMock()
+
+        with patch("websockets.connect") as mock_connect:
+            mock_upstream = AsyncMock()
+            mock_connect.return_value.__aenter__.return_value = mock_upstream
+
+            with patch("asyncio.gather", side_effect=WebSocketDisconnect()):
+                # Should not raise - WebSocketDisconnect is handled gracefully
+                await proxy_websocket(mock_client, "ws://test:8000/ws")
+
+        mock_client.accept.assert_awaited_once()
+
+    def test_build_ws_url_http(self):
+        """Test converting HTTP URL to WebSocket URL"""
+        from app.services.websocket_proxy_service import build_ws_url
+
+        result = build_ws_url("http://localhost:8001", "/api/metrics/ws")
+        assert result == "ws://localhost:8001/api/metrics/ws"
+
+    def test_build_ws_url_https(self):
+        """Test converting HTTPS URL to secure WebSocket URL"""
+        from app.services.websocket_proxy_service import build_ws_url
+
+        result = build_ws_url("https://example.com", "/api/metrics/ws")
+        assert result == "wss://example.com/api/metrics/ws"
+
+
 class TestNotificationServiceStatus:
     """Tests for notification service status endpoints with optional body"""
 

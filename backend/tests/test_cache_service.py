@@ -274,3 +274,103 @@ class TestCacheService:
 
         # Different dict order should produce same hash
         assert key1 == key2
+
+    @pytest.mark.asyncio
+    async def test_initialize_redis_disabled_by_config(self, cache_service):
+        """Test initialization when Redis is disabled by configuration."""
+        with patch("app.services.cache_service.get_settings") as mock_settings:
+            mock_settings.return_value.redis_cache_enabled = False
+
+            service = CacheService()
+            await service.initialize()
+
+            assert service._enabled is False
+            assert service._connection_attempted is True
+            assert service._client is None
+
+    @pytest.mark.asyncio
+    async def test_delete_redis_error(self, cache_service, mock_redis):
+        """Test graceful handling of Redis errors on delete."""
+        cache_service._client = mock_redis
+        mock_redis.delete.side_effect = RedisError("Connection lost")
+
+        result = await cache_service.delete("test_key")
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_delete_when_disabled(self, cache_service):
+        """Test delete returns False when cache is disabled."""
+        cache_service._enabled = False
+
+        result = await cache_service.delete("test_key")
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_delete_pattern_redis_error(self, cache_service, mock_redis):
+        """Test graceful handling of Redis errors on pattern delete."""
+        cache_service._client = mock_redis
+
+        async def mock_scan(**kwargs):
+            yield "key1"
+            yield "key2"
+
+        mock_redis.scan_iter = mock_scan
+        mock_redis.delete.side_effect = RedisError("Connection lost")
+
+        result = await cache_service.delete_pattern("test:*")
+
+        assert result == 0
+
+    @pytest.mark.asyncio
+    async def test_delete_pattern_when_disabled(self, cache_service):
+        """Test pattern delete returns 0 when cache is disabled."""
+        cache_service._enabled = False
+
+        result = await cache_service.delete_pattern("test:*")
+
+        assert result == 0
+
+    @pytest.mark.asyncio
+    async def test_close_without_client(self, cache_service):
+        """Test close works when client is None."""
+        cache_service._client = None
+
+        # Should not raise
+        await cache_service.close()
+
+    @pytest.mark.asyncio
+    async def test_close_with_client(self, cache_service, mock_redis):
+        """Test close properly closes the Redis connection."""
+        cache_service._client = mock_redis
+
+        await cache_service.close()
+
+        mock_redis.aclose.assert_awaited_once()
+        assert cache_service._client is None
+
+
+class TestCacheServiceLifespan:
+    """Test the lifespan context manager for FastAPI."""
+
+    @pytest.mark.asyncio
+    async def test_lifespan_cache_initializes_and_closes(self):
+        """Test that lifespan_cache properly initializes and closes cache."""
+        from app.services.cache_service import cache_service, lifespan_cache
+
+        with patch.object(cache_service, "initialize", new_callable=AsyncMock) as mock_init:
+            with patch.object(cache_service, "close", new_callable=AsyncMock) as mock_close:
+                async with lifespan_cache():
+                    mock_init.assert_awaited_once()
+
+                mock_close.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_get_cache_dependency(self):
+        """Test the FastAPI dependency injection function."""
+        from app.services.cache_service import cache_service, get_cache
+
+        result = await get_cache()
+
+        assert result is cache_service

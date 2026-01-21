@@ -285,13 +285,15 @@ class TestDistPathConfiguration:
 
     def test_custom_dist_path_from_settings(self):
         """Settings.frontend_dist should override default path"""
+        from pathlib import Path
+
         from app.config import Settings
 
         custom_path = "/custom/frontend/path"
         test_settings = Settings(frontend_dist=custom_path)
 
-        # Verify the resolved path matches the custom path
-        assert str(test_settings.resolved_frontend_dist) == custom_path
+        # Verify the resolved path matches the custom path (compare as Path objects for cross-platform compatibility)
+        assert test_settings.resolved_frontend_dist == Path(custom_path)
 
 
 class TestStaticFileServing:

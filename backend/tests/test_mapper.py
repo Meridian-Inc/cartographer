@@ -397,3 +397,129 @@ class TestEmbedHealthEndpoints:
                 await health_service_request("DELETE", "/path")
 
             assert "Unsupported method" in str(exc_info.value)
+
+
+class TestHealthProxyService:
+    """Additional tests for health_proxy_service.py functions"""
+
+    async def test_register_devices(self):
+        """Should register devices with health service"""
+        from app.services.health_proxy_service import register_devices
+
+        with patch("app.services.health_proxy_service.httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_client.post.return_value = mock_response
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+
+            response = await register_devices(["192.168.1.1", "192.168.1.2"], network_id="net-123")
+
+            assert response.status_code == 200
+            call_kwargs = mock_client.post.call_args
+            assert call_kwargs[1]["json"]["ips"] == ["192.168.1.1", "192.168.1.2"]
+            assert call_kwargs[1]["json"]["network_id"] == "net-123"
+
+    async def test_register_devices_default_network_id(self):
+        """Should use 'embed' as default network_id"""
+        from app.services.health_proxy_service import register_devices
+
+        with patch("app.services.health_proxy_service.httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_client.post.return_value = mock_response
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+
+            await register_devices(["192.168.1.1"])
+
+            call_kwargs = mock_client.post.call_args
+            assert call_kwargs[1]["json"]["network_id"] == "embed"
+
+    async def test_trigger_health_check(self):
+        """Should trigger health check via POST"""
+        from app.services.health_proxy_service import trigger_health_check
+
+        with patch("app.services.health_proxy_service.httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_client.post.return_value = mock_response
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+
+            response = await trigger_health_check()
+
+            assert response.status_code == 200
+
+    async def test_get_cached_metrics(self):
+        """Should get cached metrics from health service"""
+        from app.services.health_proxy_service import get_cached_metrics
+
+        with patch("app.services.health_proxy_service.httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {"192.168.1.1": {"status": "healthy"}}
+            mock_response.raise_for_status = MagicMock()
+            mock_client.get.return_value = mock_response
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+
+            result = await get_cached_metrics()
+
+            assert "192.168.1.1" in result
+
+    async def test_sync_agent_health_success(self):
+        """Should sync agent health data successfully"""
+        from app.services.health_proxy_service import sync_agent_health
+
+        with patch("app.services.health_proxy_service.httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {"synced": True}
+            mock_client.post.return_value = mock_response
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+
+            result = await sync_agent_health(
+                network_id="net-123",
+                timestamp="2024-01-01T00:00:00Z",
+                results=[{"ip": "192.168.1.1", "reachable": True, "response_time_ms": 10}],
+            )
+
+            assert result == {"synced": True}
+
+    async def test_sync_agent_health_failure_returns_none(self):
+        """Should return None on non-200 response"""
+        from app.services.health_proxy_service import sync_agent_health
+
+        with patch("app.services.health_proxy_service.httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_response = MagicMock()
+            mock_response.status_code = 500
+            mock_client.post.return_value = mock_response
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+
+            result = await sync_agent_health(
+                network_id="net-123",
+                timestamp="2024-01-01T00:00:00Z",
+                results=[],
+            )
+
+            assert result is None
+
+    async def test_sync_agent_health_exception_returns_none(self):
+        """Should return None on exception (service unavailable)"""
+        from app.services.health_proxy_service import sync_agent_health
+
+        with patch("app.services.health_proxy_service.httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.post.side_effect = Exception("Connection refused")
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+
+            result = await sync_agent_health(
+                network_id="net-123",
+                timestamp="2024-01-01T00:00:00Z",
+                results=[],
+            )
+
+            assert result is None
