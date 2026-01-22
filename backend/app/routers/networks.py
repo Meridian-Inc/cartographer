@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import flag_modified
 
 from ..config import get_settings
 from ..database import get_db
@@ -1092,8 +1093,9 @@ async def sync_agent_scan(
     layout_data["version"] = layout_data.get("version", 0) + 1
     layout_data["timestamp"] = now
 
-    # Save updated layout
+    # Save updated layout - must use flag_modified for SQLAlchemy to detect JSON changes
     network.layout_data = layout_data
+    flag_modified(network, "layout_data")
     network.last_sync_at = datetime.now(timezone.utc)
     await db.commit()
 
@@ -1179,8 +1181,9 @@ async def sync_agent_health(
     layout_data["timestamp"] = now
     layout_data["lastHealthCheck"] = now
 
-    # Save updated layout
+    # Save updated layout - must use flag_modified for SQLAlchemy to detect JSON changes
     network.layout_data = layout_data
+    flag_modified(network, "layout_data")
     await db.commit()
 
     # Also forward health data to the health-service to update its cache
