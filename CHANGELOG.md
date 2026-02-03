@@ -5,6 +5,14 @@ All notable changes to Cartographer will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.29.0](https://github.com/devartech/cartographer/compare/v0.28.3...v0.29.0) (2026-02-03)
+
+
+### ✨ Features
+
+* add network limits ([865385c](https://github.com/devartech/cartographer/commit/865385cff38e1247918365e1607033b794f24bf5))
+* **backend:** add network limits ([#15](https://github.com/devartech/cartographer/issues/15)) ([f07362a](https://github.com/devartech/cartographer/commit/f07362a88eb3b36a87fb0eed7c489913f76efe30))
+
 ### [0.28.3](https://github.com/devartech/cartographer/compare/v0.28.2...v0.28.3) (2026-01-22)
 
 
