@@ -222,20 +222,20 @@
             Create your first network to start mapping and monitoring your devices.
           </p>
           <button
-            @click="showCreateModal = true"
-            :disabled="!canCreateNetwork"
+            @click="openCreateNetworkModal"
+            :disabled="createNetworkActionDisabled"
             :class="[
               'px-6 py-3 font-semibold rounded-xl shadow-lg transition-all',
-              canCreateNetwork
+              !createNetworkActionDisabled
                 ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-cyan-500/25 hover:shadow-cyan-500/40 hover:scale-[1.02] active:scale-[0.98]'
                 : 'bg-slate-300 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed',
             ]"
-            :title="canCreateNetwork ? '' : 'Network limit reached'"
+            :title="emptyCreateNetworkButtonTitle"
           >
             Create Network
           </button>
           <p
-            v-if="!canCreateNetwork && networkLimit"
+            v-if="showLimitInlineMessage && networkLimit"
             class="mt-3 text-sm text-amber-600 dark:text-amber-400"
           >
             {{
@@ -267,15 +267,15 @@
               </span>
             </div>
             <button
-              @click="showCreateModal = true"
-              :disabled="!canCreateNetwork"
+              @click="openCreateNetworkModal"
+              :disabled="createNetworkActionDisabled"
               :class="[
                 'px-4 py-2 text-sm font-medium rounded-lg shadow-lg transition-all',
-                canCreateNetwork
+                !createNetworkActionDisabled
                   ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-cyan-500/20 hover:shadow-cyan-500/30 hover:scale-[1.02] active:scale-[0.98]'
                   : 'bg-slate-300 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed',
               ]"
-              :title="canCreateNetwork ? 'Create a new network' : 'Network limit reached'"
+              :title="listCreateNetworkButtonTitle"
             >
               + New Network
             </button>
@@ -508,6 +508,90 @@
                 </button>
               </div>
             </form>
+          </div>
+        </Transition>
+      </div>
+    </Transition>
+
+    <!-- Upgrade Plan Modal -->
+    <Transition
+      enter-active-class="transition duration-200"
+      enter-from-class="opacity-0"
+      enter-to-class="opacity-100"
+      leave-active-class="transition duration-150"
+      leave-from-class="opacity-100"
+      leave-to-class="opacity-0"
+    >
+      <div v-if="showUpgradeModal" class="fixed inset-0 z-50 flex items-center justify-center p-6">
+        <div class="absolute inset-0 bg-black/60 dark:bg-slate-950/90" @click="closeUpgradeModal" />
+
+        <Transition
+          enter-active-class="transition duration-200 delay-75"
+          enter-from-class="opacity-0 scale-95"
+          enter-to-class="opacity-100 scale-100"
+          leave-active-class="transition duration-150"
+          leave-from-class="opacity-100 scale-100"
+          leave-to-class="opacity-0 scale-95"
+        >
+          <div
+            v-if="showUpgradeModal"
+            class="relative glass-card p-8 w-full max-w-4xl border-gradient max-h-[85vh] overflow-y-auto"
+          >
+            <h2 class="text-xl font-display font-bold text-slate-900 dark:text-white mb-4">
+              Upgrade Required
+            </h2>
+            <p class="text-sm text-slate-600 dark:text-slate-300 mb-6 leading-relaxed">
+              {{
+                networkLimit?.message ||
+                `You've reached your current plan limit (${networkLimit?.used ?? 0}/${networkLimit?.limit ?? 0} networks). Upgrade your plan to create more networks.`
+              }}
+            </p>
+
+            <div class="grid gap-4 md:grid-cols-2 mb-6">
+              <div
+                class="rounded-xl border border-slate-200 dark:border-slate-700 p-4 bg-white/50 dark:bg-slate-900/40"
+              >
+                <p class="text-sm font-semibold text-slate-900 dark:text-white">Pro</p>
+                <p class="text-2xl font-bold text-cyan-600 dark:text-cyan-400 mt-1">$10/mo</p>
+                <ul class="mt-3 space-y-1 text-xs text-slate-600 dark:text-slate-300">
+                  <li>3 owned networks</li>
+                  <li>50 assistant chats/day</li>
+                  <li>30-second polling</li>
+                </ul>
+                <a
+                  href="/pricing?plan=pro"
+                  class="mt-4 inline-flex w-full items-center justify-center rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-medium py-2 transition-colors"
+                >
+                  Choose Pro
+                </a>
+              </div>
+
+              <div
+                class="rounded-xl border border-blue-300 dark:border-blue-700 p-4 bg-blue-50/70 dark:bg-blue-900/20"
+              >
+                <p class="text-sm font-semibold text-slate-900 dark:text-white">Pro+</p>
+                <p class="text-2xl font-bold text-blue-700 dark:text-blue-300 mt-1">$60/mo</p>
+                <ul class="mt-3 space-y-1 text-xs text-slate-600 dark:text-slate-300">
+                  <li>20 owned networks</li>
+                  <li>Unlimited AI chats</li>
+                  <li>5-second polling</li>
+                </ul>
+                <a
+                  href="/pricing?plan=proplus"
+                  class="mt-4 inline-flex w-full items-center justify-center rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium py-2 transition-colors"
+                >
+                  Choose Pro+
+                </a>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              @click="closeUpgradeModal"
+              class="w-full py-3 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100 font-semibold rounded-xl transition-colors"
+            >
+              Maybe Later
+            </button>
           </div>
         </Transition>
       </div>
@@ -781,6 +865,7 @@ const showUpdateSettings = ref(false);
 
 // Create Modal state
 const showCreateModal = ref(false);
+const showUpgradeModal = ref(false);
 const isCreating = ref(false);
 const createError = ref('');
 
@@ -808,10 +893,29 @@ const deletingNetwork = ref<Network | null>(null);
 
 // Network limit state
 const networkLimit = ref<NetworkLimitStatus | null>(null);
+const isCloudDeployment = (import.meta.env.BASE_URL || '/').startsWith('/app');
 const canCreateNetwork = computed(() => {
   if (!networkLimit.value) return true; // Allow if limit not loaded yet
   if (networkLimit.value.is_exempt) return true;
   return networkLimit.value.remaining > 0;
+});
+const isNetworkLimitReached = computed(() => !canCreateNetwork.value);
+const createNetworkActionDisabled = computed(
+  () => isNetworkLimitReached.value && !isCloudDeployment
+);
+const showLimitInlineMessage = computed(() => isNetworkLimitReached.value && !isCloudDeployment);
+const shouldShowUpgradeModalOnCreateClick = computed(
+  () => isNetworkLimitReached.value && isCloudDeployment
+);
+const emptyCreateNetworkButtonTitle = computed(() => {
+  if (shouldShowUpgradeModalOnCreateClick.value) return 'Upgrade your plan to create more networks';
+  if (createNetworkActionDisabled.value) return 'Network limit reached';
+  return '';
+});
+const listCreateNetworkButtonTitle = computed(() => {
+  if (shouldShowUpgradeModalOnCreateClick.value) return 'Upgrade your plan to create more networks';
+  if (createNetworkActionDisabled.value) return 'Network limit reached';
+  return 'Create a new network';
 });
 
 async function fetchNetworkLimit() {
@@ -868,7 +972,26 @@ function closeCreateModal() {
   newNetwork.description = '';
 }
 
+function openCreateNetworkModal() {
+  if (shouldShowUpgradeModalOnCreateClick.value) {
+    showUpgradeModal.value = true;
+    return;
+  }
+  if (createNetworkActionDisabled.value) return;
+  showCreateModal.value = true;
+}
+
+function closeUpgradeModal() {
+  showUpgradeModal.value = false;
+}
+
 async function createNetwork() {
+  if (shouldShowUpgradeModalOnCreateClick.value) {
+    closeCreateModal();
+    showUpgradeModal.value = true;
+    return;
+  }
+
   if (!newNetwork.name.trim()) return;
 
   isCreating.value = true;
