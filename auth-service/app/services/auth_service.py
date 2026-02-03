@@ -103,6 +103,7 @@ class AuthService:
 
         password_hash = await hash_password_async(request.password)
 
+        now = datetime.now(timezone.utc)
         user = User(
             id=str(uuid.uuid4()),
             username=request.username.lower(),
@@ -113,6 +114,8 @@ class AuthService:
             hashed_password=password_hash,
             is_active=True,
             is_verified=True,
+            created_at=now,
+            updated_at=now,
         )
 
         db.add(user)
@@ -142,6 +145,7 @@ class AuthService:
 
         password_hash = await hash_password_async(request.password)
 
+        now = datetime.now(timezone.utc)
         user = User(
             id=str(uuid.uuid4()),
             username=request.username.lower(),
@@ -152,6 +156,8 @@ class AuthService:
             hashed_password=password_hash,
             is_active=True,
             is_verified=True,
+            created_at=now,
+            updated_at=now,
         )
 
         db.add(user)
@@ -185,6 +191,7 @@ class AuthService:
 
         password_hash = await hash_password_async(request.password)
 
+        now = datetime.now(timezone.utc)
         user = User(
             id=str(uuid.uuid4()),
             username=request.username.lower(),
@@ -195,6 +202,8 @@ class AuthService:
             hashed_password=password_hash,
             is_active=True,
             is_verified=True,
+            created_at=now,
+            updated_at=now,
         )
 
         db.add(user)
@@ -614,6 +623,8 @@ class AuthService:
             hashed_password=password_hash,
             is_active=True,
             is_verified=True,
+            created_at=now,
+            updated_at=now,
         )
 
         db.add(user)
