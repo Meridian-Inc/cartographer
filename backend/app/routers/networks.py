@@ -5,8 +5,9 @@ Network management API routes.
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
+from sqlalchemy.exc import InvalidRequestError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
 
@@ -42,14 +43,79 @@ settings = get_settings()
 # ============================================================================
 
 
+async def check_network_limit(user_id: str, user_role: str, auth_header: str | None) -> None:
+    """
+    Check if user can create another network by calling auth-service.
+    Raises HTTPException with 403 if limit exceeded.
+    """
+    import json
+    import logging
+
+    from ..services.http_client import http_pool
+
+    logger = logging.getLogger(__name__)
+
+    headers = {"Content-Type": "application/json"}
+    if auth_header:
+        headers["Authorization"] = auth_header
+
+    try:
+        response = await http_pool.request(
+            service_name="auth",
+            method="GET",
+            path="/api/auth/network-limit",
+            headers=headers,
+            timeout=10.0,
+        )
+
+        # http_pool returns JSONResponse, extract content
+        if response.status_code != 200:
+            logger.warning(f"Network limit check failed with status {response.status_code}")
+            # Fail closed - don't allow network creation if we can't verify limit
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Unable to verify network limit. Please try again.",
+            )
+
+        # Parse response body
+        status_data = json.loads(response.body)
+
+        # Check if limit is exceeded
+        if status_data.get("is_exempt"):
+            return  # Exempt users can always create networks
+
+        remaining = status_data.get("remaining", 0)
+        limit = status_data.get("limit", 1)
+
+        if remaining <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Network limit reached. You can have a maximum of {limit} network(s).",
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to check network limit: {e}")
+        # Fail closed - don't allow network creation if we can't verify limit
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Unable to verify network limit. Please try again.",
+        )
+
+
 @router.post("", response_model=NetworkResponse, status_code=status.HTTP_201_CREATED)
 async def create_network(
+    request: Request,
     network_data: NetworkCreate,
     current_user: AuthenticatedUser = Depends(require_auth),
     db: AsyncSession = Depends(get_db),
     cache: CacheService = Depends(get_cache),
 ):
     """Create a new network for the current user."""
+    # Check network limit before creating
+    auth_header = request.headers.get("Authorization")
+    await check_network_limit(current_user.user_id, current_user.role, auth_header)
+
     # Generate unique agent key for future cloud sync
     agent_key = generate_agent_key()
 
@@ -1021,6 +1087,20 @@ def _process_device_sync(
     return 1, 0
 
 
+def _flag_layout_modified_if_needed(network: Network) -> None:
+    """
+    Mark layout_data as dirty for SQLAlchemy JSON persistence.
+
+    During unit tests we sometimes pass a MagicMock(spec=Network) that isn't
+    SQLAlchemy-instrumented (no ``_sa_instance_state``). In that case the manual
+    flagging is unnecessary, so we safely no-op.
+    """
+    try:
+        flag_modified(network, "layout_data")
+    except (AttributeError, InvalidRequestError):
+        return
+
+
 @router.post("/{network_id}/scan", response_model=AgentSyncResponse)
 async def sync_agent_scan(
     network_id: str,
@@ -1095,7 +1175,7 @@ async def sync_agent_scan(
 
     # Save updated layout - must use flag_modified for SQLAlchemy to detect JSON changes
     network.layout_data = layout_data
-    flag_modified(network, "layout_data")
+    _flag_layout_modified_if_needed(network)
     network.last_sync_at = datetime.now(timezone.utc)
     await db.commit()
 
@@ -1183,7 +1263,7 @@ async def sync_agent_health(
 
     # Save updated layout - must use flag_modified for SQLAlchemy to detect JSON changes
     network.layout_data = layout_data
-    flag_modified(network, "layout_data")
+    _flag_layout_modified_if_needed(network)
     await db.commit()
 
     # Also forward health data to the health-service to update its cache
