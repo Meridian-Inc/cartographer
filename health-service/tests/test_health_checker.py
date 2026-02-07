@@ -72,7 +72,7 @@ class TestPingHost:
         mock_proc = AsyncMock()
         mock_proc.communicate = AsyncMock(return_value=(mock_subprocess_ping_success_windows, b""))
 
-        with patch("app.services.health_checker.platform.system", return_value="Windows"):
+        with patch("platform.system", return_value="Windows"):
             with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
                 result = await health_checker_instance.ping_host("192.168.1.1")
 
@@ -87,7 +87,7 @@ class TestPingHost:
         mock_proc = AsyncMock()
         mock_proc.communicate = AsyncMock(return_value=(mock_subprocess_ping_failure_windows, b""))
 
-        with patch("app.services.health_checker.platform.system", return_value="Windows"):
+        with patch("platform.system", return_value="Windows"):
             with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
                 result = await health_checker_instance.ping_host("192.168.1.1")
 

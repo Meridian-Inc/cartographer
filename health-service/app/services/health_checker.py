@@ -239,9 +239,9 @@ class HealthChecker:
 
         try:
             # Use system ping command for reliability
+            import platform
             import re
             import subprocess  # noqa: F401
-            import platform
 
             system = platform.system().lower()
             if system.startswith("win"):
