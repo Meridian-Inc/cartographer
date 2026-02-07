@@ -104,9 +104,10 @@ def get_script_command() -> list[str]:
         ps1 = project_root() / "lan_mapper.ps1"
         if ps1.exists():
             for candidate in ("pwsh", "powershell.exe", "powershell"):
-                if shutil.which(candidate):
+                resolved = shutil.which(candidate)
+                if resolved:
                     return [
-                        candidate,
+                        resolved,
                         "-NoProfile",
                         "-ExecutionPolicy",
                         "Bypass",

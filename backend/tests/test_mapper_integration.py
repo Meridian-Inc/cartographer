@@ -493,6 +493,7 @@ class TestGetScriptCommandWindows:
                     "app.services.mapper_runner_service.platform.system", return_value="Windows"
                 ):
                     with patch("app.services.mapper_runner_service.shutil.which") as mock_which:
+
                         def which_side(name):
                             if name == "pwsh":
                                 return "C:\\Program Files\\PowerShell\\pwsh.exe"
@@ -525,6 +526,7 @@ class TestGetScriptCommandWindows:
                     "app.services.mapper_runner_service.platform.system", return_value="Windows"
                 ):
                     with patch("app.services.mapper_runner_service.shutil.which") as mock_which:
+
                         def which_side(name):
                             if name == "bash":
                                 return "/usr/bin/bash"
@@ -547,7 +549,9 @@ class TestGetScriptCommandWindows:
                 with patch(
                     "app.services.mapper_runner_service.platform.system", return_value="Windows"
                 ):
-                    with patch("app.services.mapper_runner_service.shutil.which", return_value=None):
+                    with patch(
+                        "app.services.mapper_runner_service.shutil.which", return_value=None
+                    ):
                         cmd = mapper_runner_service.get_script_command()
 
                         assert cmd == [str(script)]
