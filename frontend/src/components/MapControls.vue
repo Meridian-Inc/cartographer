@@ -75,9 +75,9 @@
     <div class="flex items-center gap-1">
       <!-- Primary Actions Group -->
       <div class="flex items-center gap-1 p-1 rounded-lg bg-slate-100/80 dark:bg-slate-800/50">
-        <!-- Scan Button (hidden when loading) -->
+        <!-- Scan Button (hidden in cloud deployment and when loading) -->
         <button
-          v-if="!loading"
+          v-if="!isCloudDeployment && !loading"
           @click="runMapper"
           class="group flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:from-cyan-400 hover:to-blue-500 shadow-sm shadow-cyan-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
           :disabled="!props.canEdit"
@@ -100,8 +100,8 @@
           <span>Scan</span>
         </button>
 
-        <!-- Scanning in progress (shown when loading) -->
-        <div v-else class="flex items-center gap-1">
+        <!-- Scanning in progress (shown when loading, hidden in cloud deployment) -->
+        <div v-else-if="!isCloudDeployment && loading" class="flex items-center gap-1">
           <div
             class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium bg-amber-500 text-white shadow-sm shadow-amber-500/20"
           >
@@ -588,6 +588,7 @@ const { isDark, toggleDarkMode } = useDarkMode();
 let es: EventSource | null = null;
 // Prefer relative URLs to avoid mixed-content; use APPLICATION_URL only if safe (https or same protocol)
 const baseUrl = ref<string>('');
+const isCloudDeployment = (import.meta.env.BASE_URL || '/').startsWith('/app');
 
 // Health monitoring settings
 const showHealthSettings = ref(false);
