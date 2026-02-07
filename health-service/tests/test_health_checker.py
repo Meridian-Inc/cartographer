@@ -65,6 +65,35 @@ class TestPingHost:
             assert result.success is False
             assert result.packet_loss_percent == 100.0
 
+    async def test_ping_success_windows_output(
+        self, health_checker_instance, mock_subprocess_ping_success_windows
+    ):
+        """Should parse successful Windows ping output"""
+        mock_proc = AsyncMock()
+        mock_proc.communicate = AsyncMock(return_value=(mock_subprocess_ping_success_windows, b""))
+
+        with patch("app.services.health_checker.platform.system", return_value="Windows"):
+            with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
+                result = await health_checker_instance.ping_host("192.168.1.1")
+
+                assert result.success is True
+                assert result.packet_loss_percent == 0.0
+                assert result.avg_latency_ms is not None
+
+    async def test_ping_failure_windows_output(
+        self, health_checker_instance, mock_subprocess_ping_failure_windows
+    ):
+        """Should parse failed Windows ping output"""
+        mock_proc = AsyncMock()
+        mock_proc.communicate = AsyncMock(return_value=(mock_subprocess_ping_failure_windows, b""))
+
+        with patch("app.services.health_checker.platform.system", return_value="Windows"):
+            with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
+                result = await health_checker_instance.ping_host("192.168.1.1")
+
+                assert result.success is False
+                assert result.packet_loss_percent == 100.0
+
     async def test_ping_timeout(self, health_checker_instance):
         """Should handle ping timeout"""
         with patch("asyncio.create_subprocess_exec", side_effect=asyncio.TimeoutError()):
