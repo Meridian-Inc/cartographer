@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+import app.services.usage_middleware as usage_middleware
 from app.config import settings
 from app.models import EndpointUsageRecord
 from app.services.usage_middleware import (
@@ -18,6 +19,8 @@ from app.services.usage_middleware import (
     USAGE_PATHS,
     UsageRecord,
     UsageTrackingMiddleware,
+    _capture_posthog_api_event,
+    _initialize_posthog,
 )
 
 
@@ -512,3 +515,80 @@ class TestExcludedPaths:
     def test_usage_batch_in_usage_paths(self):
         """usage batch endpoint should be in usage paths"""
         assert "/api/metrics/usage/record/batch" in USAGE_PATHS
+
+
+class TestPostHogHelpers:
+    """Tests for PostHog helper methods."""
+
+    def test_initialize_posthog_returns_true_when_already_initialized(self):
+        with patch.object(usage_middleware, "_POSTHOG_INITIALIZED", True):
+            assert _initialize_posthog("key", "https://host", True) is True
+
+    def test_initialize_posthog_configures_client(self):
+        mock_posthog = MagicMock()
+        with patch.object(usage_middleware, "posthog", mock_posthog):
+            with patch.object(usage_middleware, "_POSTHOG_INITIALIZED", False):
+                assert _initialize_posthog("key", "https://host", True) is True
+                assert mock_posthog.api_key == "key"
+                assert mock_posthog.host == "https://host"
+
+    def test_capture_posthog_api_event_calls_capture(self):
+        mock_posthog = MagicMock()
+        with patch.object(usage_middleware, "posthog", mock_posthog):
+            with patch.object(usage_middleware, "_POSTHOG_INITIALIZED", False):
+                _capture_posthog_api_event(
+                    service_name="metrics-service",
+                    path="/api/metrics/snapshot",
+                    method="GET",
+                    status_code=200,
+                    response_time_ms=9.876,
+                    posthog_api_key="key",
+                    posthog_host="https://host",
+                    posthog_enabled=True,
+                )
+
+        mock_posthog.capture.assert_called_once()
+        kwargs = mock_posthog.capture.call_args.kwargs
+        assert kwargs["distinct_id"] == "service:metrics-service"
+        assert kwargs["event"] == "api_request"
+        assert kwargs["properties"]["path"] == "/api/metrics/snapshot"
+        assert kwargs["properties"]["response_time_ms"] == 9.88
+
+    async def test_flush_buffer_returns_early_when_batch_size_zero(self):
+        app = MagicMock()
+        middleware = UsageTrackingMiddleware(app)
+        middleware._buffer.append(
+            UsageRecord(
+                endpoint="/api/test",
+                method="GET",
+                status_code=200,
+                response_time_ms=1.0,
+                timestamp=datetime.utcnow(),
+            )
+        )
+
+        with patch.object(settings, "usage_batch_size", 0):
+            await middleware._flush_buffer()
+
+        assert len(middleware._buffer) == 1
+
+    async def test_flush_loop_handles_error_and_continues(self):
+        app = MagicMock()
+        middleware = UsageTrackingMiddleware(app)
+        middleware._running = True
+
+        call_count = 0
+
+        async def mock_flush():
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise RuntimeError("boom")
+            middleware._running = False
+
+        middleware._flush_buffer = mock_flush
+
+        with patch.object(settings, "usage_batch_interval_seconds", 0.001):
+            await middleware._flush_loop()
+
+        assert call_count >= 2

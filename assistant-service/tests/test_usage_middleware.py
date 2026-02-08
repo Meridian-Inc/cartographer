@@ -14,12 +14,15 @@ from starlette.requests import Request
 from starlette.responses import Response
 from starlette.testclient import TestClient
 
+import app.services.usage_middleware as usage_middleware
 from app.config import settings
 from app.services.usage_middleware import (
     EXCLUDED_PATHS,
     SERVICE_NAME,
     UsageRecord,
     UsageTrackingMiddleware,
+    _capture_posthog_api_event,
+    _initialize_posthog,
 )
 
 
@@ -518,6 +521,88 @@ class TestUsageTrackingMiddlewareShutdown:
         await middleware.shutdown()
 
         # Should not raise
+
+
+class TestPostHogHelpers:
+    """Tests for PostHog helper methods."""
+
+    def test_initialize_posthog_returns_true_when_already_initialized(self):
+        with patch.object(usage_middleware, "_POSTHOG_INITIALIZED", True):
+            assert _initialize_posthog("key", "https://host", True) is True
+
+    def test_initialize_posthog_configures_client(self):
+        mock_posthog = MagicMock()
+        with patch.object(usage_middleware, "posthog", mock_posthog):
+            with patch.object(usage_middleware, "_POSTHOG_INITIALIZED", False):
+                assert _initialize_posthog("key", "https://host", True) is True
+                assert mock_posthog.api_key == "key"
+                assert mock_posthog.host == "https://host"
+
+    def test_capture_posthog_api_event_calls_capture(self):
+        mock_posthog = MagicMock()
+        with patch.object(usage_middleware, "posthog", mock_posthog):
+            with patch.object(usage_middleware, "_POSTHOG_INITIALIZED", False):
+                _capture_posthog_api_event(
+                    service_name="assistant-service",
+                    path="/api/assistant/chat",
+                    method="POST",
+                    status_code=200,
+                    response_time_ms=12.345,
+                    posthog_api_key="key",
+                    posthog_host="https://host",
+                    posthog_enabled=True,
+                )
+
+        mock_posthog.capture.assert_called_once()
+        kwargs = mock_posthog.capture.call_args.kwargs
+        assert kwargs["distinct_id"] == "service:assistant-service"
+        assert kwargs["event"] == "api_request"
+        assert kwargs["properties"]["path"] == "/api/assistant/chat"
+        assert kwargs["properties"]["response_time_ms"] == 12.35
+
+    def test_initialize_posthog_handles_assignment_error(self):
+        class BrokenPostHog:
+            def __setattr__(self, _name, _value):
+                raise RuntimeError("boom")
+
+        with patch.object(usage_middleware, "posthog", BrokenPostHog()):
+            with patch.object(usage_middleware, "_POSTHOG_INITIALIZED", False):
+                assert _initialize_posthog("key", "https://host", True) is False
+
+    def test_capture_posthog_api_event_handles_capture_error(self):
+        mock_posthog = MagicMock()
+        mock_posthog.capture.side_effect = RuntimeError("boom")
+
+        with patch.object(usage_middleware, "posthog", mock_posthog):
+            with patch.object(usage_middleware, "_POSTHOG_INITIALIZED", False):
+                _capture_posthog_api_event(
+                    service_name="assistant-service",
+                    path="/api/assistant/chat",
+                    method="POST",
+                    status_code=500,
+                    response_time_ms=45.0,
+                    posthog_api_key="key",
+                    posthog_host="https://host",
+                    posthog_enabled=True,
+                )
+
+    async def test_flush_buffer_returns_early_when_batch_size_zero(self):
+        app = FastAPI()
+        middleware = UsageTrackingMiddleware(app)
+        middleware._buffer.append(
+            UsageRecord(
+                endpoint="/api/test",
+                method="GET",
+                status_code=200,
+                response_time_ms=1.0,
+                timestamp=datetime.utcnow(),
+            )
+        )
+
+        with patch.object(settings, "usage_batch_size", 0):
+            await middleware._flush_buffer()
+
+        assert len(middleware._buffer) == 1
 
 
 class TestUsageTrackingMiddlewareIntegration:
