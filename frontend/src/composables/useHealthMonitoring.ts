@@ -22,6 +22,9 @@ const monitoringConfig = ref<healthApi.MonitoringConfig>({
 const monitoringStatus = ref<healthApi.MonitoringStatus | null>(null);
 const isPolling = ref(false);
 let pollInterval: ReturnType<typeof setInterval> | null = null;
+let lastCachedMetricsUnavailableLogAt = 0;
+
+const CACHED_METRICS_ERROR_LOG_COOLDOWN_MS = 60_000;
 
 export function useHealthMonitoring() {
   /**
@@ -111,8 +114,22 @@ export function useHealthMonitoring() {
       }
       return data;
     } catch (error) {
+      const apiError = toApiError(error);
+      const isUpstreamUnavailable = [502, 503, 504].includes(apiError.status);
+
+      if (isUpstreamUnavailable) {
+        const now = Date.now();
+        if (now - lastCachedMetricsUnavailableLogAt >= CACHED_METRICS_ERROR_LOG_COOLDOWN_MS) {
+          console.warn(
+            `[Health] Cached metrics temporarily unavailable (${apiError.status}): ${apiError.message}`
+          );
+          lastCachedMetricsUnavailableLogAt = now;
+        }
+        return cachedMetrics.value;
+      }
+
       console.error('[Health] Failed to fetch cached metrics:', error);
-      return {};
+      return cachedMetrics.value;
     }
   }
 
