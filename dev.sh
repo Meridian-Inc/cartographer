@@ -347,7 +347,13 @@ wait_for_port() {
 
 start_postgres() {
     local port=$(get_port postgres)
-    
+
+    # Skip local postgres if using external database
+    if [[ -n "$DATABASE_URL" ]] && [[ "$DATABASE_URL" != *"@localhost:"* ]] && [[ "$DATABASE_URL" != *"@127.0.0.1:"* ]]; then
+        success "Using external PostgreSQL (skipping local container)"
+        return 0
+    fi
+
     if is_port_in_use "$port"; then
         success "PostgreSQL already running on port $port"
         return 0
@@ -590,7 +596,10 @@ cmd_stop() {
     
     # Stop Docker containers
     if [[ "$HAS_DOCKER" == "true" ]]; then
-        stop_docker_service "cartographer-postgres-dev"
+        # Skip stopping postgres if using external database
+        if [[ -z "$DATABASE_URL" ]] || [[ "$DATABASE_URL" == *"@localhost:"* ]] || [[ "$DATABASE_URL" == *"@127.0.0.1:"* ]]; then
+            stop_docker_service "cartographer-postgres-dev"
+        fi
         stop_docker_service "cartographer-redis-dev"
     fi
     

@@ -7,7 +7,10 @@ version: "3.8"
 
 services:
   # PostgreSQL database for network data
+  # Set COMPOSE_PROFILES=local-db in .env to start this container (default).
+  # Remove "local-db" from COMPOSE_PROFILES to use an external PostgreSQL server.
   postgres:
+    profiles: ["local-db"]
     image: postgres:16-alpine
     container_name: cartographer-postgres
     network_mode: host
@@ -55,8 +58,8 @@ services:
       - cartographer-data:/app/data
     environment:
       - FRONTEND_DIST=/app/frontend/dist
-      # Database connection (PostgreSQL)
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-cartographer}:${POSTGRES_PASSWORD}@localhost:5432/${POSTGRES_DB:-cartographer}
+      # Database connection (PostgreSQL) - override DATABASE_URL in .env for external PG
+      - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://${POSTGRES_USER:-cartographer}:${POSTGRES_PASSWORD}@localhost:5432/${POSTGRES_DB:-cartographer}}
       # Redis for query caching
       - REDIS_URL=redis://localhost:6379
       - REDIS_DB=2
@@ -79,6 +82,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+        required: false
       redis:
         condition: service_healthy
       health:
@@ -131,8 +135,8 @@ services:
     environment:
       - CORS_ORIGINS=*
       - AUTH_DATA_DIR=/app/data
-      # Database connection
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-cartographer}:${POSTGRES_PASSWORD}@localhost:5432/${POSTGRES_DB:-cartographer}
+      # Database connection - override DATABASE_URL in .env for external PG
+      - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://${POSTGRES_USER:-cartographer}:${POSTGRES_PASSWORD}@localhost:5432/${POSTGRES_DB:-cartographer}}
       # JWT_SECRET must be set in .env - no default for security
       - JWT_SECRET=${JWT_SECRET:?JWT_SECRET must be set in .env}
       - JWT_EXPIRATION_HOURS=24
@@ -218,12 +222,13 @@ services:
       - ASSISTANT_CHAT_LIMIT_PER_DAY=${ASSISTANT_CHAT_LIMIT_PER_DAY:-99999}
       # Roles exempt from rate limiting (comma-separated: member,admin,owner)
       - ASSISTANT_RATE_LIMIT_EXEMPT_ROLES=${ASSISTANT_RATE_LIMIT_EXEMPT_ROLES:-}
-      # Database connection for per-user rate limits (uses same DB as other services)
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-cartographer}:${POSTGRES_PASSWORD}@localhost:5432/${POSTGRES_DB:-cartographer}
+      # Database connection for per-user rate limits - override DATABASE_URL in .env for external PG
+      - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://${POSTGRES_USER:-cartographer}:${POSTGRES_PASSWORD}@localhost:5432/${POSTGRES_DB:-cartographer}}
     restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
+        required: false
       redis:
         condition: service_healthy
       metrics:
@@ -252,8 +257,8 @@ services:
       - TZ=${TZ:-}
       - CORS_ORIGINS=*
       - NOTIFICATION_DATA_DIR=/app/data
-      # Database connection (PostgreSQL) for notification preferences and Discord links
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-cartographer}:${POSTGRES_PASSWORD}@localhost:5432/${POSTGRES_DB:-cartographer}
+      # Database connection (PostgreSQL) - override DATABASE_URL in .env for external PG
+      - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://${POSTGRES_USER:-cartographer}:${POSTGRES_PASSWORD}@localhost:5432/${POSTGRES_DB:-cartographer}}
       # Current application version for update checking
       - CARTOGRAPHER_VERSION=${CARTOGRAPHER_VERSION:-0.1.1}
       # Email notifications via Resend (same key as auth service)
@@ -271,6 +276,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+        required: false
       health:
         condition: service_healthy
     healthcheck:
