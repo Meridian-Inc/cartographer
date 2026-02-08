@@ -9,6 +9,7 @@ ARG VITE_BASE_PATH=/
 
 # Install dependencies and build
 COPY frontend/package.json frontend/package-lock.json* ./frontend/
+COPY frontend/vendor ./frontend/vendor
 WORKDIR /app/frontend
 RUN npm ci || npm install
 COPY frontend/ /app/frontend/
