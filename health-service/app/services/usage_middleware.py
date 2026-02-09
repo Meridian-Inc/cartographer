@@ -80,21 +80,19 @@ def _is_service_bearer_token(authorization: str | None) -> bool:
 
 
 def _is_user_generated_request(request: Request) -> bool:
-    """Classify request origin for analytics filtering."""
-    headers = request.headers
+    """Classify request origin for analytics filtering.
 
-    for header_key in INTERNAL_HEADER_KEYS:
-        if headers.get(header_key):
-            return False
+    The health-service is an internal microservice that sits behind the
+    backend gateway.  Users never call it directly — all traffic is proxied
+    through the gateway.  Therefore **no** request reaching this service
+    should be considered "user-generated" for PostHog analytics purposes.
+    User-interaction analytics are tracked at the gateway / frontend layer.
 
-    if _is_service_bearer_token(headers.get("authorization")):
-        return False
-
-    user_agent = (headers.get("user-agent") or "").lower()
-    if user_agent.startswith("kube-probe/") or user_agent.startswith("prometheus/"):
-        return False
-
-    return True
+    Returning ``False`` here means ``_capture_posthog_api_event`` will only
+    fire for server errors (status >= 500), which is the desired behaviour:
+    no events unless there is an error.
+    """
+    return False
 
 
 def _capture_posthog_api_event(
