@@ -5,6 +5,13 @@ All notable changes to Cartographer will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+### [0.33.2](https://github.com/devartech/cartographer/compare/v0.33.1...v0.33.2) (2026-02-10)
+
+
+### 🐛 Bug Fixes
+
+* hide passive monitoring controls on cloud ([a1f0159](https://github.com/devartech/cartographer/commit/a1f01599420a907e31d4e31561257a31df3397e8))
+
 ### [0.33.1](https://github.com/devartech/cartographer/compare/v0.33.0...v0.33.1) (2026-02-10)
 
 
