@@ -1110,7 +1110,7 @@ def _update_existing_device(existing_node: dict, device, now: str) -> None:
     if device.hostname and not existing_node.get("hostname"):
         existing_node["hostname"] = device.hostname
     normalized_mac = _normalize_mac(device.mac)
-    if normalized_mac and not existing_node.get("mac"):
+    if normalized_mac and existing_node.get("mac") != normalized_mac:
         existing_node["mac"] = normalized_mac
     # Update vendor info if not already set
     if device.vendor and not existing_node.get("vendor"):
@@ -1238,13 +1238,17 @@ def _process_device_sync(
                 existing["ip"] = device.ip
 
     if existing:
+        old_mac = _normalize_mac(existing.get("mac"))
         _update_existing_device(existing, device, now)
         if existing.get("role") == "client" and role != "client":
             existing["role"] = role
         nodes_by_ip[device.ip] = existing
-        existing_mac = _normalize_mac(existing.get("mac"))
-        if existing_mac:
-            nodes_by_mac[existing_mac] = existing
+        new_mac = _normalize_mac(existing.get("mac"))
+        if new_mac:
+            nodes_by_mac[new_mac] = existing
+        # Remove stale MAC index entry when MAC changed
+        if old_mac and old_mac != new_mac:
+            nodes_by_mac.pop(old_mac, None)
         return 0, 1
 
     target_group = groups.get(target_group_name, groups["Clients"])
