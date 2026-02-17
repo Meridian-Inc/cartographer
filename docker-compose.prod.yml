@@ -12,13 +12,16 @@
 #
 # TLS Certificate Setup:
 #   Option A: Let's Encrypt (recommended for public servers)
-#     - Set your domain in DOMAIN environment variable
-#     - Run: docker compose -f docker-compose.prod.yml run --rm certbot certonly
-#     - Certificates will be stored in letsencrypt volume
+#     - Set DOMAIN=yourdomain.com in .env
+#     - Start the stack, then run:
+#       docker compose -f docker-compose.prod.yml --profile certbot run --rm certbot \
+#         certonly --webroot -w /var/www/certbot -d yourdomain.com
+#     - Restart nginx: docker compose -f docker-compose.prod.yml restart nginx
+#     - Certbot auto-renews every 12h; the nginx entrypoint reloads certs every 12h
 #
-#   Option B: Self-signed (for testing/internal use)
+#   Option B: Self-signed (testing/internal use ONLY)
 #     - The nginx container generates a self-signed cert on first start
-#     - Replace with your own certs in ./nginx/ssl/
+#     - Browsers will show a security warning — not suitable for production
 #
 # ─────────────────────────────────────────────────────────────────────────────
 version: "3.8"
@@ -35,14 +38,12 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    environment:
+      - DOMAIN=${DOMAIN:-}
     volumes:
-      # TLS certificates - choose one:
-      # Option A: Let's Encrypt
+      # Let's Encrypt certificates (symlinked to /etc/nginx/ssl/ by entrypoint)
       - letsencrypt:/etc/letsencrypt:ro
       - certbot-www:/var/www/certbot:ro
-      # Option B: Custom certificates (uncomment and update paths)
-      # - ./nginx/ssl/fullchain.pem:/etc/nginx/ssl/fullchain.pem:ro
-      # - ./nginx/ssl/privkey.pem:/etc/nginx/ssl/privkey.pem:ro
     depends_on:
       app:
         condition: service_healthy

@@ -24,10 +24,8 @@ class Settings(BaseSettings):
     # "cloud" = Clerk + WorkOS (cloud-hosted)
     auth_provider: str = "local"
 
-    # Database
-    database_url: str = (
-        "postgresql+asyncpg://cartographer:cartographer_secret@localhost:5432/cartographer"
-    )
+    # Database - must be set via DATABASE_URL environment variable
+    database_url: str = ""
 
     # JWT Configuration (used for both local and cloud modes)
     # No default - must be set via environment variable
@@ -105,7 +103,18 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_security_settings(self) -> "Settings":
-        """Validate security-sensitive settings for production environments."""
+        """Validate security-sensitive settings."""
+        if not self.database_url:
+            raise ValueError(
+                "DATABASE_URL must be set. "
+                "Example: DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/cartographer"
+            )
+        if "cartographer_secret" in self.database_url:
+            raise ValueError(
+                "DATABASE_URL contains default credentials. "
+                "Set a secure password in the DATABASE_URL environment variable."
+            )
+
         if self.env == "production":
             # Strict validation in production
             if "*" in self.cors_origins:

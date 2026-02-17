@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 from httpx import AsyncClient, Response
 
 # Set test environment variables before importing app modules
+os.environ["DATABASE_URL"] = "postgresql+asyncpg://test:test@localhost:5432/cartographer_test"
 os.environ["HEALTH_SERVICE_URL"] = "http://test-health:8001"
 os.environ["AUTH_SERVICE_URL"] = "http://test-auth:8002"
 os.environ["METRICS_SERVICE_URL"] = "http://test-metrics:8003"

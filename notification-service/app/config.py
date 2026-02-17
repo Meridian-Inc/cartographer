@@ -28,10 +28,8 @@ class Settings(BaseSettings):
     # Environment mode
     env: str = "development"
 
-    # Database
-    database_url: str = (
-        "postgresql+asyncpg://cartographer:cartographer_secret@localhost:5432/cartographer"
-    )
+    # Database - must be set via DATABASE_URL environment variable
+    database_url: str = ""
 
     # Data persistence directory for JSON state files
     notification_data_dir: str = "/app/data"
@@ -96,7 +94,18 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_security_settings(self) -> "Settings":
-        """Validate security-sensitive settings for production environments."""
+        """Validate security-sensitive settings."""
+        if not self.database_url:
+            raise ValueError(
+                "DATABASE_URL must be set. "
+                "Example: DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/cartographer"
+            )
+        if "cartographer_secret" in self.database_url:
+            raise ValueError(
+                "DATABASE_URL contains default credentials. "
+                "Set a secure password in the DATABASE_URL environment variable."
+            )
+
         if self.env == "production":
             if "*" in self.cors_origins:
                 raise ValueError(

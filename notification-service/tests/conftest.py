@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 # Set test environment before imports
+os.environ["DATABASE_URL"] = "postgresql+asyncpg://test:test@localhost:5432/cartographer_test"
 os.environ["RESEND_API_KEY"] = ""
 os.environ["DISCORD_BOT_TOKEN"] = ""
 os.environ["DISCORD_CLIENT_ID"] = ""

@@ -4,7 +4,7 @@ Auth router with database-backed authentication.
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -34,6 +34,7 @@ from ..models import (
     UserResponse,
     UserUpdate,
 )
+from ..rate_limit import get_client_ip, rate_limit
 from ..services.auth_service import auth_service
 
 logger = logging.getLogger(__name__)
@@ -243,7 +244,12 @@ async def exchange_clerk_token(
 # ==================== Registration Endpoint (Cloud) ====================
 
 
-@router.post("/register", response_model=LoginResponse, status_code=201)
+@router.post(
+    "/register",
+    response_model=LoginResponse,
+    status_code=201,
+    dependencies=[Depends(rate_limit(max_requests=3, window_seconds=60))],
+)
 async def register(request: UserCreate, db: AsyncSession = Depends(get_db)):
     """
     Open registration endpoint for cloud deployments.
@@ -273,11 +279,18 @@ async def register(request: UserCreate, db: AsyncSession = Depends(get_db)):
 # ==================== Authentication Endpoints ====================
 
 
-@router.post("/login", response_model=LoginResponse)
-async def login(request: LoginRequest, db: AsyncSession = Depends(get_db)):
+@router.post(
+    "/login",
+    response_model=LoginResponse,
+    dependencies=[Depends(rate_limit(max_requests=5, window_seconds=60))],
+)
+async def login(request: LoginRequest, req: Request, db: AsyncSession = Depends(get_db)):
     """Authenticate and get access token (async password verification for better load handling)."""
     user = await auth_service.authenticate(db, request.username, request.password)
     if not user:
+        logger.warning(
+            "Failed login attempt: username=%s ip=%s", request.username, get_client_ip(req)
+        )
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
     token, expires_in = auth_service.create_access_token(user)
@@ -613,7 +626,11 @@ async def verify_invite_token(token: str, db: AsyncSession = Depends(get_db)):
     return info
 
 
-@router.post("/invite/accept", response_model=UserResponse)
+@router.post(
+    "/invite/accept",
+    response_model=UserResponse,
+    dependencies=[Depends(rate_limit(max_requests=5, window_seconds=60))],
+)
 async def accept_invite(request: AcceptInviteRequest, db: AsyncSession = Depends(get_db)):
     """Accept an invitation and create account (public endpoint)."""
     try:
