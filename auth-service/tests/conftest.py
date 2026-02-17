@@ -15,6 +15,16 @@ os.environ["RESEND_API_KEY"] = ""  # Disable email in tests
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"  # Use SQLite for tests
 
 
+@pytest.fixture(autouse=True)
+def clear_rate_limit():
+    """Clear rate limiting state before each test to prevent cross-test 429s."""
+    from app.rate_limit import _request_log
+
+    _request_log.clear()
+    yield
+    _request_log.clear()
+
+
 @pytest.fixture
 def mock_db_session():
     """Create a mock database session"""
