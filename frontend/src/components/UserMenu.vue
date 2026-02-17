@@ -456,13 +456,18 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useAuth } from '../composables/useAuth';
 import { getRoleLabel, getFullName } from '../types/auth';
 
-const props = defineProps<{
-  showNotifications?: boolean;
-  showNotificationsOption?: boolean;
-  // Network context props
-  isNetworkContext?: boolean; // true when viewing a specific network
-  isNetworkOwner?: boolean; // true if user owns the current network
-}>();
+const props = withDefaults(
+  defineProps<{
+    showNotifications?: boolean;
+    showNotificationsOption?: boolean;
+    // Network context props
+    isNetworkContext?: boolean; // true when viewing a specific network
+    isNetworkOwner?: boolean; // true if user owns the current network
+  }>(),
+  {
+    showNotificationsOption: true,
+  }
+);
 
 const emit = defineEmits<{
   (e: 'logout'): void;
