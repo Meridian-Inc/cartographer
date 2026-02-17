@@ -106,11 +106,34 @@ export interface TriggerRemoteScanResponse {
 }
 
 export async function triggerRemoteScan(networkId: string): Promise<TriggerRemoteScanResponse> {
-  const response = await client.post<TriggerRemoteScanResponse>(
-    '/api/agent/commands/scan-network',
-    { network_id: networkId }
-  );
-  return response.data;
+  // Use absolute URL to reach the cloud backend directly.
+  // The core app client's baseURL (/app) would route this to the core backend,
+  // but this endpoint lives on the cloud backend at /api/agent/commands/scan-network.
+  const token = localStorage.getItem('cartographer_auth');
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) {
+    try {
+      const authState = JSON.parse(token);
+      if (authState.token && authState.expiresAt > Date.now()) {
+        headers['Authorization'] = `Bearer ${authState.token}`;
+      }
+    } catch {
+      // Ignore parse errors
+    }
+  }
+
+  const response = await fetch('/api/agent/commands/scan-network', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ network_id: networkId }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Failed to trigger remote scan' }));
+    throw new Error(error.detail || `Request failed with status ${response.status}`);
+  }
+
+  return response.json();
 }
 
 // ==================== Network Limit ====================

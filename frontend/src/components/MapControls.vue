@@ -783,10 +783,7 @@ async function triggerRemoteScanAction() {
     const result = await networksApi.triggerRemoteScan(props.networkId);
     message.value = `Scan triggered on ${result.agents_triggered} agent${result.agents_triggered !== 1 ? 's' : ''}`;
   } catch (error: unknown) {
-    const detail =
-      error && typeof error === 'object' && 'response' in error
-        ? (error as any).response?.data?.detail
-        : undefined;
+    const detail = error instanceof Error ? error.message : undefined;
     message.value = detail || 'Failed to trigger remote scan';
   } finally {
     remoteScanning.value = false;
