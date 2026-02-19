@@ -118,3 +118,26 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Get cached settings instance."""
     return Settings()
+
+
+def reload_env_overrides(overrides: dict[str, str]) -> list[str]:
+    """
+    Hot-reload specific settings fields on the cached singleton.
+
+    Called by the /_internal/reload-env endpoint during blue/green swaps
+    so that environment-specific values (APPLICATION_URL, etc.) take effect
+    without restarting the container.
+
+    Returns the list of field names that were updated.
+    """
+    instance = get_settings()
+    updated = []
+    for key, value in overrides.items():
+        field_name = key.lower()
+        if field_name in instance.model_fields:
+            old = getattr(instance, field_name)
+            if old != value:
+                object.__setattr__(instance, field_name, value)
+                updated.append(field_name)
+                logger.info("Hot-reloaded %s: %s -> %s", field_name, old, value)
+    return updated

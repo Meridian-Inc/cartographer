@@ -4,7 +4,6 @@ Supports per-network and global Discord linking.
 """
 
 import logging
-import os
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -12,6 +11,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..config import settings
 from ..database import get_db
 from ..models.database import (
     DiscordUserLink,
@@ -22,8 +22,6 @@ from ..services.discord_oauth import discord_oauth_service
 from ..services.user_preferences import user_preferences_service
 
 logger = logging.getLogger(__name__)
-
-APPLICATION_URL = os.environ.get("APPLICATION_URL", "http://localhost:5173")
 
 router = APIRouter()
 
@@ -61,7 +59,7 @@ async def discord_oauth_callback(
     state_data = discord_oauth_service.validate_state(state)
     if not state_data:
         return RedirectResponse(
-            url=f"{APPLICATION_URL}?discord_oauth=error&message=Invalid or expired state token"
+            url=f"{settings.application_url}?discord_oauth=error&message=Invalid or expired state token"
         )
 
     user_id, context_type, context_id = state_data
@@ -133,12 +131,14 @@ async def discord_oauth_callback(
             context_param += f"&network_id={context_id}"
 
         return RedirectResponse(
-            url=f"{APPLICATION_URL}?discord_oauth=success&username={discord_username}{context_param}"
+            url=f"{settings.application_url}?discord_oauth=success&username={discord_username}{context_param}"
         )
 
     except Exception as e:
         logger.error(f"Discord OAuth callback failed: {e}", exc_info=True)
-        return RedirectResponse(url=f"{APPLICATION_URL}?discord_oauth=error&message={str(e)}")
+        return RedirectResponse(
+            url=f"{settings.application_url}?discord_oauth=error&message={str(e)}"
+        )
 
 
 @router.delete("/users/{user_id}/discord/link")

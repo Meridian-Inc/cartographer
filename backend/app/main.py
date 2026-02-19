@@ -8,10 +8,10 @@ including middleware, routers, and lifecycle management.
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from .config import get_settings
+from .config import get_settings, reload_env_overrides
 from .database import init_db
 from .migrations.add_performance_indexes import add_performance_indexes
 from .migrations.migrate_layout import migrate_layout_to_database
@@ -150,6 +150,18 @@ def create_app() -> FastAPI:
     app.include_router(assistant_proxy_router, prefix="/api")
     app.include_router(notification_proxy_router, prefix="/api")
     app.include_router(networks_router, prefix="/api")
+
+    @app.post("/_internal/reload-env")
+    async def reload_env(request: Request):
+        """
+        Hot-reload environment-specific settings without restarting.
+
+        Called by the deploy swap script to update APPLICATION_URL, etc.
+        after a blue/green swap. Only accessible from within the Docker network.
+        """
+        body = await request.json()
+        updated = reload_env_overrides(body)
+        return {"status": "ok", "updated": updated}
 
     # Static file serving for production frontend
     dist_path = settings.resolved_frontend_dist

@@ -68,6 +68,20 @@ class Settings(BaseSettings):
     )
 
     @property
+    def effective_discord_redirect_uri(self) -> str:
+        """
+        The redirect URI sent to Discord during OAuth.
+
+        Derived from application_url when discord_redirect_uri is not explicitly
+        set, keeping the two values automatically in sync across environments.
+        An explicit override is only needed if the callback path differs from
+        the standard location.
+        """
+        if self.discord_redirect_uri:
+            return self.discord_redirect_uri
+        return f"{self.application_url}/api/notifications/auth/discord/callback"
+
+    @property
     def data_dir(self) -> Path:
         """Get the data directory as a Path object."""
         return Path(self.notification_data_dir)
@@ -91,6 +105,20 @@ class Settings(BaseSettings):
     def is_discord_oauth_configured(self) -> bool:
         """Check if Discord OAuth is configured."""
         return bool(self.discord_client_id and self.discord_client_secret)
+
+    @model_validator(mode="after")
+    def validate_discord_redirect_uri(self) -> "Settings":
+        """Warn when an explicit redirect URI doesn't match the expected derived value."""
+        if self.discord_redirect_uri:
+            expected = f"{self.application_url}/api/notifications/auth/discord/callback"
+            if self.discord_redirect_uri != expected:
+                logger.warning(
+                    "DISCORD_REDIRECT_URI (%s) does not match the value derived from "
+                    "APPLICATION_URL (%s). Using the explicit value — verify this is intentional.",
+                    self.discord_redirect_uri,
+                    expected,
+                )
+        return self
 
     @model_validator(mode="after")
     def validate_security_settings(self) -> "Settings":
@@ -122,3 +150,25 @@ class Settings(BaseSettings):
 
 # Global settings instance - import this throughout the application
 settings = Settings()
+
+
+def reload_env_overrides(overrides: dict[str, str]) -> list[str]:
+    """
+    Hot-reload specific settings fields on the running singleton.
+
+    Called by the /_internal/reload-env endpoint during blue/green swaps
+    so that environment-specific values (APPLICATION_URL, DISCORD_REDIRECT_URI, etc.)
+    take effect without restarting the container.
+
+    Returns the list of field names that were updated.
+    """
+    updated = []
+    for key, value in overrides.items():
+        field_name = key.lower()
+        if field_name in settings.model_fields:
+            old = getattr(settings, field_name)
+            if old != value:
+                object.__setattr__(settings, field_name, value)
+                updated.append(field_name)
+                logger.info("Hot-reloaded %s: %s -> %s", field_name, old, value)
+    return updated

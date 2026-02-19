@@ -105,7 +105,7 @@ class DiscordOAuthService:
                     "client_secret": settings.discord_client_secret,
                     "grant_type": "authorization_code",
                     "code": code,
-                    "redirect_uri": settings.discord_redirect_uri,
+                    "redirect_uri": settings.effective_discord_redirect_uri,
                 },
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
             )

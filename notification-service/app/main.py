@@ -16,11 +16,11 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
-from .config import settings
+from .config import reload_env_overrides, settings
 from .database import _migrate_network_id_to_uuid, async_session_maker, engine
 from .models import (
     DiscordChannelConfig,
@@ -489,6 +489,19 @@ def create_app() -> FastAPI:
     def healthz():
         """Health check endpoint for container orchestration"""
         return {"status": "healthy"}
+
+    @app.post("/_internal/reload-env")
+    async def reload_env(request: Request):
+        """
+        Hot-reload environment-specific settings without restarting.
+
+        Called by the deploy swap script to update APPLICATION_URL,
+        DISCORD_REDIRECT_URI, etc. after a blue/green swap.
+        Only accessible from within the Docker network.
+        """
+        body = await request.json()
+        updated = reload_env_overrides(body)
+        return {"status": "ok", "updated": updated}
 
     return app
 
