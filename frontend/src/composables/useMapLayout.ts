@@ -62,6 +62,39 @@ export function useMapLayout() {
   }
 
   /**
+   * Collect all non-group node IDs from a tree.
+   */
+  function collectNodeIds(root: TreeNode): Set<string> {
+    const ids = new Set<string>();
+    const walk = (n: TreeNode) => {
+      if (n.role !== 'group') ids.add(n.id);
+      for (const c of n.children || []) walk(c);
+    };
+    walk(root);
+    return ids;
+  }
+
+  /**
+   * Check if the tree's node set differs from the saved layout positions.
+   * Returns true if nodes were added or removed since the layout was saved,
+   * indicating the layout needs to be re-tidied.
+   */
+  function hasTopologyChanged(root: TreeNode, saved?: SavedLayout): boolean {
+    if (!saved?.positions) return false;
+    const currentIds = collectNodeIds(root);
+    const savedIds = new Set(Object.keys(saved.positions));
+    // Check for new nodes (in tree but not in saved positions)
+    for (const id of currentIds) {
+      if (!savedIds.has(id)) return true;
+    }
+    // Check for removed nodes (in saved positions but not in tree)
+    for (const id of savedIds) {
+      if (!currentIds.has(id)) return true;
+    }
+    return false;
+  }
+
+  /**
    * Clean up and reorganize the layout based on network hierarchy.
    * Arranges nodes in columns by depth with consistent spacing.
    */
@@ -188,5 +221,7 @@ export function useMapLayout() {
     importLayout,
     clearPositions,
     cleanUpLayout,
+    collectNodeIds,
+    hasTopologyChanged,
   };
 }

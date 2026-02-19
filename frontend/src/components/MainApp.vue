@@ -1016,7 +1016,17 @@ function stopResize() {
   document.body.style.userSelect = '';
 }
 
-const { applySavedPositions, clearPositions, exportLayout, cleanUpLayout } = useMapLayout();
+const {
+  applySavedPositions,
+  clearPositions,
+  exportLayout,
+  cleanUpLayout,
+  collectNodeIds,
+  hasTopologyChanged,
+} = useMapLayout();
+
+// Track previous node IDs for detecting topology changes during live updates
+let previousNodeIds: Set<string> | null = null;
 const {
   parseNetworkMap,
   initializeNodeVersion,
@@ -1139,8 +1149,25 @@ function triggerAutoSave() {
 function onUpdateMap(p: ParsedNetworkMap) {
   // Version all nodes from the mapper
   ensureAllNodesVersioned(p.root, 'mapper');
+
+  // Detect if network topology changed (nodes added or removed)
+  const newIds = collectNodeIds(p.root);
+  const topologyChanged =
+    previousNodeIds !== null &&
+    (newIds.size !== previousNodeIds.size ||
+      [...newIds].some((id) => !previousNodeIds!.has(id)) ||
+      [...previousNodeIds].some((id) => !newIds.has(id)));
+
   parsed.value = p;
   selectedId.value = undefined;
+
+  // Auto-tidy layout when nodes were added or removed
+  if (topologyChanged) {
+    cleanUpLayout(parsed.value.root);
+    parsed.value = { ...parsed.value };
+  }
+
+  previousNodeIds = newIds;
   triggerAutoSave();
 }
 
@@ -1683,17 +1710,32 @@ function onApplyLayout(layout: any) {
 
   if (!parsed.value) return;
 
-  applySavedPositions(parsed.value.root, layout);
+  // Check if topology changed since last save (agent added/removed nodes)
+  const topologyDrifted = hasTopologyChanged(parsed.value.root, layout);
+
+  if (topologyDrifted) {
+    // Nodes were added or removed since last layout save - re-tidy for clean positioning
+    cleanUpLayout(parsed.value.root);
+  } else {
+    applySavedPositions(parsed.value.root, layout);
+  }
 
   // Trigger reactivity with shallow replacement (if we have raw source)
   if (parsed.value.raw) {
     parsed.value = parseNetworkMap(parsed.value.raw);
     ensureAllNodesVersioned(parsed.value.root, 'mapper');
-    applySavedPositions(parsed.value.root, layout);
+    if (topologyDrifted) {
+      cleanUpLayout(parsed.value.root);
+    } else {
+      applySavedPositions(parsed.value.root, layout);
+    }
   } else {
     // Force refresh if we just loaded the tree
     parsed.value = { ...parsed.value };
   }
+
+  // Initialize node tracking for subsequent live updates
+  previousNodeIds = parsed.value ? collectNodeIds(parsed.value.root) : null;
 }
 
 function onMapSaved() {
