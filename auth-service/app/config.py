@@ -141,3 +141,25 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def reload_env_overrides(overrides: dict[str, str]) -> list[str]:
+    """
+    Hot-reload specific settings fields on the running singleton.
+
+    Called by the /_internal/reload-env endpoint during blue/green swaps
+    so that environment-specific values (APPLICATION_URL, etc.) take effect
+    without restarting the container.
+
+    Returns the list of field names that were updated.
+    """
+    updated = []
+    for key, value in overrides.items():
+        field_name = key.lower()
+        if field_name in settings.model_fields:
+            old = getattr(settings, field_name)
+            if old != value:
+                object.__setattr__(settings, field_name, value)
+                updated.append(field_name)
+                logger.info("Hot-reloaded %s: %s -> %s", field_name, old, value)
+    return updated

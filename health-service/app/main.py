@@ -1,10 +1,10 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from .config import settings
+from .config import reload_env_overrides, settings
 from .routers.health import router as health_router
 from .services.health_checker import health_checker
 from .services.usage_middleware import UsageTrackingMiddleware
@@ -66,6 +66,18 @@ def create_app() -> FastAPI:
     def healthz():
         """Health check endpoint for container orchestration"""
         return {"status": "healthy"}
+
+    @app.post("/_internal/reload-env")
+    async def reload_env(request: Request):
+        """
+        Hot-reload environment-specific settings without restarting.
+
+        Called by the deploy swap script during blue/green swaps.
+        Only accessible from within the Docker network.
+        """
+        body = await request.json()
+        updated = reload_env_overrides(body)
+        return {"status": "ok", "updated": updated}
 
     return app
 

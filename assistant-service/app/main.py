@@ -13,10 +13,10 @@ This service:
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from .config import settings
+from .config import reload_env_overrides, settings
 from .routers.assistant import router as assistant_router
 from .services.usage_middleware import UsageTrackingMiddleware
 
@@ -189,6 +189,18 @@ This service provides intelligent assistance by:
                 continue
 
         return {"ready": False, "reason": "No AI providers configured"}
+
+    @app.post("/_internal/reload-env")
+    async def reload_env(request: Request):
+        """
+        Hot-reload environment-specific settings without restarting.
+
+        Called by the deploy swap script during blue/green swaps.
+        Only accessible from within the Docker network.
+        """
+        body = await request.json()
+        updated = reload_env_overrides(body)
+        return {"status": "ok", "updated": updated}
 
     return app
 

@@ -12,10 +12,10 @@ import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from .config import settings
+from .config import reload_env_overrides, settings
 from .routers.auth import router as auth_router
 from .routers.health import router as health_router
 from .routers.webhooks import router as webhooks_router
@@ -192,6 +192,18 @@ def create_app() -> FastAPI:
     @app.get("/")
     def root():
         return {"service": "Cartographer Auth Service", "status": "running", "version": "0.1.0"}
+
+    @app.post("/_internal/reload-env")
+    async def reload_env(request: Request):
+        """
+        Hot-reload environment-specific settings without restarting.
+
+        Called by the deploy swap script to update APPLICATION_URL, etc.
+        after a blue/green swap. Only accessible from within the Docker network.
+        """
+        body = await request.json()
+        updated = reload_env_overrides(body)
+        return {"status": "ok", "updated": updated}
 
     return app
 
