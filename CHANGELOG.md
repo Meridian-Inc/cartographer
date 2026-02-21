@@ -5,6 +5,13 @@ All notable changes to Cartographer will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.38.0](https://github.com/devartech/cartographer/compare/v0.37.4...v0.38.0) (2026-02-21)
+
+
+### ✨ Features
+
+* add password reset ([38a6e71](https://github.com/devartech/cartographer/commit/38a6e711fa1db6363f3342fa4395fdea20d66cfc))
+
 ### [0.37.4](https://github.com/devartech/cartographer/compare/v0.37.3...v0.37.4) (2026-02-17)
 
 
