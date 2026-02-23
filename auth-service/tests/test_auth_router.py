@@ -186,6 +186,94 @@ class TestAuthConfigEndpoint:
             assert data["allow_registration"] is True
 
 
+class TestInternalPlanSettingsEndpoints:
+    """Tests for internal user plan-settings endpoints."""
+
+    def test_get_user_plan_settings_internal_success(self, client, mock_user):
+        plan_row = MagicMock()
+        plan_row.user_id = mock_user.id
+        plan_row.plan_id = "free"
+        plan_row.owned_networks_limit = 1
+        plan_row.assistant_daily_chat_messages_limit = 5
+        plan_row.automatic_full_scan_min_interval_seconds = 7200
+
+        with (
+            patch("app.routers.auth.auth_service") as mock_service,
+            patch("app.routers.auth.get_user_plan_settings", new=AsyncMock(return_value=plan_row)),
+        ):
+            mock_service.get_user = AsyncMock(return_value=mock_user)
+
+            response = client.get(f"/api/auth/internal/users/{mock_user.id}/plan-settings")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["user_id"] == mock_user.id
+            assert data["plan_id"] == "free"
+            assert data["owned_networks_limit"] == 1
+
+    def test_get_user_plan_settings_internal_returns_404_when_user_missing(self, client):
+        with patch("app.routers.auth.auth_service") as mock_service:
+            mock_service.get_user = AsyncMock(return_value=None)
+
+            response = client.get("/api/auth/internal/users/missing/plan-settings")
+
+            assert response.status_code == 404
+            assert response.json()["detail"] == "User not found"
+
+    def test_get_user_plan_settings_internal_returns_500_when_settings_missing(
+        self, client, mock_user
+    ):
+        with (
+            patch("app.routers.auth.auth_service") as mock_service,
+            patch("app.routers.auth.get_user_plan_settings", new=AsyncMock(return_value=None)),
+        ):
+            mock_service.get_user = AsyncMock(return_value=mock_user)
+
+            response = client.get(f"/api/auth/internal/users/{mock_user.id}/plan-settings")
+
+            assert response.status_code == 500
+            assert "Failed to resolve user plan settings" in response.json()["detail"]
+
+    def test_set_user_plan_settings_internal_success(self, client, mock_user):
+        plan_row = MagicMock()
+        plan_row.user_id = mock_user.id
+        plan_row.plan_id = "pro"
+        plan_row.owned_networks_limit = 3
+        plan_row.assistant_daily_chat_messages_limit = 50
+        plan_row.automatic_full_scan_min_interval_seconds = 60
+
+        with (
+            patch("app.routers.auth.auth_service") as mock_service,
+            patch(
+                "app.routers.auth.apply_plan_to_user", new=AsyncMock(return_value=plan_row)
+            ) as mock_apply,
+        ):
+            mock_service.get_user = AsyncMock(return_value=mock_user)
+
+            response = client.put(
+                f"/api/auth/internal/users/{mock_user.id}/plan-settings",
+                json={"plan_id": "pro"},
+            )
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["plan_id"] == "pro"
+            assert data["assistant_daily_chat_messages_limit"] == 50
+            mock_apply.assert_awaited_once()
+
+    def test_set_user_plan_settings_internal_returns_404_when_user_missing(self, client):
+        with patch("app.routers.auth.auth_service") as mock_service:
+            mock_service.get_user = AsyncMock(return_value=None)
+
+            response = client.put(
+                "/api/auth/internal/users/missing/plan-settings",
+                json={"plan_id": "pro"},
+            )
+
+            assert response.status_code == 404
+            assert response.json()["detail"] == "User not found"
+
+
 class TestAuthenticationEndpoints:
     """Tests for authentication endpoints"""
 
