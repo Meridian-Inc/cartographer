@@ -29,6 +29,8 @@ class NotificationPreferencesCreate(BaseModel):
 
     enabled_types: list[str] = Field(
         default_factory=lambda: [
+            "device_added",
+            "device_removed",
             "device_offline",
             "device_online",
             "device_degraded",

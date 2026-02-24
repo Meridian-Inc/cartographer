@@ -1094,6 +1094,224 @@ class TestSaveNetworkLayout:
 
         assert sample_network.layout_data == {"root": {"id": "new-router"}}
 
+    async def test_save_layout_aggregates_device_removed_notification(
+        self, owner_user, mock_db, sample_network
+    ):
+        """Manual node deletion via layout save should emit one aggregate device_removed notification."""
+        from app.routers.networks import save_network_layout
+        from app.schemas import NetworkLayoutSave
+
+        sample_network.layout_data = {
+            "root": {
+                "id": "root",
+                "name": "Router",
+                "role": "gateway/router",
+                "ip": "192.168.1.1",
+                "children": [
+                    {
+                        "id": "group:Clients",
+                        "name": "Clients",
+                        "role": "group",
+                        "children": [
+                            {
+                                "id": "dev-1",
+                                "name": "Laptop",
+                                "role": "client",
+                                "ip": "192.168.1.10",
+                                "children": [],
+                            },
+                            {
+                                "id": "dev-2",
+                                "name": "Phone",
+                                "role": "client",
+                                "ip": "192.168.1.11",
+                                "children": [],
+                            },
+                        ],
+                    }
+                ],
+            }
+        }
+        layout_data = NetworkLayoutSave(
+            layout_data={
+                "root": {
+                    "id": "root",
+                    "name": "Router",
+                    "role": "gateway/router",
+                    "ip": "192.168.1.1",
+                    "children": [
+                        {
+                            "id": "group:Clients",
+                            "name": "Clients",
+                            "role": "group",
+                            "children": [],
+                        }
+                    ],
+                }
+            }
+        )
+
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = sample_network
+        mock_db.execute = AsyncMock(return_value=mock_result)
+        mock_db.commit = AsyncMock()
+        mock_db.refresh = AsyncMock()
+
+        with patch(
+            "app.routers.networks.get_network_member_user_ids", new_callable=AsyncMock
+        ) as mock_members:
+            with patch(
+                "app.routers.networks.proxy_notification_request", new_callable=AsyncMock
+            ) as mock_proxy:
+                mock_members.return_value = ["owner-123"]
+
+                await save_network_layout("network-123", layout_data, owner_user, mock_db)
+
+                assert mock_proxy.await_count == 1
+                body = mock_proxy.await_args.kwargs["json_body"]
+                assert body["type"] == "device_removed"
+                assert body["priority"] == "high"
+                assert body["details"]["removed_count"] == 2
+
+    async def test_save_layout_manual_add_does_not_emit_device_added(
+        self, owner_user, mock_db, sample_network
+    ):
+        """Manual editor-added nodes should not emit device_added notifications."""
+        from app.routers.networks import save_network_layout
+        from app.schemas import NetworkLayoutSave
+
+        sample_network.layout_data = {
+            "root": {
+                "id": "root",
+                "name": "Router",
+                "role": "gateway/router",
+                "ip": "192.168.1.1",
+                "children": [],
+            }
+        }
+        layout_data = NetworkLayoutSave(
+            layout_data={
+                "root": {
+                    "id": "root",
+                    "name": "Router",
+                    "role": "gateway/router",
+                    "ip": "192.168.1.1",
+                    "children": [
+                        {
+                            "id": "group:Clients",
+                            "name": "Clients",
+                            "role": "group",
+                            "children": [
+                                {
+                                    "id": "manual-1",
+                                    "name": "New Device",
+                                    "role": "unknown",
+                                    "ip": "192.168.1.50",
+                                    "children": [],
+                                    "history": [
+                                        {
+                                            "version": 1,
+                                            "timestamp": "2026-01-01T00:00:00Z",
+                                            "changes": ["Node created (manual)"],
+                                        }
+                                    ],
+                                }
+                            ],
+                        }
+                    ],
+                }
+            }
+        )
+
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = sample_network
+        mock_db.execute = AsyncMock(return_value=mock_result)
+        mock_db.commit = AsyncMock()
+        mock_db.refresh = AsyncMock()
+
+        with patch(
+            "app.routers.networks.get_network_member_user_ids", new_callable=AsyncMock
+        ) as mock_members:
+            with patch(
+                "app.routers.networks.proxy_notification_request", new_callable=AsyncMock
+            ) as mock_proxy:
+                mock_members.return_value = ["owner-123"]
+
+                await save_network_layout("network-123", layout_data, owner_user, mock_db)
+
+                mock_proxy.assert_not_awaited()
+
+    async def test_save_layout_mapper_add_emits_device_added(
+        self, owner_user, mock_db, sample_network
+    ):
+        """Mapper-added nodes saved via layout should emit device_added after initial population."""
+        from app.routers.networks import save_network_layout
+        from app.schemas import NetworkLayoutSave
+
+        sample_network.layout_data = {
+            "root": {
+                "id": "root",
+                "name": "Router",
+                "role": "gateway/router",
+                "ip": "192.168.1.1",
+                "children": [],
+            }
+        }
+        layout_data = NetworkLayoutSave(
+            layout_data={
+                "root": {
+                    "id": "root",
+                    "name": "Router",
+                    "role": "gateway/router",
+                    "ip": "192.168.1.1",
+                    "children": [
+                        {
+                            "id": "group:Clients",
+                            "name": "Clients",
+                            "role": "group",
+                            "children": [
+                                {
+                                    "id": "mapper-1",
+                                    "name": "Printer",
+                                    "role": "client",
+                                    "ip": "192.168.1.60",
+                                    "children": [],
+                                    "history": [
+                                        {
+                                            "version": 1,
+                                            "timestamp": "2026-01-01T00:00:00Z",
+                                            "changes": ["Node created (mapper)"],
+                                        }
+                                    ],
+                                }
+                            ],
+                        }
+                    ],
+                }
+            }
+        )
+
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = sample_network
+        mock_db.execute = AsyncMock(return_value=mock_result)
+        mock_db.commit = AsyncMock()
+        mock_db.refresh = AsyncMock()
+
+        with patch(
+            "app.routers.networks.get_network_member_user_ids", new_callable=AsyncMock
+        ) as mock_members:
+            with patch(
+                "app.routers.networks.proxy_notification_request", new_callable=AsyncMock
+            ) as mock_proxy:
+                mock_members.return_value = ["owner-123"]
+
+                await save_network_layout("network-123", layout_data, owner_user, mock_db)
+
+                assert mock_proxy.await_count == 1
+                body = mock_proxy.await_args.kwargs["json_body"]
+                assert body["type"] == "device_added"
+                assert body["priority"] == "high"
+
 
 # ==================== Permission Tests ====================
 

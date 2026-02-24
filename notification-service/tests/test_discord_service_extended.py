@@ -103,6 +103,16 @@ class TestPriorityColorAndIcons:
         icon = get_notification_icon(NotificationType.DEVICE_OFFLINE)
         assert icon == "🔴"
 
+    def test_get_notification_icon_device_added(self):
+        """Test icon for DEVICE_ADDED."""
+        icon = get_notification_icon(NotificationType.DEVICE_ADDED)
+        assert icon == "➕"
+
+    def test_get_notification_icon_device_removed(self):
+        """Test icon for DEVICE_REMOVED."""
+        icon = get_notification_icon(NotificationType.DEVICE_REMOVED)
+        assert icon == "➖"
+
     def testget_notification_icon_device_online(self):
         """Test icon for DEVICE_ONLINE."""
         icon = get_notification_icon(NotificationType.DEVICE_ONLINE)

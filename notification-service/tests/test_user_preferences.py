@@ -14,6 +14,14 @@ import pytest
 class TestUserPreferencesService:
     """Tests for user preferences service"""
 
+    def test_default_enabled_types_include_device_add_remove(self):
+        """New network defaults should include device add/remove notifications."""
+        from app.models import NotificationType
+        from app.services.user_preferences import DEFAULT_ENABLED_TYPES
+
+        assert NotificationType.DEVICE_ADDED in DEFAULT_ENABLED_TYPES
+        assert NotificationType.DEVICE_REMOVED in DEFAULT_ENABLED_TYPES
+
     @pytest.mark.asyncio
     async def test_get_network_preferences_not_found(self):
         """Should return None when preferences not found"""

@@ -533,6 +533,172 @@ class TestAgentSyncEndpoint:
             assert response.devices_received == 2
             mock_db.commit.assert_called_once()
 
+    async def test_sync_agent_scan_first_population_suppresses_device_added_notification(
+        self, service_user, mock_network
+    ):
+        """First population should not emit device_added notifications."""
+        from datetime import datetime
+
+        from app.routers.networks import sync_agent_scan
+        from app.schemas.agent_sync import AgentSyncRequest, SyncDevice
+
+        mock_db = AsyncMock()
+        sync_data = AgentSyncRequest(
+            timestamp=datetime.now(),
+            devices=[
+                SyncDevice(ip="192.168.1.1", mac="AA:BB:CC:DD:EE:FF", is_gateway=True),
+                SyncDevice(ip="192.168.1.100", hostname="laptop"),
+            ],
+        )
+
+        with patch("app.routers.networks.get_network_with_access") as mock_get:
+            with patch(
+                "app.routers.networks.get_network_member_user_ids", new_callable=AsyncMock
+            ) as mock_members:
+                with patch(
+                    "app.routers.networks.proxy_notification_request", new_callable=AsyncMock
+                ) as mock_proxy:
+                    mock_get.return_value = (mock_network, True, "owner")
+                    mock_members.return_value = ["owner-123"]
+
+                    response = await sync_agent_scan(
+                        network_id="net-123",
+                        sync_data=sync_data,
+                        current_user=service_user,
+                        db=mock_db,
+                    )
+
+                    assert response.success is True
+                    mock_proxy.assert_not_awaited()
+
+    async def test_sync_agent_scan_subsequent_add_emits_device_added_notification(
+        self, service_user
+    ):
+        """Subsequent discovered device additions should emit device_added notifications."""
+        from datetime import datetime
+
+        from app.models.network import Network
+        from app.routers.networks import sync_agent_scan
+        from app.schemas.agent_sync import AgentSyncRequest, SyncDevice
+
+        mock_db = AsyncMock()
+        mock_network = MagicMock(spec=Network)
+        mock_network.id = "net-123"
+        mock_network.name = "Test Network"
+        mock_network.last_sync_at = None
+        mock_network.layout_data = {
+            "version": 1,
+            "root": {
+                "id": "root",
+                "name": "Router",
+                "role": "gateway/router",
+                "ip": "192.168.1.1",
+                "mac": "AA:BB:CC:DD:EE:FF",
+                "children": [
+                    {
+                        "id": "group:Clients",
+                        "name": "Clients",
+                        "role": "group",
+                        "children": [
+                            {
+                                "id": "existing-1",
+                                "name": "Existing",
+                                "role": "client",
+                                "ip": "192.168.1.100",
+                                "mac": "11:22:33:44:55:66",
+                                "children": [],
+                            }
+                        ],
+                    }
+                ],
+            },
+        }
+
+        sync_data = AgentSyncRequest(
+            timestamp=datetime.now(),
+            devices=[
+                SyncDevice(ip="192.168.1.1", mac="AA:BB:CC:DD:EE:FF", is_gateway=True),
+                SyncDevice(ip="192.168.1.100", mac="11:22:33:44:55:66", hostname="existing"),
+                SyncDevice(ip="192.168.1.101", mac="22:33:44:55:66:77", hostname="new-device"),
+            ],
+        )
+
+        with patch("app.routers.networks.get_network_with_access") as mock_get:
+            with patch(
+                "app.routers.networks.get_network_member_user_ids", new_callable=AsyncMock
+            ) as mock_members:
+                with patch(
+                    "app.routers.networks.proxy_notification_request", new_callable=AsyncMock
+                ) as mock_proxy:
+                    mock_get.return_value = (mock_network, True, "owner")
+                    mock_members.return_value = ["owner-123"]
+
+                    response = await sync_agent_scan(
+                        network_id="net-123",
+                        sync_data=sync_data,
+                        current_user=service_user,
+                        db=mock_db,
+                    )
+
+                    assert response.success is True
+                    assert mock_proxy.await_count == 1
+                    body = mock_proxy.await_args.kwargs["json_body"]
+                    assert body["type"] == "device_added"
+                    assert body["priority"] == "high"
+
+    async def test_sync_agent_scan_notification_failure_does_not_fail_sync(self, service_user):
+        """Notification proxy failure should be swallowed after sync commit."""
+        from datetime import datetime
+
+        from app.models.network import Network
+        from app.routers.networks import sync_agent_scan
+        from app.schemas.agent_sync import AgentSyncRequest, SyncDevice
+
+        mock_db = AsyncMock()
+        mock_network = MagicMock(spec=Network)
+        mock_network.id = "net-123"
+        mock_network.name = "Test Network"
+        mock_network.last_sync_at = None
+        mock_network.layout_data = {
+            "version": 1,
+            "root": {
+                "id": "root",
+                "name": "Router",
+                "role": "gateway/router",
+                "ip": "192.168.1.1",
+                "children": [],
+            },
+        }
+
+        sync_data = AgentSyncRequest(
+            timestamp=datetime.now(),
+            devices=[
+                SyncDevice(ip="192.168.1.1", is_gateway=True),
+                SyncDevice(ip="192.168.1.200", hostname="new-device"),
+            ],
+        )
+
+        with patch("app.routers.networks.get_network_with_access") as mock_get:
+            with patch(
+                "app.routers.networks.get_network_member_user_ids", new_callable=AsyncMock
+            ) as mock_members:
+                with patch(
+                    "app.routers.networks.proxy_notification_request", new_callable=AsyncMock
+                ) as mock_proxy:
+                    mock_get.return_value = (mock_network, True, "owner")
+                    mock_members.return_value = ["owner-123"]
+                    mock_proxy.side_effect = RuntimeError("notification service down")
+
+                    response = await sync_agent_scan(
+                        network_id="net-123",
+                        sync_data=sync_data,
+                        current_user=service_user,
+                        db=mock_db,
+                    )
+
+                    assert response.success is True
+                    mock_db.commit.assert_called_once()
+
 
 class TestAgentHealthEndpoint:
     """Tests for agent health sync endpoint to boost coverage."""

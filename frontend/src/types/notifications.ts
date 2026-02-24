@@ -5,6 +5,8 @@
 // ==================== Core Types ====================
 
 export type NotificationType =
+  | 'device_added'
+  | 'device_removed'
   | 'device_offline'
   | 'device_online'
   | 'device_degraded'
@@ -23,6 +25,8 @@ export type NotificationType =
 export type NotificationPriority = 'low' | 'medium' | 'high' | 'critical';
 
 export type NetworkNotificationType =
+  | 'device_added'
+  | 'device_removed'
   | 'device_offline'
   | 'device_online'
   | 'device_degraded'

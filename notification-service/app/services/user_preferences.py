@@ -28,6 +28,8 @@ logger = logging.getLogger(__name__)
 
 # Default notification types for new users
 DEFAULT_ENABLED_TYPES = [
+    NotificationType.DEVICE_ADDED,
+    NotificationType.DEVICE_REMOVED,
     NotificationType.DEVICE_OFFLINE,
     NotificationType.DEVICE_ONLINE,
     NotificationType.DEVICE_DEGRADED,

@@ -107,6 +107,8 @@
                   <option value="system_status">System Status</option>
                   <option value="security_alert">Security Alert</option>
                   <option value="isp_issue">ISP Issue</option>
+                  <option value="device_added">Device Added</option>
+                  <option value="device_removed">Device Removed</option>
                   <option value="device_offline">Device Offline</option>
                   <option value="device_online">Device Online</option>
                   <option value="device_degraded">Device Degraded</option>
@@ -568,6 +570,8 @@
                   <option value="system_status">System Status</option>
                   <option value="security_alert">Security Alert</option>
                   <option value="isp_issue">ISP Issue</option>
+                  <option value="device_added">Device Added</option>
+                  <option value="device_removed">Device Removed</option>
                   <option value="device_offline">Device Offline</option>
                   <option value="device_online">Device Online</option>
                   <option value="device_degraded">Device Degraded</option>
@@ -1130,6 +1134,8 @@ function getTypeIcon(type: string): string {
     system_status: '📊',
     security_alert: '🔒',
     isp_issue: '🌐',
+    device_added: '➕',
+    device_removed: '➖',
     device_offline: '🔴',
     device_online: '🟢',
     device_degraded: '🟡',

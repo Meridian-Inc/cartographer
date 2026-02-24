@@ -60,6 +60,8 @@ class TestEnums:
 
     def test_notification_type_values(self):
         """Should have expected type values"""
+        assert NotificationType.DEVICE_ADDED.value == "device_added"
+        assert NotificationType.DEVICE_REMOVED.value == "device_removed"
         assert NotificationType.DEVICE_OFFLINE.value == "device_offline"
         assert NotificationType.DEVICE_ONLINE.value == "device_online"
         assert NotificationType.ANOMALY_DETECTED.value == "anomaly_detected"
@@ -139,8 +141,21 @@ class TestNotificationPreferences:
     def test_notification_preferences_enabled_types(self):
         """Should have default enabled notification types"""
         prefs = NotificationPreferences(network_id="test-network-uuid")
+        assert NotificationType.DEVICE_ADDED in prefs.enabled_notification_types
+        assert NotificationType.DEVICE_REMOVED in prefs.enabled_notification_types
         assert NotificationType.DEVICE_OFFLINE in prefs.enabled_notification_types
         assert NotificationType.CARTOGRAPHER_UP in prefs.enabled_notification_types
+
+    def test_default_priority_for_device_added_removed(self):
+        """Device add/remove defaults should be high priority."""
+        assert (
+            get_default_priority_for_type(NotificationType.DEVICE_ADDED)
+            == NotificationPriority.HIGH
+        )
+        assert (
+            get_default_priority_for_type(NotificationType.DEVICE_REMOVED)
+            == NotificationPriority.HIGH
+        )
 
     def test_get_effective_priority_default(self):
         """Should return default priority when no override"""

@@ -6,6 +6,7 @@ import ipaddress
 import logging
 import uuid
 from datetime import datetime, timezone
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
@@ -35,7 +36,13 @@ from ..schemas import (
 )
 from ..services import health_proxy_service
 from ..services.cache_service import CacheService, get_cache
-from ..services.network_service import generate_agent_key, get_network_with_access, is_service_token
+from ..services.network_service import (
+    generate_agent_key,
+    get_network_member_user_ids,
+    get_network_with_access,
+    is_service_token,
+)
+from ..services.proxy_service import proxy_notification_request
 
 router = APIRouter(prefix="/networks", tags=["Networks"])
 settings = get_settings()
@@ -397,9 +404,34 @@ async def save_network_layout(
         is_service=is_service_token(current_user.user_id),
     )
 
+    existing_snapshot = _collect_layout_device_snapshot(network.layout_data)
+    incoming_snapshot = _collect_layout_device_snapshot(layout_data.layout_data)
+    prepopulated = _is_layout_prepopulated(existing_snapshot)
+    added_ids = sorted(set(incoming_snapshot) - set(existing_snapshot))
+    removed_ids = sorted(set(existing_snapshot) - set(incoming_snapshot))
+
     network.layout_data = layout_data.layout_data
     await db.commit()
     await db.refresh(network)
+
+    if prepopulated:
+        for node_id in added_ids:
+            device_snapshot = incoming_snapshot[node_id]
+            if _is_mapper_discovered_layout_device(device_snapshot):
+                await _send_device_added_notification(
+                    db=db,
+                    network=network,
+                    device_snapshot=device_snapshot,
+                    source="layout_save_mapper",
+                )
+
+    removed_devices = [existing_snapshot[node_id] for node_id in removed_ids]
+    if removed_devices:
+        await _send_device_removed_notification(
+            db=db,
+            network=network,
+            removed_devices=removed_devices,
+        )
 
     return NetworkLayoutResponse(
         id=network.id,
@@ -1280,6 +1312,213 @@ def _flag_layout_modified_if_needed(network: Network) -> None:
         return
 
 
+def _walk_layout_nodes(node: dict | None):
+    """Yield all nodes in a layout tree."""
+    if not isinstance(node, dict):
+        return
+    yield node
+    for child in node.get("children", []):
+        if isinstance(child, dict):
+            yield from _walk_layout_nodes(child)
+
+
+def _collect_layout_device_snapshot(layout_data: dict | None) -> dict[str, dict[str, Any]]:
+    """Collect real device nodes (non-group with IP) keyed by node id."""
+    if not isinstance(layout_data, dict):
+        return {}
+
+    root = layout_data.get("root")
+    snapshot: dict[str, dict[str, Any]] = {}
+    for node in _walk_layout_nodes(root):
+        if node.get("role") == "group":
+            continue
+        node_id = node.get("id")
+        ip = node.get("ip")
+        if not node_id or not ip:
+            continue
+        history = node.get("history")
+        snapshot[str(node_id)] = {
+            "id": str(node_id),
+            "ip": str(ip),
+            "name": node.get("name"),
+            "hostname": node.get("hostname"),
+            "vendor": node.get("vendor"),
+            "mac": node.get("mac"),
+            "role": node.get("role"),
+            "history": list(history) if isinstance(history, list) else [],
+        }
+    return snapshot
+
+
+def _is_layout_prepopulated(snapshot: dict[str, dict[str, Any]]) -> bool:
+    """Treat any existing real device node as populated (placeholder roots are excluded)."""
+    return bool(snapshot)
+
+
+def _history_change_strings(device_snapshot: dict[str, Any]) -> list[str]:
+    """Extract flattened history change strings from a snapshot record."""
+    changes: list[str] = []
+    for entry in device_snapshot.get("history", []):
+        if not isinstance(entry, dict):
+            continue
+        for change in entry.get("changes", []):
+            if isinstance(change, str):
+                changes.append(change)
+    return changes
+
+
+def _is_mapper_discovered_layout_device(device_snapshot: dict[str, Any]) -> bool:
+    """Classify a layout-added device as mapper-discovered vs manual editor add."""
+    history_changes = [c.lower() for c in _history_change_strings(device_snapshot)]
+    if any("manual" in c for c in history_changes):
+        return False
+    return any("mapper" in c for c in history_changes)
+
+
+def _device_label(device_snapshot: dict[str, Any]) -> str:
+    """Human-readable device label for notification text."""
+    ip = device_snapshot.get("ip")
+    name = (
+        device_snapshot.get("name")
+        or device_snapshot.get("hostname")
+        or device_snapshot.get("vendor")
+    )
+    if name and ip and name != ip:
+        return f"{name} ({ip})"
+    return str(ip or name or "Unknown device")
+
+
+def _removed_devices_summary(devices: list[dict[str, Any]], limit: int = 5) -> str:
+    """Build a compact summary list for aggregate removal notifications."""
+    labels = [_device_label(d) for d in devices]
+    if len(labels) <= limit:
+        return ", ".join(labels)
+    visible = ", ".join(labels[:limit])
+    remaining = len(labels) - limit
+    return f"{visible}, +{remaining} more"
+
+
+async def _send_network_notification_best_effort(
+    *,
+    db: AsyncSession,
+    network: Network,
+    notification_type: str,
+    priority: str,
+    title: str,
+    message: str,
+    details: dict[str, Any] | None = None,
+) -> None:
+    """Best-effort network notification dispatch that never breaks the caller."""
+    network_id = str(network.id)
+    try:
+        user_ids = await get_network_member_user_ids(network_id, db)
+        if not user_ids:
+            logger.info(
+                "Skipping %s notification for network %s: no network members",
+                notification_type,
+                network_id,
+            )
+            return
+
+        payload: dict[str, Any] = {
+            "user_ids": user_ids,
+            "type": notification_type,
+            "priority": priority,
+            "title": title,
+            "message": message,
+        }
+        if details:
+            payload["details"] = details
+
+        await proxy_notification_request(
+            "POST",
+            f"/networks/{network_id}/notifications/send",
+            json_body=payload,
+            use_user_path=True,
+        )
+    except Exception as exc:
+        logger.warning(
+            "Failed to send %s notification for network %s: %s",
+            notification_type,
+            network_id,
+            exc,
+            exc_info=True,
+        )
+
+
+async def _send_device_added_notification(
+    *,
+    db: AsyncSession,
+    network: Network,
+    device_snapshot: dict[str, Any],
+    source: str,
+) -> None:
+    """Send a high-priority device added notification."""
+    label = _device_label(device_snapshot)
+    await _send_network_notification_best_effort(
+        db=db,
+        network=network,
+        notification_type="device_added",
+        priority="high",
+        title="Device Added",
+        message=f"New device discovered on {network.name}: {label}",
+        details={
+            "source": source,
+            "device": {
+                "id": device_snapshot.get("id"),
+                "ip": device_snapshot.get("ip"),
+                "name": device_snapshot.get("name"),
+                "hostname": device_snapshot.get("hostname"),
+                "vendor": device_snapshot.get("vendor"),
+                "mac": device_snapshot.get("mac"),
+                "role": device_snapshot.get("role"),
+            },
+        },
+    )
+
+
+async def _send_device_removed_notification(
+    *,
+    db: AsyncSession,
+    network: Network,
+    removed_devices: list[dict[str, Any]],
+) -> None:
+    """Send an aggregated high-priority device removed notification."""
+    if not removed_devices:
+        return
+    count = len(removed_devices)
+    noun = "Device Removed" if count == 1 else "Devices Removed"
+    message = (
+        f"{count} device was manually removed from {network.name}: {_removed_devices_summary(removed_devices)}"
+        if count == 1
+        else f"{count} devices were manually removed from {network.name}: {_removed_devices_summary(removed_devices)}"
+    )
+    await _send_network_notification_best_effort(
+        db=db,
+        network=network,
+        notification_type="device_removed",
+        priority="high",
+        title=noun,
+        message=message,
+        details={
+            "source": "layout_save_manual_delete",
+            "removed_count": count,
+            "removed_devices": [
+                {
+                    "id": d.get("id"),
+                    "ip": d.get("ip"),
+                    "name": d.get("name"),
+                    "hostname": d.get("hostname"),
+                    "vendor": d.get("vendor"),
+                    "mac": d.get("mac"),
+                    "role": d.get("role"),
+                }
+                for d in removed_devices
+            ],
+        },
+    )
+
+
 @router.post("/{network_id}/scan", response_model=AgentSyncResponse)
 async def sync_agent_scan(
     network_id: str,
@@ -1309,6 +1548,8 @@ async def sync_agent_scan(
 
     layout_data = _initialize_layout_data(network.name, network.layout_data)
     root = _ensure_root_node(layout_data, network.name)
+    pre_sync_snapshot = _collect_layout_device_snapshot(layout_data)
+    pre_sync_populated = _is_layout_prepopulated(pre_sync_snapshot)
     now = datetime.now(timezone.utc).isoformat()
 
     devices_to_process, sanitize_stats = _prepare_sync_devices(sync_data)
@@ -1362,12 +1603,23 @@ async def sync_agent_scan(
     _migrate_legacy_devices(root, groups)
     layout_data["version"] = layout_data.get("version", 0) + 1
     layout_data["timestamp"] = now
+    post_sync_snapshot = _collect_layout_device_snapshot(layout_data)
+    added_snapshot_ids = sorted(set(post_sync_snapshot) - set(pre_sync_snapshot))
 
     # Save updated layout - must use flag_modified for SQLAlchemy to detect JSON changes
     network.layout_data = layout_data
     _flag_layout_modified_if_needed(network)
     network.last_sync_at = datetime.now(timezone.utc)
     await db.commit()
+
+    if pre_sync_populated:
+        for node_id in added_snapshot_ids:
+            await _send_device_added_notification(
+                db=db,
+                network=network,
+                device_snapshot=post_sync_snapshot[node_id],
+                source="agent_sync",
+            )
 
     return AgentSyncResponse(
         success=True,

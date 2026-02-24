@@ -24,6 +24,8 @@ class TestModels:
 
         assert NotificationType.DEVICE_OFFLINE.value == "device_offline"
         assert NotificationType.DEVICE_ONLINE.value == "device_online"
+        assert NotificationType.DEVICE_ADDED.value == "device_added"
+        assert NotificationType.DEVICE_REMOVED.value == "device_removed"
 
     def test_notification_priority_enum_values(self):
         """Test NotificationPriority enum values."""

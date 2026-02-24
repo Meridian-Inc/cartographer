@@ -41,6 +41,8 @@ def get_notification_icon(event_type: NotificationType) -> str:
     Used across all notification channels.
     """
     icons = {
+        NotificationType.DEVICE_ADDED: "➕",
+        NotificationType.DEVICE_REMOVED: "➖",
         NotificationType.DEVICE_OFFLINE: "🔴",
         NotificationType.DEVICE_ONLINE: "🟢",
         NotificationType.DEVICE_DEGRADED: "🟡",

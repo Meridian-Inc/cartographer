@@ -29,6 +29,7 @@ class SendNetworkNotificationRequest(BaseModel):
     title: str
     message: str
     scheduled_at: Optional[str] = None  # ISO datetime string
+    details: Optional[dict] = None
 
 
 @router.post("/networks/{network_id}/notifications/send")
@@ -66,6 +67,7 @@ async def send_network_notification(
         details={
             "is_manual_notification": True,
             "scheduled_at": request.scheduled_at,
+            **(request.details or {}),
         },
     )
 

@@ -32,6 +32,8 @@ class NotificationPriority(str, Enum):
 class NotificationType(str, Enum):
     """Types of notifications that can be sent"""
 
+    DEVICE_ADDED = "device_added"
+    DEVICE_REMOVED = "device_removed"
     DEVICE_OFFLINE = "device_offline"
     DEVICE_ONLINE = "device_online"
     DEVICE_DEGRADED = "device_degraded"
@@ -98,6 +100,8 @@ class DiscordConfig(BaseModel):
 # These are the default priorities for each notification type
 # Users can override these per notification type
 DEFAULT_NOTIFICATION_TYPE_PRIORITIES: Dict[NotificationType, NotificationPriority] = {
+    NotificationType.DEVICE_ADDED: NotificationPriority.HIGH,
+    NotificationType.DEVICE_REMOVED: NotificationPriority.HIGH,
     NotificationType.DEVICE_OFFLINE: NotificationPriority.HIGH,
     NotificationType.DEVICE_ONLINE: NotificationPriority.LOW,
     NotificationType.DEVICE_DEGRADED: NotificationPriority.MEDIUM,
@@ -145,6 +149,8 @@ class NotificationPreferences(BaseModel):
         default_factory=lambda: [
             NotificationType.DEVICE_OFFLINE,
             NotificationType.DEVICE_ONLINE,
+            NotificationType.DEVICE_ADDED,
+            NotificationType.DEVICE_REMOVED,
             NotificationType.DEVICE_DEGRADED,
             NotificationType.ANOMALY_DETECTED,
             NotificationType.HIGH_LATENCY,

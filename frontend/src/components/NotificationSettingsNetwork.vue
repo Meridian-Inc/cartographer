@@ -414,6 +414,20 @@ const bypassOptions = [
 
 const networkNotificationTypes = [
   {
+    value: 'device_added',
+    label: 'Device Added',
+    icon: '➕',
+    description: 'When a new discovered device is added to the network',
+    defaultPriority: 'high',
+  },
+  {
+    value: 'device_removed',
+    label: 'Device Removed',
+    icon: '➖',
+    description: 'When a device is manually removed from the network map',
+    defaultPriority: 'high',
+  },
+  {
     value: 'device_offline',
     label: 'Device Offline',
     icon: '🔴',
