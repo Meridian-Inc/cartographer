@@ -1,12 +1,12 @@
 # 🗺️ Cartographer
 
-[![Tests](https://github.com/Meridian-Inc/cartographer/actions/workflows/tests.yml/badge.svg)](https://github.com/Meridian-Inc/cartographer/actions/workflows/tests.yml)
-[![Lint](https://github.com/Meridian-Inc/cartographer/actions/workflows/lint.yml/badge.svg)](https://github.com/Meridian-Inc/cartographer/actions/workflows/lint.yml)
-[![Load Tests](https://github.com/Meridian-Inc/cartographer/actions/workflows/load-tests.yml/badge.svg)](https://github.com/Meridian-Inc/cartographer/actions/workflows/load-tests.yml)
-[![Nightly Capacity](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Meridian-Inc/cartographer/main/load-tests/badge.json)](https://github.com/Meridian-Inc/cartographer/actions/workflows/load-tests.yml)
-[![codecov](https://codecov.io/gh/Meridian-Inc/cartographer/graph/badge.svg)](https://codecov.io/gh/Meridian-Inc/cartographer)
+[![Tests](https://github.com/Stratiform-Networking/cartographer/actions/workflows/tests.yml/badge.svg)](https://github.com/Stratiform-Networking/cartographer/actions/workflows/tests.yml)
+[![Lint](https://github.com/Stratiform-Networking/cartographer/actions/workflows/lint.yml/badge.svg)](https://github.com/Stratiform-Networking/cartographer/actions/workflows/lint.yml)
+[![Load Tests](https://github.com/Stratiform-Networking/cartographer/actions/workflows/load-tests.yml/badge.svg)](https://github.com/Stratiform-Networking/cartographer/actions/workflows/load-tests.yml)
+[![Nightly Capacity](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Stratiform-Networking/cartographer/main/load-tests/badge.json)](https://github.com/Stratiform-Networking/cartographer/actions/workflows/load-tests.yml)
+[![codecov](https://codecov.io/gh/Stratiform-Networking/cartographer/graph/badge.svg)](https://codecov.io/gh/Stratiform-Networking/cartographer)
 
-![Network Map](https://raw.githubusercontent.com/Meridian-Inc/cartographer/refs/heads/main/assets/application.png)
+![Network Map](https://raw.githubusercontent.com/Stratiform-Networking/cartographer/refs/heads/main/assets/application.png)
 
 **See every device on your network at a glance.**
 
@@ -165,7 +165,7 @@ If you run [Ollama](https://ollama.ai) locally, no API key is needed — just ma
 
 Cartographer can alert you when things go wrong on your network:
 
-![Discord Notification](https://raw.githubusercontent.com/Meridian-Inc/cartographer/refs/heads/main/assets/notification.png)
+![Discord Notification](https://raw.githubusercontent.com/Stratiform-Networking/cartographer/refs/heads/main/assets/notification.png)
 
 - **Device down** — Know immediately when a server, router, or important device stops responding.
 - **Device recovered** — Get a heads-up when things come back online.
@@ -382,10 +382,10 @@ npm run format:check        # Check formatting
 ### CI
 
 All services run linting, tests, and coverage checks in parallel on every push/PR to `main`:
-- **[Lint workflow](https://github.com/Meridian-Inc/cartographer/actions/workflows/lint.yml)** - Code style enforcement
-- **[Tests workflow](https://github.com/Meridian-Inc/cartographer/actions/workflows/tests.yml)** - Test suite execution
+- **[Lint workflow](https://github.com/Stratiform-Networking/cartographer/actions/workflows/lint.yml)** - Code style enforcement
+- **[Tests workflow](https://github.com/Stratiform-Networking/cartographer/actions/workflows/tests.yml)** - Test suite execution
 
-Coverage reports are uploaded to [Codecov](https://codecov.io/gh/Meridian-Inc/cartographer).
+Coverage reports are uploaded to [Codecov](https://codecov.io/gh/Stratiform-Networking/cartographer).
 
 ## Contributing
 

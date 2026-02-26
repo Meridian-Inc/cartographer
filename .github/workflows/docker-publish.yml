@@ -21,7 +21,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  OWNER: Meridian-Inc
+  OWNER: Stratiform-Networking
 
 permissions:
   contents: write
