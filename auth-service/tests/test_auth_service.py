@@ -917,6 +917,7 @@ class TestUpdateUser:
         mock_user.last_name = "User"
         mock_user.email = "test@test.com"
         mock_user.username = "testuser"
+        mock_user.avatar_url = None
         mock_user.created_at = datetime.now(timezone.utc)
         mock_user.updated_at = datetime.now(timezone.utc)
         mock_user.last_login_at = None
@@ -1078,6 +1079,7 @@ class TestUpdateUser:
         mock_user.last_name = "User"
         mock_user.email = "test@test.com"
         mock_user.username = "testuser"
+        mock_user.avatar_url = None
         mock_user.created_at = datetime.now(timezone.utc)
         mock_user.updated_at = datetime.now(timezone.utc)
         mock_user.last_login_at = None
@@ -1276,6 +1278,7 @@ class TestListUsersNonOwner:
         mock_user.first_name = "Test"
         mock_user.last_name = "User"
         mock_user.email = "test@test.com"
+        mock_user.avatar_url = None
         mock_user.created_at = datetime.now(timezone.utc)
         mock_user.updated_at = datetime.now(timezone.utc)
         mock_user.last_login_at = None
@@ -2180,6 +2183,7 @@ class TestUpdateUserExtended:
         mock_user.last_name = "User"
         mock_user.email = "test@test.com"
         mock_user.role = UserRole.MEMBER
+        mock_user.avatar_url = None
         mock_user.created_at = datetime.now(timezone.utc)
         mock_user.updated_at = datetime.now(timezone.utc)
         mock_user.is_active = True
@@ -2213,6 +2217,7 @@ class TestUpdateUserExtended:
         mock_user.last_name = "User"
         mock_user.email = "old@test.com"
         mock_user.role = UserRole.MEMBER
+        mock_user.avatar_url = None
         mock_user.created_at = datetime.now(timezone.utc)
         mock_user.updated_at = datetime.now(timezone.utc)
         mock_user.is_active = True
@@ -2256,6 +2261,7 @@ class TestUpdateUserExtended:
         mock_user.last_name = "User"
         mock_user.email = "test@test.com"
         mock_user.role = UserRole.MEMBER
+        mock_user.avatar_url = None
         mock_user.created_at = datetime.now(timezone.utc)
         mock_user.updated_at = datetime.now(timezone.utc)
         mock_user.is_active = True
