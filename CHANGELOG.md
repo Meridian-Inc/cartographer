@@ -5,6 +5,18 @@ All notable changes to Cartographer will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.42.0](https://github.com/devartech/cartographer/compare/v0.41.2...v0.42.0) (2026-02-27)
+
+
+### 🐛 Bug Fixes
+
+* update to new org name ([0964d15](https://github.com/devartech/cartographer/commit/0964d157f7f72a3791cd2f1a051220ddd394e1a4))
+
+
+### ✨ Features
+
+* sync Clerk icon ([fdea641](https://github.com/devartech/cartographer/commit/fdea6412f21100caf6e9232b804f6101238958de))
+
 ### [0.41.3](https://github.com/devartech/cartographer/compare/v0.37.7...v0.41.3) (2026-02-26)
 
 
