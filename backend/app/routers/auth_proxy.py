@@ -190,6 +190,34 @@ async def change_password(request: Request, user: AuthenticatedUser = Depends(re
     return await proxy_auth_request("POST", "/me/change-password", request, body)
 
 
+@router.get("/auth/me/preferences")
+async def get_preferences(request: Request, user: AuthenticatedUser = Depends(require_auth)):
+    """Get current user's preferences. Requires authentication."""
+    return await proxy_auth_request("GET", "/me/preferences", request)
+
+
+@router.patch("/auth/me/preferences")
+async def update_preferences(request: Request, user: AuthenticatedUser = Depends(require_auth)):
+    """Update current user's preferences. Requires authentication."""
+    body = await request.json()
+    return await proxy_auth_request("PATCH", "/me/preferences", request, body)
+
+
+@router.get("/auth/me/assistant-settings")
+async def get_assistant_settings(request: Request, user: AuthenticatedUser = Depends(require_auth)):
+    """Get current user's BYOK assistant settings. Requires authentication."""
+    return await proxy_auth_request("GET", "/me/assistant-settings", request)
+
+
+@router.patch("/auth/me/assistant-settings")
+async def update_assistant_settings(
+    request: Request, user: AuthenticatedUser = Depends(require_auth)
+):
+    """Update current user's BYOK assistant settings. Requires authentication."""
+    body = await request.json()
+    return await proxy_auth_request("PATCH", "/me/assistant-settings", request, body)
+
+
 # ==================== Network Limit Endpoints ====================
 
 

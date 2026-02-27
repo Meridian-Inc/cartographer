@@ -17,7 +17,7 @@ from app.dependencies.auth import (
     require_auth_with_rate_limit,
 )
 from app.models import ChatMessage, ChatRole, ModelProvider
-from app.routers.assistant import ModelCache, get_provider, model_cache, router
+from app.routers.assistant import ModelCache, _get_provider_info, get_provider, model_cache, router
 
 # Mock user for auth
 _mock_user = AuthenticatedUser(user_id="test-user-123", username="testuser", role=UserRole.MEMBER)
@@ -67,7 +67,7 @@ class TestModelCache:
     async def test_get_models_cached(self):
         """Should use cached models"""
         cache = ModelCache(ttl_seconds=300)
-        cache._cache["openai"] = (["cached-model"], datetime.utcnow())
+        cache._cache["openai:default"] = (["cached-model"], datetime.utcnow())
 
         mock_provider = MagicMock()
         mock_provider.list_models = AsyncMock(return_value=["new-model"])
@@ -80,7 +80,7 @@ class TestModelCache:
     async def test_get_models_expired(self):
         """Should refresh expired cache"""
         cache = ModelCache(ttl_seconds=1)
-        cache._cache["openai"] = (["old-model"], datetime.utcnow() - timedelta(seconds=5))
+        cache._cache["openai:default"] = (["old-model"], datetime.utcnow() - timedelta(seconds=5))
 
         mock_provider = MagicMock()
         mock_provider.list_models = AsyncMock(return_value=["new-model"])
@@ -92,13 +92,13 @@ class TestModelCache:
     def test_invalidate_specific(self):
         """Should invalidate specific provider"""
         cache = ModelCache()
-        cache._cache["openai"] = (["model"], datetime.utcnow())
-        cache._cache["anthropic"] = (["model"], datetime.utcnow())
+        cache._cache["openai:default"] = (["model"], datetime.utcnow())
+        cache._cache["anthropic:default"] = (["model"], datetime.utcnow())
 
         cache.invalidate(ModelProvider.OPENAI)
 
-        assert "openai" not in cache._cache
-        assert "anthropic" in cache._cache
+        assert "openai:default" not in cache._cache
+        assert "anthropic:default" in cache._cache
 
     def test_invalidate_all(self):
         """Should invalidate all providers"""
@@ -134,6 +134,38 @@ class TestGetProvider:
         provider = get_provider(ModelProvider.OLLAMA)
         assert provider.name == "ollama"
 
+    def test_get_provider_unknown_raises(self):
+        """Should raise ValueError for unknown provider"""
+        with pytest.raises(ValueError, match="Unknown provider"):
+            get_provider("unknown")  # type: ignore[arg-type]
+
+
+class TestProviderHelpers:
+    """Tests for helper functions in assistant router."""
+
+    async def test_get_provider_info_success(self):
+        with patch("app.routers.assistant.get_provider") as mock_get:
+            mock_provider = MagicMock()
+            mock_provider.is_available = AsyncMock(return_value=True)
+            mock_provider.default_model = "test-model"
+            mock_get.return_value = mock_provider
+
+            result = await _get_provider_info(ModelProvider.OPENAI)
+
+        assert result == {
+            "provider": "openai",
+            "available": True,
+            "default_model": "test-model",
+        }
+
+    async def test_get_provider_info_error(self):
+        with patch("app.routers.assistant.get_provider", side_effect=RuntimeError("boom")):
+            result = await _get_provider_info(ModelProvider.OPENAI)
+
+        assert result["provider"] == "openai"
+        assert result["available"] is False
+        assert "boom" in result["error"]
+
 
 class TestConfigEndpoint:
     """Tests for /config endpoint"""
@@ -164,6 +196,65 @@ class TestConfigEndpoint:
             response = client.get("/api/assistant/config")
 
         assert response.status_code == 200
+
+    def test_get_config_uses_cache_hit(self, client):
+        """Should return cached config when redis has a value."""
+        cached_config = {
+            "providers": [
+                {
+                    "provider": "openai",
+                    "available": True,
+                    "configured": True,
+                    "default_model": "gpt-4o-mini",
+                    "available_models": ["gpt-4o-mini"],
+                    "error": None,
+                }
+            ],
+            "default_provider": "openai",
+            "network_context_enabled": True,
+        }
+        with (
+            patch("app.routers.assistant.get_redis") as mock_get_redis,
+            patch(
+                "app.routers.assistant.get_user_assistant_settings", new=AsyncMock(return_value={})
+            ),
+            patch("app.routers.assistant.get_provider") as mock_get_provider,
+        ):
+            mock_redis = MagicMock()
+            mock_redis.get = AsyncMock(return_value=json.dumps(cached_config))
+            mock_get_redis.return_value = mock_redis
+
+            response = client.get("/api/assistant/config")
+
+        assert response.status_code == 200
+        assert response.json()["default_provider"] == "openai"
+        mock_get_provider.assert_not_called()
+
+    def test_get_config_cache_write_error_still_returns_result(self, client):
+        """Should ignore redis set errors and still return computed config."""
+        with (
+            patch("app.routers.assistant.get_redis") as mock_get_redis,
+            patch(
+                "app.routers.assistant.get_user_assistant_settings", new=AsyncMock(return_value={})
+            ),
+            patch("app.routers.assistant.get_provider") as mock_get,
+            patch("app.routers.assistant.model_cache") as mock_cache,
+        ):
+            mock_redis = MagicMock()
+            mock_redis.get = AsyncMock(return_value=None)
+            mock_redis.setex = AsyncMock(side_effect=RuntimeError("redis down"))
+            mock_get_redis.return_value = mock_redis
+
+            mock_provider = MagicMock()
+            mock_provider.is_available = AsyncMock(return_value=True)
+            mock_provider.default_model = "test-model"
+            mock_get.return_value = mock_provider
+            mock_cache.get_models = AsyncMock(return_value=["model1"])
+
+            response = client.get("/api/assistant/config")
+
+        assert response.status_code == 200
+        assert response.json()["providers"]
 
 
 class TestProvidersEndpoint:
@@ -501,3 +592,45 @@ class TestContextRawEndpoint:
         assert response.status_code == 200
         data = response.json()
         assert "error" in data
+
+
+class TestChatLimitEndpoint:
+    """Tests for /chat/limit endpoint."""
+
+    def test_get_chat_limit_with_provider_byok_exempt(self, client):
+        """Should return unlimited when provider has user BYOK key."""
+        with (
+            patch("app.routers.assistant.get_user_assistant_settings") as mock_settings,
+            patch("app.routers.assistant.get_rate_limit_status") as mock_rate_status,
+        ):
+            mock_settings.return_value = {
+                "openai": {"api_key": "sk-openai"},
+                "anthropic": {"api_key": None},
+                "gemini": {"api_key": None},
+            }
+
+            response = client.get("/api/assistant/chat/limit?provider=openai")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["is_exempt"] is True
+        assert data["limit"] == -1
+        mock_rate_status.assert_not_called()
+
+    def test_get_chat_limit_without_provider_uses_rate_limit_status(self, client):
+        """Should use rate-limit service when no provider is specified."""
+        with patch("app.routers.assistant.get_rate_limit_status") as mock_rate_status:
+            mock_rate_status.return_value = {
+                "used": 2,
+                "limit": 5,
+                "remaining": 3,
+                "resets_in_seconds": 100,
+                "is_exempt": False,
+            }
+
+            response = client.get("/api/assistant/chat/limit")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["is_exempt"] is False
+        assert data["remaining"] == 3

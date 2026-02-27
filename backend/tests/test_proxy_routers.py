@@ -559,6 +559,62 @@ class TestAuthProxyRouter:
         call_kwargs = mock_http_pool.request.call_args[1]
         assert "/change-password" in call_kwargs["path"]
 
+    async def test_get_preferences(self, mock_http_pool, owner_user):
+        """get_preferences should GET /me/preferences (requires auth)"""
+        from app.routers.auth_proxy import get_preferences
+
+        mock_request = MagicMock()
+        mock_request.headers = {"Authorization": "Bearer token"}
+
+        await get_preferences(request=mock_request, user=owner_user)
+
+        call_kwargs = mock_http_pool.request.call_args[1]
+        assert call_kwargs["method"] == "GET"
+        assert "/me/preferences" in call_kwargs["path"]
+
+    async def test_update_preferences(self, mock_http_pool, owner_user):
+        """update_preferences should PATCH /me/preferences (requires auth)"""
+        from app.routers.auth_proxy import update_preferences
+
+        mock_request = MagicMock()
+        mock_request.headers = {"Authorization": "Bearer token"}
+        mock_request.json = AsyncMock(return_value={"dark_mode": True})
+
+        await update_preferences(request=mock_request, user=owner_user)
+
+        call_kwargs = mock_http_pool.request.call_args[1]
+        assert call_kwargs["method"] == "PATCH"
+        assert "/me/preferences" in call_kwargs["path"]
+        assert call_kwargs["json_body"] == {"dark_mode": True}
+
+    async def test_get_assistant_settings(self, mock_http_pool, owner_user):
+        """get_assistant_settings should GET /me/assistant-settings (requires auth)"""
+        from app.routers.auth_proxy import get_assistant_settings
+
+        mock_request = MagicMock()
+        mock_request.headers = {"Authorization": "Bearer token"}
+
+        await get_assistant_settings(request=mock_request, user=owner_user)
+
+        call_kwargs = mock_http_pool.request.call_args[1]
+        assert call_kwargs["method"] == "GET"
+        assert "/me/assistant-settings" in call_kwargs["path"]
+
+    async def test_update_assistant_settings(self, mock_http_pool, owner_user):
+        """update_assistant_settings should PATCH /me/assistant-settings (requires auth)"""
+        from app.routers.auth_proxy import update_assistant_settings
+
+        mock_request = MagicMock()
+        mock_request.headers = {"Authorization": "Bearer token"}
+        mock_request.json = AsyncMock(return_value={"openai": {"api_key": "sk-openai"}})
+
+        await update_assistant_settings(request=mock_request, user=owner_user)
+
+        call_kwargs = mock_http_pool.request.call_args[1]
+        assert call_kwargs["method"] == "PATCH"
+        assert "/me/assistant-settings" in call_kwargs["path"]
+        assert call_kwargs["json_body"] == {"openai": {"api_key": "sk-openai"}}
+
     async def test_list_invites(self, mock_http_pool, owner_user):
         """list_invites should GET (requires owner)"""
         from app.routers.auth_proxy import list_invites

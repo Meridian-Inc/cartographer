@@ -5,6 +5,67 @@ All notable changes to Cartographer will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+### [0.43.5](https://github.com/devartech/cartographer/compare/v0.43.4...v0.43.5) (2026-02-27)
+
+
+### 🐛 Bug Fixes
+
+* hide model providers without keys set ([86d710f](https://github.com/devartech/cartographer/commit/86d710f168e04aa052d5df04540b87b9e0f600eb))
+
+### [0.43.4](https://github.com/devartech/cartographer/compare/v0.43.3...v0.43.4) (2026-02-27)
+
+
+### 🐛 Bug Fixes
+
+* passthrough routes ([a7ac234](https://github.com/devartech/cartographer/commit/a7ac234526efc5808ef607924299464fab0244b8))
+
+### [0.43.3](https://github.com/devartech/cartographer/compare/v0.43.2...v0.43.3) (2026-02-27)
+
+
+### 🐛 Bug Fixes
+
+* key not set error ([f6474d2](https://github.com/devartech/cartographer/commit/f6474d2ed780e40393b0f847cb6c97382df6f330))
+
+### [0.43.2](https://github.com/devartech/cartographer/compare/v0.43.1...v0.43.2) (2026-02-27)
+
+
+### 🐛 Bug Fixes
+
+* remove model definition in keys ([c4d1ca8](https://github.com/devartech/cartographer/commit/c4d1ca8e78edfb65c231dd36ad7291a29e88a568))
+
+### [0.43.1](https://github.com/devartech/cartographer/compare/v0.43.0...v0.43.1) (2026-02-27)
+
+
+### 🐛 Bug Fixes
+
+* migration revision length ([e31b165](https://github.com/devartech/cartographer/commit/e31b165bc4fabec1d62dd3e12a04676ecdeab343))
+
+## [0.43.0](https://github.com/devartech/cartographer/compare/v0.42.1...v0.43.0) (2026-02-27)
+
+
+### ✨ Features
+
+* add BYOK ([ec8ad98](https://github.com/devartech/cartographer/commit/ec8ad98ee8fdc7a308a027a13c40bf0b1e1282e3))
+
+### [0.42.1](https://github.com/devartech/cartographer/compare/v0.42.0...v0.42.1) (2026-02-27)
+
+
+### 🐛 Bug Fixes
+
+* downrevision for 010 ([c3f9a6d](https://github.com/devartech/cartographer/commit/c3f9a6ddb18476f8061ce1b6a20e3be25470587c))
+
+## [0.42.0](https://github.com/devartech/cartographer/compare/v0.41.2...v0.42.0) (2026-02-27)
+
+
+### 🐛 Bug Fixes
+
+* update to new org name ([0964d15](https://github.com/devartech/cartographer/commit/0964d157f7f72a3791cd2f1a051220ddd394e1a4))
+
+
+### ✨ Features
+
+* sync Clerk icon ([fdea641](https://github.com/devartech/cartographer/commit/fdea6412f21100caf6e9232b804f6101238958de))
+
 ### [0.41.3](https://github.com/devartech/cartographer/compare/v0.37.7...v0.41.3) (2026-02-26)
 
 

@@ -15,6 +15,7 @@ export interface User {
   first_name: string;
   last_name: string;
   email: string;
+  avatar_url?: string | null;
   role: UserRole;
   created_at: string;
   updated_at: string;
@@ -99,6 +100,29 @@ export interface AuthConfig {
   clerk_publishable_key: string | null;
   clerk_proxy_url: string | null;
   allow_registration: boolean;
+}
+
+export type AssistantProvider = 'openai' | 'anthropic' | 'gemini';
+
+export interface AssistantProviderSettings {
+  has_api_key: boolean;
+  api_key_masked?: string | null;
+}
+
+export interface AssistantProviderSettingsUpdate {
+  api_key?: string | null;
+}
+
+export interface UserAssistantSettings {
+  openai: AssistantProviderSettings;
+  anthropic: AssistantProviderSettings;
+  gemini: AssistantProviderSettings;
+}
+
+export interface UserAssistantSettingsUpdate {
+  openai?: AssistantProviderSettingsUpdate;
+  anthropic?: AssistantProviderSettingsUpdate;
+  gemini?: AssistantProviderSettingsUpdate;
 }
 
 // ==================== Invitation Types ====================

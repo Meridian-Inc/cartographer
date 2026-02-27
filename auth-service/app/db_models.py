@@ -51,6 +51,7 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String(255))
     first_name: Mapped[str] = mapped_column(String(100))
     last_name: Mapped[str] = mapped_column(String(100))
+    avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     # Role for self-hosted permission management
     # Use values_callable to ensure SQLAlchemy uses lowercase enum values matching PostgreSQL
@@ -217,6 +218,26 @@ class UserPlanSettings(Base):
     )
     health_poll_interval_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=60)
 
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class UserAssistantProviderKey(Base):
+    """
+    Per-user BYOK provider key storage.
+
+    API keys are stored encrypted in `encrypted_api_key`.
+    """
+
+    __tablename__ = "user_assistant_provider_keys"
+
+    user_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    provider: Mapped[str] = mapped_column(String(32), primary_key=True)
+    encrypted_api_key: Mapped[str] = mapped_column(String(4096), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
