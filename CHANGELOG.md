@@ -5,6 +5,13 @@ All notable changes to Cartographer will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+### [0.43.5](https://github.com/devartech/cartographer/compare/v0.43.4...v0.43.5) (2026-02-27)
+
+
+### 🐛 Bug Fixes
+
+* hide model providers without keys set ([86d710f](https://github.com/devartech/cartographer/commit/86d710f168e04aa052d5df04540b87b9e0f600eb))
+
 ### [0.43.4](https://github.com/devartech/cartographer/compare/v0.43.3...v0.43.4) (2026-02-27)
 
 
