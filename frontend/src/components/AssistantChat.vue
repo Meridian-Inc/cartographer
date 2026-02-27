@@ -205,7 +205,6 @@
         <!-- Model selector -->
         <select
           v-model="selectedModel"
-          @change="onModelSelectionChanged"
           class="text-xs bg-white dark:bg-slate-800/60 border border-slate-300 dark:border-slate-700 rounded-md px-2 py-1.5 text-slate-700 dark:text-slate-200 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 outline-none flex-1 min-w-0 transition-shadow"
           :disabled="isStreaming || !currentProviderModels.length"
           :title="selectedModel"
@@ -617,12 +616,6 @@
                   >
                     Clear saved key
                   </button>
-                  <span
-                    v-if="assistantSettings[provider].model"
-                    class="text-[11px] text-slate-500 dark:text-slate-400"
-                  >
-                    Model: {{ formatModelName(assistantSettings[provider].model || '') }}
-                  </span>
                 </div>
               </div>
 
@@ -768,7 +761,6 @@ interface Provider {
 interface AssistantProviderSettings {
   has_api_key: boolean;
   api_key_masked?: string | null;
-  model?: string | null;
 }
 
 interface AssistantSettings {
@@ -794,9 +786,9 @@ interface ContextStatus {
 
 function emptyAssistantSettings(): AssistantSettings {
   return {
-    openai: { has_api_key: false, api_key_masked: null, model: null },
-    anthropic: { has_api_key: false, api_key_masked: null, model: null },
-    gemini: { has_api_key: false, api_key_masked: null, model: null },
+    openai: { has_api_key: false, api_key_masked: null },
+    anthropic: { has_api_key: false, api_key_masked: null },
+    gemini: { has_api_key: false, api_key_masked: null },
   };
 }
 
@@ -1148,20 +1140,6 @@ function selectProvider(providerName: string) {
   if (isStreaming.value) return;
   selectedProvider.value = providerName;
   onProviderChange();
-}
-
-async function onModelSelectionChanged() {
-  if (!isCloudByokProvider(selectedProvider.value) || !selectedModel.value) {
-    return;
-  }
-
-  try {
-    assistantSettings.value = await authApi.updateAssistantSettings({
-      [selectedProvider.value]: { model: selectedModel.value },
-    });
-  } catch (err) {
-    console.error('Failed to save preferred model:', err);
-  }
 }
 
 function formatModelName(model: string): string {

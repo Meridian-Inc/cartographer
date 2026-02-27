@@ -22,7 +22,7 @@ def clear_user_settings_cache():
 def test_empty_settings_shape():
     result = user_settings._empty_settings()
     assert set(result.keys()) == {"openai", "anthropic", "gemini"}
-    assert result["openai"] == {"api_key": None, "model": None}
+    assert result["openai"] == {"api_key": None}
 
 
 def test_normalize_settings_handles_invalid_payload():
@@ -32,21 +32,21 @@ def test_normalize_settings_handles_invalid_payload():
 def test_normalize_settings_trims_and_filters_values():
     result = user_settings._normalize_settings(
         {
-            "openai": {"api_key": "  sk-openai  ", "model": "  gpt-4o-mini  "},
-            "anthropic": {"api_key": "", "model": "   "},
+            "openai": {"api_key": "  sk-openai  ", "model": "  ignored  "},
+            "anthropic": {"api_key": "", "model": "ignored"},
             "gemini": {"api_key": 123, "model": None},
             "other": {"api_key": "ignored", "model": "ignored"},
         }
     )
 
-    assert result["openai"] == {"api_key": "sk-openai", "model": "gpt-4o-mini"}
-    assert result["anthropic"] == {"api_key": None, "model": None}
-    assert result["gemini"] == {"api_key": None, "model": None}
+    assert result["openai"] == {"api_key": "sk-openai"}
+    assert result["anthropic"] == {"api_key": None}
+    assert result["gemini"] == {"api_key": None}
 
 
 def test_normalize_settings_skips_non_dict_provider_payload():
     result = user_settings._normalize_settings({"openai": ["not-a-dict"]})
-    assert result["openai"] == {"api_key": None, "model": None}
+    assert result["openai"] == {"api_key": None}
 
 
 @pytest.mark.asyncio
@@ -88,8 +88,8 @@ async def test_fetch_user_settings_handles_non_200_response():
 @pytest.mark.asyncio
 async def test_fetch_user_settings_successfully_normalizes_payload():
     payload = {
-        "openai": {"api_key": " sk-key ", "model": " gpt-model "},
-        "anthropic": {"api_key": "  ", "model": "claude-3-5"},
+        "openai": {"api_key": " sk-key ", "model": "ignored"},
+        "anthropic": {"api_key": "  ", "model": "ignored"},
     }
     with patch.object(user_settings.settings, "auth_service_url", "http://auth-service"):
         with patch("app.services.user_settings.httpx.AsyncClient") as mock_client_cls:
@@ -102,15 +102,15 @@ async def test_fetch_user_settings_successfully_normalizes_payload():
 
             result = await user_settings._fetch_user_settings("user-1")
 
-    assert result["openai"] == {"api_key": "sk-key", "model": "gpt-model"}
-    assert result["anthropic"] == {"api_key": None, "model": "claude-3-5"}
-    assert result["gemini"] == {"api_key": None, "model": None}
+    assert result["openai"] == {"api_key": "sk-key"}
+    assert result["anthropic"] == {"api_key": None}
+    assert result["gemini"] == {"api_key": None}
 
 
 @pytest.mark.asyncio
 async def test_get_user_assistant_settings_uses_cache_and_refresh():
-    cached_value = {"openai": {"api_key": "k1", "model": "m1"}}
-    refreshed_value = {"openai": {"api_key": "k2", "model": "m2"}}
+    cached_value = {"openai": {"api_key": "k1"}}
+    refreshed_value = {"openai": {"api_key": "k2"}}
 
     with patch(
         "app.services.user_settings._fetch_user_settings",
@@ -128,11 +128,11 @@ async def test_get_user_assistant_settings_uses_cache_and_refresh():
 
 @pytest.mark.asyncio
 async def test_get_user_assistant_settings_double_check_after_lock():
-    cached_value = {"openai": {"api_key": "k1", "model": "m1"}}
+    cached_value = {"openai": {"api_key": "k1"}}
 
     with patch(
         "app.services.user_settings._fetch_user_settings",
-        new=AsyncMock(return_value={"openai": {"api_key": "unexpected", "model": "unexpected"}}),
+        new=AsyncMock(return_value={"openai": {"api_key": "unexpected"}}),
     ) as mock_fetch:
         await user_settings._cache_lock.acquire()
         try:

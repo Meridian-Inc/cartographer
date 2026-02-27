@@ -2175,7 +2175,6 @@ class TestPreferences:
         row = MagicMock()
         row.provider = "openai"
         row.encrypted_api_key = service._encrypt_assistant_api_key("sk-openai-abcdef123456")
-        row.model = "gpt-4o-mini"
 
         mock_result = MagicMock()
         mock_result.scalars.return_value.all.return_value = [row]
@@ -2185,7 +2184,6 @@ class TestPreferences:
 
         assert result.openai.has_api_key is True
         assert result.openai.api_key_masked is not None
-        assert result.openai.model == "gpt-4o-mini"
         assert result.anthropic.has_api_key is False
 
     @pytest.mark.asyncio
@@ -2199,7 +2197,6 @@ class TestPreferences:
         row = MagicMock()
         row.provider = "anthropic"
         row.encrypted_api_key = service._encrypt_assistant_api_key("sk-ant-123")
-        row.model = "claude-sonnet"
 
         mock_result = MagicMock()
         mock_result.scalars.return_value.all.return_value = [row]
@@ -2208,7 +2205,6 @@ class TestPreferences:
         result = await service.get_assistant_settings_internal(mock_db, mock_user)
 
         assert result.anthropic.api_key == "sk-ant-123"
-        assert result.anthropic.model == "claude-sonnet"
         assert result.openai.api_key is None
 
     @pytest.mark.asyncio
@@ -2225,14 +2221,13 @@ class TestPreferences:
         existing_row = MagicMock()
         existing_row.provider = "openai"
         existing_row.encrypted_api_key = service._encrypt_assistant_api_key("old-key")
-        existing_row.model = "gpt-old"
 
         mock_result = MagicMock()
         mock_result.scalars.return_value.all.return_value = [existing_row]
         mock_db.execute = AsyncMock(side_effect=[mock_result, mock_result])
 
         request = UserAssistantSettingsUpdate(
-            openai={"api_key": "new-openai-key", "model": "gpt-4o-mini"},
+            openai={"api_key": "new-openai-key"},
             anthropic={"api_key": ""},
         )
 
@@ -2240,11 +2235,9 @@ class TestPreferences:
 
         mock_db.commit.assert_called_once()
         assert result.openai.has_api_key is True
-        assert result.openai.model == "gpt-4o-mini"
         assert (
             service._decrypt_assistant_api_key(existing_row.encrypted_api_key) == "new-openai-key"
         )
-        assert existing_row.model == "gpt-4o-mini"
         mock_db.delete.assert_not_called()
 
     def test_get_assistant_cipher_requires_env_key(self):
@@ -2305,7 +2298,6 @@ class TestPreferences:
         mock_db.add.assert_called_once()
         added_row = mock_db.add.call_args.args[0]
         assert added_row.provider == "openai"
-        assert added_row.model == "gpt-4o-mini"
         assert (
             service._decrypt_assistant_api_key(added_row.encrypted_api_key) == "sk-openai-migrate"
         )
@@ -2327,7 +2319,6 @@ class TestPreferences:
         existing_row = MagicMock()
         existing_row.provider = "openai"
         existing_row.encrypted_api_key = service._encrypt_assistant_api_key("old-openai-key")
-        existing_row.model = "gpt-old"
 
         row_result = MagicMock()
         row_result.scalars.return_value.all.return_value = [existing_row]
@@ -2339,7 +2330,6 @@ class TestPreferences:
         mock_db.delete.assert_called_once_with(existing_row)
         mock_db.commit.assert_called_once()
         assert result.openai.has_api_key is False
-        assert result.openai.model is None
 
     @pytest.mark.asyncio
     async def test_update_assistant_settings_creates_row_for_new_provider_key(self):
@@ -2357,19 +2347,15 @@ class TestPreferences:
         empty_result.scalars.return_value.all.return_value = []
         mock_db.execute = AsyncMock(side_effect=[empty_result, empty_result])
 
-        request = UserAssistantSettingsUpdate(
-            gemini={"api_key": "gemini-user-key", "model": "gemini-2.0-pro"}
-        )
+        request = UserAssistantSettingsUpdate(gemini={"api_key": "gemini-user-key"})
         result = await service.update_assistant_settings(mock_db, mock_user, request)
 
         mock_db.add.assert_called_once()
         added_row = mock_db.add.call_args.args[0]
         assert added_row.provider == "gemini"
-        assert added_row.model == "gemini-2.0-pro"
         assert service._decrypt_assistant_api_key(added_row.encrypted_api_key) == "gemini-user-key"
         mock_db.commit.assert_called_once()
         assert result.gemini.has_api_key is True
-        assert result.gemini.model == "gemini-2.0-pro"
 
 
 class TestUpdateUserExtended:

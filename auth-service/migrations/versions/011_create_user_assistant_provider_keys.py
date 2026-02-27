@@ -31,7 +31,6 @@ def upgrade() -> None:
             sa.Column("user_id", postgresql.UUID(as_uuid=False), nullable=False),
             sa.Column("provider", sa.String(length=32), nullable=False),
             sa.Column("encrypted_api_key", sa.String(length=4096), nullable=False),
-            sa.Column("model", sa.String(length=255), nullable=True),
             sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()")),
             sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()")),
             sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),

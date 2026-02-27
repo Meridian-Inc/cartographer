@@ -513,9 +513,9 @@ class TestChatLimitEndpoint:
             patch("app.routers.assistant.get_rate_limit_status") as mock_rate_status,
         ):
             mock_settings.return_value = {
-                "openai": {"api_key": "sk-openai", "model": "gpt-4o-mini"},
-                "anthropic": {"api_key": None, "model": None},
-                "gemini": {"api_key": None, "model": None},
+                "openai": {"api_key": "sk-openai"},
+                "anthropic": {"api_key": None},
+                "gemini": {"api_key": None},
             }
 
             response = client.get("/api/assistant/chat/limit?provider=openai")

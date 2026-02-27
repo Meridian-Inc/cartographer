@@ -242,7 +242,7 @@ async def get_user_assistant_settings_internal(user_id: str, db: AsyncSession = 
     """
     Get a user's BYOK assistant settings for internal service use.
 
-    Returns raw provider API keys and model overrides for assistant-service.
+    Returns raw provider API keys for assistant-service.
     """
     user = await auth_service.get_user(db, user_id)
     if not user:

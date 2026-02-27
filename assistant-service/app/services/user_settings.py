@@ -22,7 +22,7 @@ _cache_lock = asyncio.Lock()
 
 def _empty_settings() -> dict[str, dict[str, str | None]]:
     """Build an empty provider settings object."""
-    return {provider: {"api_key": None, "model": None} for provider in _PROVIDERS}
+    return {provider: {"api_key": None} for provider in _PROVIDERS}
 
 
 def _normalize_settings(payload: dict) -> dict[str, dict[str, str | None]]:
@@ -42,13 +42,7 @@ def _normalize_settings(payload: dict) -> dict[str, dict[str, str | None]]:
         else:
             api_key = None
 
-        model = raw_provider.get("model")
-        if isinstance(model, str):
-            model = model.strip() or None
-        else:
-            model = None
-
-        normalized[provider] = {"api_key": api_key, "model": model}
+        normalized[provider] = {"api_key": api_key}
 
     return normalized
 

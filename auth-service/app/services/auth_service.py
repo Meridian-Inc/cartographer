@@ -477,7 +477,6 @@ class AuthService:
                 continue
 
             api_key = self._normalize_optional_string(legacy_provider.get("api_key"))
-            model = self._normalize_optional_string(legacy_provider.get("model"))
             if not api_key:
                 continue
 
@@ -487,7 +486,6 @@ class AuthService:
                     user_id=user.id,
                     provider=provider,
                     encrypted_api_key=self._encrypt_assistant_api_key(api_key),
-                    model=model,
                 )
                 db.add(row)
                 created_or_updated = True
@@ -506,14 +504,13 @@ class AuthService:
         """Load and decrypt per-provider BYOK settings for a user."""
         rows_by_provider = await self._load_assistant_provider_rows(db, user_id)
         normalized: dict[str, dict[str, str | None]] = {
-            provider: {"api_key": None, "model": None} for provider in ASSISTANT_PROVIDERS
+            provider: {"api_key": None} for provider in ASSISTANT_PROVIDERS
         }
 
         for provider, row in rows_by_provider.items():
             api_key = self._decrypt_assistant_api_key(row.encrypted_api_key)
             normalized[provider] = {
                 "api_key": self._normalize_optional_string(api_key),
-                "model": self._normalize_optional_string(row.model),
             }
 
         return normalized
@@ -528,7 +525,6 @@ class AuthService:
             return AssistantProviderSettings(
                 has_api_key=bool(api_key),
                 api_key_masked=self._mask_api_key(api_key) if api_key else None,
-                model=normalized.get(provider, {}).get("model"),
             )
 
         return UserAssistantSettingsResponse(
@@ -545,10 +541,7 @@ class AuthService:
 
         def _internal_provider(provider: str) -> InternalAssistantProviderSettings:
             provider_data = normalized.get(provider, {})
-            return InternalAssistantProviderSettings(
-                api_key=provider_data.get("api_key"),
-                model=provider_data.get("model"),
-            )
+            return InternalAssistantProviderSettings(api_key=provider_data.get("api_key"))
 
         return InternalUserAssistantSettingsResponse(
             openai=_internal_provider("openai"),
@@ -619,26 +612,19 @@ class AuthService:
             if provider not in ASSISTANT_PROVIDERS or not isinstance(provider_updates, dict):
                 continue
 
-            current_provider = normalized.get(provider, {"api_key": None, "model": None}).copy()
+            current_provider = normalized.get(provider, {"api_key": None}).copy()
             if "api_key" in provider_updates:
                 current_provider["api_key"] = self._normalize_optional_string(
                     provider_updates.get("api_key")
                 )
 
-            if "model" in provider_updates:
-                current_provider["model"] = self._normalize_optional_string(
-                    provider_updates.get("model")
-                )
-
             api_key = current_provider.get("api_key")
-            model = current_provider.get("model")
             existing_row = rows_by_provider.get(provider)
 
-            # Model selection only applies when a provider key exists.
             if not api_key:
                 if existing_row is not None:
                     await db.delete(existing_row)
-                normalized[provider] = {"api_key": None, "model": None}
+                normalized[provider] = {"api_key": None}
                 continue
 
             if existing_row is None:
@@ -646,16 +632,14 @@ class AuthService:
                     user_id=user.id,
                     provider=provider,
                     encrypted_api_key=self._encrypt_assistant_api_key(api_key),
-                    model=model,
                 )
                 db.add(existing_row)
                 rows_by_provider[provider] = existing_row
             else:
                 if "api_key" in provider_updates:
                     existing_row.encrypted_api_key = self._encrypt_assistant_api_key(api_key)
-                existing_row.model = model
 
-            normalized[provider] = {"api_key": api_key, "model": model}
+            normalized[provider] = {"api_key": api_key}
 
         await db.commit()
 

@@ -237,9 +237,9 @@ class TestInternalPlanSettingsEndpoints:
 
     def test_get_user_assistant_settings_internal_success(self, client, mock_user):
         assistant_settings = {
-            "openai": {"api_key": "sk-openai", "model": "gpt-4o-mini"},
-            "anthropic": {"api_key": None, "model": None},
-            "gemini": {"api_key": None, "model": None},
+            "openai": {"api_key": "sk-openai"},
+            "anthropic": {"api_key": None},
+            "gemini": {"api_key": None},
         }
 
         with patch("app.routers.auth.auth_service") as mock_service:
@@ -1064,9 +1064,9 @@ class TestProfileEndpoints:
             mock_service.get_user = AsyncMock(return_value=mock_owner)
             mock_service.get_assistant_settings = AsyncMock(
                 return_value={
-                    "openai": {"has_api_key": True, "api_key_masked": "sk-o...1234", "model": None},
-                    "anthropic": {"has_api_key": False, "api_key_masked": None, "model": None},
-                    "gemini": {"has_api_key": False, "api_key_masked": None, "model": None},
+                    "openai": {"has_api_key": True, "api_key_masked": "sk-o...1234"},
+                    "anthropic": {"has_api_key": False, "api_key_masked": None},
+                    "gemini": {"has_api_key": False, "api_key_masked": None},
                 }
             )
 
@@ -1097,21 +1097,20 @@ class TestProfileEndpoints:
                     "openai": {
                         "has_api_key": True,
                         "api_key_masked": "sk-o...1234",
-                        "model": "gpt-4o-mini",
                     },
-                    "anthropic": {"has_api_key": False, "api_key_masked": None, "model": None},
-                    "gemini": {"has_api_key": False, "api_key_masked": None, "model": None},
+                    "anthropic": {"has_api_key": False, "api_key_masked": None},
+                    "gemini": {"has_api_key": False, "api_key_masked": None},
                 }
             )
 
             response = client.patch(
                 "/api/auth/me/assistant-settings",
                 headers={"Authorization": "Bearer token123"},
-                json={"openai": {"api_key": "sk-openai", "model": "gpt-4o-mini"}},
+                json={"openai": {"api_key": "sk-openai"}},
             )
 
             assert response.status_code == 200
-            assert response.json()["openai"]["model"] == "gpt-4o-mini"
+            assert response.json()["openai"]["has_api_key"] is True
 
 
 class TestInviteEndpoints:

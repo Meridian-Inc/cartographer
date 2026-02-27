@@ -218,7 +218,6 @@ class AssistantProviderSettings(BaseModel):
 
     has_api_key: bool = False
     api_key_masked: str | None = None
-    model: str | None = None
 
 
 class AssistantProviderSettingsUpdate(BaseModel):
@@ -228,11 +227,6 @@ class AssistantProviderSettingsUpdate(BaseModel):
         default=None,
         max_length=5000,
         description="Provider API key. Send null or empty string to clear.",
-    )
-    model: str | None = Field(
-        default=None,
-        max_length=255,
-        description="Preferred model ID. Send null or empty string to clear.",
     )
 
 
@@ -256,7 +250,6 @@ class InternalAssistantProviderSettings(BaseModel):
     """Internal provider settings including raw API key for trusted services."""
 
     api_key: str | None = None
-    model: str | None = None
 
 
 class InternalUserAssistantSettingsResponse(BaseModel):

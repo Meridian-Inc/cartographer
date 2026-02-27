@@ -107,12 +107,10 @@ export type AssistantProvider = 'openai' | 'anthropic' | 'gemini';
 export interface AssistantProviderSettings {
   has_api_key: boolean;
   api_key_masked?: string | null;
-  model?: string | null;
 }
 
 export interface AssistantProviderSettingsUpdate {
   api_key?: string | null;
-  model?: string | null;
 }
 
 export interface UserAssistantSettings {

@@ -159,11 +159,10 @@ async def _get_provider_status(
             provider_type,
             ProviderConfig(
                 api_key=provider_pref.get("api_key"),
-                model=provider_pref.get("model"),
             ),
         )
         available = await provider.is_available()
-        preferred_model = provider_pref.get("model") or provider.default_model
+        preferred_model = provider.default_model
 
         if not available:
             return ProviderStatus(
@@ -247,11 +246,11 @@ def _build_provider_config(
     request: ChatRequest,
     user_provider_settings: dict[str, dict[str, str | None]],
 ) -> ProviderConfig:
-    """Build provider config for a request, applying per-user BYOK overrides."""
+    """Build provider config for a request, applying per-user BYOK API key overrides."""
     provider_pref = user_provider_settings.get(request.provider.value, {})
     return ProviderConfig(
         api_key=provider_pref.get("api_key"),
-        model=request.model or provider_pref.get("model"),
+        model=request.model,
         temperature=request.temperature,
         max_tokens=request.max_tokens,
     )
@@ -367,14 +366,13 @@ async def list_providers(
                 provider_type,
                 ProviderConfig(
                     api_key=provider_pref.get("api_key"),
-                    model=provider_pref.get("model"),
                 ),
             )
             result.append(
                 {
                     "provider": provider_type.value,
                     "available": await provider.is_available(),
-                    "default_model": provider_pref.get("model") or provider.default_model,
+                    "default_model": provider.default_model,
                 }
             )
         except Exception as e:
@@ -410,7 +408,6 @@ async def list_models(
             provider,
             ProviderConfig(
                 api_key=provider_pref.get("api_key"),
-                model=provider_pref.get("model"),
             ),
         )
 
@@ -426,7 +423,7 @@ async def list_models(
         return {
             "provider": provider.value,
             "models": models,
-            "default": provider_pref.get("model") or prov.default_model,
+            "default": prov.default_model,
             "cached": not refresh,
         }
     except HTTPException:
@@ -450,7 +447,6 @@ async def refresh_all_models(user: AuthenticatedUser = Depends(require_auth)):
                 provider_type,
                 ProviderConfig(
                     api_key=provider_pref.get("api_key"),
-                    model=provider_pref.get("model"),
                 ),
             )
             if await prov.is_available():
