@@ -585,19 +585,19 @@
                   <span
                     class="text-[11px] px-2 py-0.5 rounded-full font-medium"
                     :class="
-                      assistantSettings[provider].has_api_key
+                      assistantSettings[provider]?.has_api_key
                         ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
                         : 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
                     "
                   >
-                    {{ assistantSettings[provider].has_api_key ? 'Key set' : 'Not set' }}
+                    {{ assistantSettings[provider]?.has_api_key ? 'Key set' : 'Not set' }}
                   </span>
                 </div>
                 <p
-                  v-if="assistantSettings[provider].api_key_masked"
+                  v-if="assistantSettings[provider]?.api_key_masked"
                   class="text-xs text-slate-500 dark:text-slate-400 mb-2"
                 >
-                  Current: {{ assistantSettings[provider].api_key_masked }}
+                  Current: {{ assistantSettings[provider]?.api_key_masked }}
                 </p>
                 <input
                   v-model="byokDraft[provider]"
@@ -612,7 +612,7 @@
                     @click="clearByokProvider(provider)"
                     type="button"
                     class="text-xs text-rose-600 dark:text-rose-400 hover:underline disabled:no-underline disabled:opacity-40"
-                    :disabled="!assistantSettings[provider].has_api_key && !clearByok[provider]"
+                    :disabled="!assistantSettings[provider]?.has_api_key && !clearByok[provider]"
                   >
                     Clear saved key
                   </button>
@@ -792,6 +792,26 @@ function emptyAssistantSettings(): AssistantSettings {
   };
 }
 
+function normalizeAssistantSettings(raw: unknown): AssistantSettings {
+  const normalized = emptyAssistantSettings();
+  if (!raw || typeof raw !== 'object') return normalized;
+
+  const data = raw as Record<string, unknown>;
+  for (const provider of cloudByokProviders) {
+    const providerRaw = data[provider];
+    if (!providerRaw || typeof providerRaw !== 'object') continue;
+
+    const providerData = providerRaw as Record<string, unknown>;
+    normalized[provider] = {
+      has_api_key: Boolean(providerData.has_api_key),
+      api_key_masked:
+        typeof providerData.api_key_masked === 'string' ? providerData.api_key_masked : null,
+    };
+  }
+
+  return normalized;
+}
+
 const messages = ref<ChatMessage[]>([]);
 const inputMessage = ref('');
 const isStreaming = ref(false);
@@ -888,7 +908,8 @@ function resetByokDraft() {
 
 async function fetchAssistantSettings() {
   try {
-    assistantSettings.value = await authApi.getAssistantSettings();
+    const settings = await authApi.getAssistantSettings();
+    assistantSettings.value = normalizeAssistantSettings(settings);
   } catch (err) {
     console.error('Failed to fetch assistant settings:', err);
     assistantSettings.value = emptyAssistantSettings();
@@ -937,7 +958,8 @@ async function saveByokSettings() {
 
   savingByok.value = true;
   try {
-    assistantSettings.value = await authApi.updateAssistantSettings(payload);
+    const updatedSettings = await authApi.updateAssistantSettings(payload);
+    assistantSettings.value = normalizeAssistantSettings(updatedSettings);
     closeByokSettings();
     await fetchProviders(true);
     await checkRateLimitStatus();
