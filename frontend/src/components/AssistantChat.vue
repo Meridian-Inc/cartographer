@@ -901,6 +901,11 @@ function isCloudByokProvider(provider: string): provider is CloudByokProvider {
   return (cloudByokProviders as readonly string[]).includes(provider);
 }
 
+function providerHasByokKey(provider: string): boolean {
+  if (!isCloudByokProvider(provider)) return false;
+  return Boolean(assistantSettings.value[provider]?.has_api_key);
+}
+
 function resetByokDraft() {
   byokDraft.value = { openai: '', anthropic: '', gemini: '' };
   clearByok.value = { openai: false, anthropic: false, gemini: false };
@@ -1059,7 +1064,9 @@ async function fetchProviders(refresh = false) {
     const config = await assistantApi.getAssistantConfig(refresh);
     const allConfigProviders = config.providers || [];
     const providers = isCloudDeployment
-      ? allConfigProviders.filter((p: Provider) => isCloudByokProvider(p.provider))
+      ? allConfigProviders
+          .filter((p: Provider) => isCloudByokProvider(p.provider))
+          .filter((p: Provider) => providerHasByokKey(p.provider))
       : allConfigProviders;
 
     // Store all providers for display
