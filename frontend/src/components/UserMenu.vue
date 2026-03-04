@@ -184,6 +184,36 @@
               </div>
             </button>
 
+            <!-- Billing (cloud only) -->
+            <a
+              v-if="isCloudAuth"
+              href="/billing"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors"
+            >
+              <div
+                class="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-4 w-4 text-emerald-600 dark:text-emerald-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+                  />
+                </svg>
+              </div>
+              <div class="flex flex-col items-start">
+                <span class="font-medium">Billing</span>
+                <span class="text-xs text-slate-500 dark:text-slate-400">Manage your plan</span>
+              </div>
+            </a>
+
             <!-- Change Password -->
             <button
               @click="onChangePassword"
@@ -490,7 +520,7 @@ const emit = defineEmits<{
   (e: 'updates'): void;
 }>();
 
-const { user, isOwner, logout, changePassword } = useAuth();
+const { user, isOwner, isCloudAuth, logout, changePassword } = useAuth();
 
 // Determine if the Manage Users option should be shown
 // - On home page (not network context): show only for app owners
